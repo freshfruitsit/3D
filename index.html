@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lightshift: The Last Spark</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='4' y='4' width='8' height='8' rx='1' transform='rotate(45 8 8)' fill='%2335e0ff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<!-- Full-screen FX overlays -->
+<div id="vignette"></div>
+<div id="damage-flash"></div>
+<div id="ls-pulse"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div class="hud-panel hud-left">
+      <div id="energy-pips" class="pips" title="Energy"></div>
+      <div class="hud-counters">
+        <span id="hud-cores" class="counter cores" title="Energy cores">&#9670; 0/5</span>
+        <span id="hud-crystals" class="counter crystals" title="Bonus crystals">&#10022; 0/3</span>
+      </div>
+    </div>
+    <div class="hud-panel hud-center">
+      <div id="hud-timer">0:00</div>
+    </div>
+    <div class="hud-panel hud-right">
+      <div id="hud-score" title="Score">0</div>
+      <button id="btn-sound" class="icon-btn" title="Toggle sound effects">SFX</button>
+      <button id="btn-music" class="icon-btn" title="Toggle music">MUSIC</button>
+    </div>
+  </div>
+  <div class="hud-bottom">
+    <div id="toasts"></div>
+    <div id="lightshift-meter">
+      <span class="ls-key">E</span>
+      <div class="ls-bar"><div id="ls-fill"></div></div>
+      <span id="ls-label">READY</span>
+    </div>
+  </div>
+</div>
+
+<!-- Loading screen -->
+<div id="screen-loading" class="screen">
+  <div class="spinner"></div>
+  <p class="loading-text">Initializing systems&hellip;</p>
+</div>
+
+<!-- Start screen -->
+<div id="screen-start" class="screen hidden">
+  <div class="screen-inner">
+    <h1 class="title">LIGHTSHIFT</h1>
+    <h2 class="subtitle">The Last Spark</h2>
+    <p class="mission">You are the last spark of a fallen sky-station. Recover the
+      <span class="hl-cyan">five energy cores</span> scattered across the floating ruins,
+      evade the <span class="hl-orange">warden drones</span>, and reach the escape portal.
+      Your <span class="hl-cyan">Lightshift</span> pulse reveals what the darkness hides.</p>
+    <div class="controls-grid">
+      <div><kbd>W A S D</kbd><span>Move</span></div>
+      <div><kbd>SPACE</kbd><span>Jump</span></div>
+      <div><kbd>SHIFT</kbd><span>Boost</span></div>
+      <div><kbd>E</kbd><span>Lightshift</span></div>
+      <div><kbd>MOUSE</kbd><span>Drag to look</span></div>
+      <div><kbd>ESC</kbd><span>Pause</span></div>
+    </div>
+    <p id="start-best" class="best-line"></p>
+    <button id="btn-start" class="btn primary">START MISSION</button>
+    <p class="tip">Best played with a keyboard. Runs entirely in your browser.</p>
+  </div>
+</div>
+
+<!-- Pause screen -->
+<div id="screen-pause" class="screen hidden">
+  <div class="screen-inner">
+    <h2 class="subtitle">PAUSED</h2>
+    <button id="btn-resume" class="btn primary">RESUME</button>
+    <button id="btn-restart" class="btn">RESTART MISSION</button>
+    <p class="tip">WASD move &middot; Space jump &middot; Shift boost &middot; E lightshift</p>
+  </div>
+</div>
+
+<!-- Victory screen -->
+<div id="screen-victory" class="screen hidden">
+  <div class="screen-inner">
+    <h2 class="title small">ESCAPE SUCCESSFUL</h2>
+    <p class="mission">The last spark lives on.</p>
+    <table class="breakdown">
+      <tbody>
+        <tr><td>Completion time</td><td id="v-time">0:00</td></tr>
+        <tr><td>Time bonus</td><td id="v-time-bonus">0</td></tr>
+        <tr><td>Energy cores</td><td id="v-cores">0</td></tr>
+        <tr><td>Bonus crystals</td><td id="v-crystals">0</td></tr>
+        <tr><td>Energy remaining</td><td id="v-energy">0</td></tr>
+        <tr><td>Falls</td><td id="v-falls">0</td></tr>
+        <tr><td>Drone hits</td><td id="v-hits">0</td></tr>
+        <tr class="total"><td>FINAL SCORE</td><td id="v-total">0</td></tr>
+      </tbody>
+    </table>
+    <p id="v-badges" class="badges"></p>
+    <p id="v-best" class="best-line"></p>
+    <button id="btn-again" class="btn primary">PLAY AGAIN</button>
+  </div>
+</div>
+
+<!-- Game-over screen -->
+<div id="screen-gameover" class="screen hidden">
+  <div class="screen-inner">
+    <h2 class="title small danger">SYSTEMS DEPLETED</h2>
+    <p class="mission">The spark fades&hellip; but sparks can be rekindled.</p>
+    <p class="go-line">Score: <span id="go-score">0</span></p>
+    <p id="go-best" class="best-line"></p>
+    <button id="btn-retry" class="btn primary">TRY AGAIN</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
