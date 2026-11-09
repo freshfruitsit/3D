@@ -1,0 +1,594 @@
+<meta charset="utf-8">
+<title>Ambrosia — We Arrange Smiles</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..600&family=Jost:wght@300..600&display=swap">
+<style>
+/* Layout: lacquer-black bands carry the story, porcelain plates carry the product,
+   a single gold hairline is the only rule on the page. */
+:root{
+  --band:#0C0D0B;            /* lacquer band: header, hero, footer */
+  --band-fg:#F3F3EB;
+  --page:#F2F3EE;            /* porcelain, biased cool-green like the store */
+  --page-2:#E8EAE1;
+  --fg:#14150F;
+  --fg-mute:rgba(20,21,15,.60);
+  --plate:#FFFFFF;           /* product photography is shot on white: plates stay white in both themes */
+  --plate-fg:#14150F;
+  --plate-mute:rgba(20,21,15,.55);
+  --line:rgba(20,21,15,.14);
+  --gold:#C09A4E;            /* gold on lacquer */
+  --gold-deep:#876719;       /* gold as text on porcelain */
+  --gold-soft:rgba(192,154,78,.38);
+  --pom:#8E2335;             /* pomegranate: prices, badges */
+  --shadow:0 18px 48px -28px rgba(12,13,11,.55);
+  --f-display:"Bodoni Moda",ui-serif,Georgia,"Times New Roman",serif;
+  --f-body:"Jost",ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  --pad:max(18px,env(safe-area-inset-left,0px));
+  --pad-r:max(18px,env(safe-area-inset-right,0px));
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --band:#15160F; --band-fg:#F3F3EB;
+  --page:#0C0D0B; --page-2:#121309;
+  --fg:#EFEFE6; --fg-mute:rgba(239,239,230,.62);
+  --line:rgba(239,239,230,.16);
+  --gold-deep:#CCA85C; --gold-soft:rgba(192,154,78,.34);
+  --pom:#E4798A;
+  --shadow:0 18px 48px -28px rgba(0,0,0,.8);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --band:#15160F; --band-fg:#F3F3EB;
+  --page:#0C0D0B; --page-2:#121309;
+  --fg:#EFEFE6; --fg-mute:rgba(239,239,230,.62);
+  --line:rgba(239,239,230,.16);
+  --gold-deep:#CCA85C; --gold-soft:rgba(192,154,78,.34);
+  --pom:#E4798A;
+  --shadow:0 18px 48px -28px rgba(0,0,0,.8);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--band)}
+img{display:block;max-width:100%}
+[hidden]{display:none!important}
+a{color:inherit}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;text-wrap:balance;margin:0;line-height:1.04}
+p{margin:0}
+.wrap{width:100%;max-width:1220px;margin-inline:auto;padding-left:var(--pad);padding-right:var(--pad-r)}
+.band{background:var(--band);color:var(--band-fg)}
+.alt{background:var(--page-2)}
+.eyebrow{font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;font-weight:500;color:var(--gold-deep)}
+.band .eyebrow{color:var(--gold)}
+.rule{height:1px;background:var(--gold-soft);border:0;margin:0}
+.lede{font-size:clamp(1rem,1.25vw,1.12rem);color:var(--fg-mute);max-width:56ch}
+.band .lede{color:rgba(243,243,235,.72)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+
+/* ── top bar + header ───────────────────────────── */
+.ticker{background:var(--band);color:var(--gold);font-size:.68rem;letter-spacing:.17em;text-transform:uppercase}
+.ticker .wrap{display:flex;flex-wrap:wrap;gap:6px 22px;justify-content:center;padding-block:9px}
+.ticker span{white-space:nowrap}
+.hdr{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:var(--band);color:var(--band-fg);border-bottom:1px solid var(--gold-soft)}
+.hdr .wrap{display:flex;align-items:center;gap:18px;padding-block:14px}
+.mark{display:flex;flex-direction:column;gap:2px;text-decoration:none;margin-right:auto}
+.mark b{font-family:var(--f-display);font-weight:600;font-size:1.42rem;letter-spacing:.3em;line-height:1}
+.mark small{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.nav{display:flex;gap:26px}
+.nav a{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:rgba(243,243,235,.8);padding-block:4px;border-bottom:1px solid transparent}
+.nav a:hover{color:var(--band-fg);border-bottom-color:var(--gold)}
+@media (max-width:860px){.nav{display:none}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-family:var(--f-body);font-size:.76rem;letter-spacing:.15em;text-transform:uppercase;font-weight:500;padding:13px 22px;border:1px solid var(--gold);background:var(--gold);color:#14150F;text-decoration:none;cursor:pointer;transition:background .18s,color .18s,border-color .18s}
+.btn:hover{background:#D9B468;border-color:#D9B468}
+.btn.ghost{background:transparent;color:var(--band-fg);border-color:var(--gold-soft)}
+.btn.ghost:hover{background:rgba(192,154,78,.14);border-color:var(--gold);color:var(--band-fg)}
+.btn.dark{background:var(--fg);color:var(--page);border-color:var(--fg)}
+.btn.dark:hover{background:var(--gold-deep);border-color:var(--gold-deep);color:#fff}
+.btn.sm{padding:10px 16px;font-size:.68rem}
+.hdr .btn{padding:11px 18px}
+@media (max-width:620px){.hdr .btn{display:none}}
+
+/* ── hero ───────────────────────────────────────── */
+.hero{background:var(--band);color:var(--band-fg);overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.06fr .94fr;gap:clamp(28px,5vw,64px);align-items:center;padding-block:clamp(40px,5.2vw,72px)}
+@media (max-width:900px){.hero .wrap{grid-template-columns:1fr;padding-block:44px}}
+.hero-copy{display:flex;flex-direction:column;gap:22px;min-width:0}
+.hero h1{font-size:clamp(3rem,8.4vw,6rem);letter-spacing:-.015em}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.stats{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--gold-soft);margin-top:4px}
+.stat{flex:1 1 120px;min-width:0;padding:16px 16px 0 0}
+.stat b{display:block;font-family:var(--f-display);font-size:1.6rem;font-weight:500;font-variant-numeric:tabular-nums}
+.stat span{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(243,243,235,.58)}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px}
+.compo{display:flex;flex-direction:column;width:100%;max-width:468px;margin-left:auto;min-width:0}
+.compo-stage{position:relative;padding:0 0 56px 50px}
+@media (max-width:900px){.compo{margin-inline:auto;max-width:420px}.compo-stage{padding:0 0 46px 40px}}
+.compo-main{position:relative;background:var(--plate);border:1px solid var(--gold-soft);padding:12px;box-shadow:var(--shadow)}
+.compo-main img{width:100%;aspect-ratio:1;object-fit:contain;max-width:100%}
+.compo-sub{position:absolute;left:0;bottom:0;width:44%;max-width:210px;background:var(--plate);border:1px solid var(--gold-soft);padding:9px;box-shadow:var(--shadow)}
+.compo-sub img{width:100%;aspect-ratio:1;object-fit:contain}
+.tag{position:absolute;right:0;top:22px;background:var(--band);border:1px solid var(--gold);color:var(--gold);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;padding:9px 13px;font-variant-numeric:tabular-nums}
+.credit{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(243,243,235,.42);padding-top:10px}
+
+/* ── marks strip ────────────────────────────────── */
+.marks{border-block:1px solid var(--line);background:var(--page)}
+.marks .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:1px}
+@media (max-width:760px){.marks .wrap{grid-template-columns:repeat(2,1fr)}}
+.mk{padding:22px 10px 22px 0;display:flex;flex-direction:column;gap:3px}
+.mk b{font-family:var(--f-display);font-size:1.05rem;font-weight:500}
+.mk span{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-mute)}
+
+/* ── section furniture ──────────────────────────── */
+section{scroll-margin-top:96px}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;padding-block:clamp(48px,6vw,78px) 26px}
+.sec-head h2{font-size:clamp(1.95rem,4.3vw,3.1rem)}
+.sec-head p{max-width:46ch}
+.head-l{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+/* ── occasions (the Ambrosia year) ──────────────── */
+.year{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(14px,2vw,26px);padding-bottom:clamp(48px,6vw,80px)}
+@media (max-width:900px){.year{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.year{grid-template-columns:1fr}}
+.occ{display:flex;flex-direction:column;background:transparent;border:0;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer;min-width:0}
+.occ-img{background:var(--plate);border:1px solid var(--line);padding:10px;transition:border-color .2s,transform .3s}
+.occ-img img{width:100%;aspect-ratio:1;object-fit:contain}
+.occ:hover .occ-img{border-color:var(--gold);transform:translateY(-3px)}
+.occ-when{display:flex;align-items:center;gap:10px;padding-top:14px;font-size:.64rem;letter-spacing:.17em;text-transform:uppercase;color:var(--gold-deep)}
+.occ-when i{flex:1;height:1px;background:var(--gold-soft);font-style:normal}
+.occ h3{font-size:1.4rem;padding-top:7px}
+.occ-meta{font-size:.78rem;color:var(--fg-mute);padding-top:5px;font-variant-numeric:tabular-nums}
+
+/* ── signature ──────────────────────────────────── */
+.sig{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.6vw,20px);padding-bottom:clamp(48px,6vw,80px)}
+@media (max-width:900px){.sig{grid-template-columns:repeat(2,1fr)}}
+.sig a{text-decoration:none;display:flex;flex-direction:column;min-width:0}
+.sig-img{background:var(--plate);border:1px solid var(--line);padding:10px;transition:border-color .2s}
+.sig a:hover .sig-img{border-color:var(--gold)}
+.sig-img img{width:100%;aspect-ratio:1;object-fit:contain}
+.sig h3{font-size:1.1rem;padding-top:12px}
+.sig .price{padding-top:4px}
+.price{font-size:.84rem;letter-spacing:.07em;color:var(--pom);font-variant-numeric:tabular-nums;font-weight:500}
+
+/* ── catalogue ──────────────────────────────────── */
+.toolsbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 68px);z-index:30;background:var(--page);border-block:1px solid var(--line)}
+.tools{padding-block:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+@media (max-width:620px){.toolsbar{position:static}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-right:auto}
+.chip{font-family:var(--f-body);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;padding:8px 13px;border:1px solid var(--line);background:transparent;color:var(--fg-mute);cursor:pointer;transition:.16s}
+.chip:hover{border-color:var(--gold);color:var(--fg)}
+.chip[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--page)}
+.field{display:flex;align-items:center;gap:7px;border:1px solid var(--line);padding:7px 11px;background:var(--plate);color:var(--plate-fg)}
+.field input,.field select{border:0;background:transparent;font-family:var(--f-body);font-size:.8rem;color:var(--plate-fg);min-width:0;outline:0}
+.field input{width:150px}
+.field label{font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--plate-mute);white-space:nowrap}
+.count{font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-mute);padding-block:18px;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.8vw,22px)}
+@media (max-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+.card{display:flex;flex-direction:column;min-width:0;position:relative}
+.card-plate{position:relative;background:var(--plate);border:1px solid var(--line);padding:10px;transition:border-color .2s}
+.card:hover .card-plate{border-color:var(--gold)}
+.card-plate img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff}
+.badge{position:absolute;left:10px;top:10px;background:var(--pom);color:#fff;font-size:.56rem;letter-spacing:.17em;text-transform:uppercase;padding:5px 8px}
+.look{position:absolute;right:10px;bottom:10px;font-family:var(--f-body);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:7px 11px;border:1px solid rgba(20,21,15,.2);background:rgba(255,255,255,.94);color:#14150F;cursor:pointer;opacity:0;transition:opacity .18s}
+.card:hover .look,.look:focus-visible{opacity:1}
+@media (hover:none){.look{opacity:1}}
+.card-body{padding-top:12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.card-body a{font-family:var(--f-display);font-size:1rem;font-weight:500;line-height:1.2;text-decoration:none}
+.card-body a:hover{color:var(--gold-deep)}
+.card-occ{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-mute)}
+.more{display:flex;justify-content:center;padding-block:clamp(34px,5vw,58px)}
+.empty{padding:56px 0;text-align:center;color:var(--fg-mute)}
+
+/* ── craft ──────────────────────────────────────── */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(20px,3vw,46px);padding-bottom:clamp(48px,6vw,84px)}
+@media (max-width:800px){.steps{grid-template-columns:1fr}}
+.step{display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--gold-soft);padding-top:18px;min-width:0}
+.step b{font-family:var(--f-display);font-size:.9rem;letter-spacing:.2em;color:var(--gold-deep);font-variant-numeric:tabular-nums}
+.step h3{font-size:1.3rem}
+.step p{color:var(--fg-mute);font-size:.94rem}
+
+/* ── gifting band ───────────────────────────────── */
+.gift .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(26px,4vw,60px);align-items:center;padding-block:clamp(48px,6vw,84px)}
+@media (max-width:860px){.gift .wrap{grid-template-columns:1fr}}
+.gift h2{font-size:clamp(1.9rem,4vw,2.9rem)}
+.gift-copy{display:flex;flex-direction:column;gap:18px;min-width:0}
+.gift-img{background:var(--plate);border:1px solid var(--gold-soft);padding:12px}
+.gift-img img{width:100%;aspect-ratio:4/3;object-fit:contain}
+
+/* ── faq ────────────────────────────────────────── */
+.faq{padding-bottom:clamp(48px,6vw,84px);max-width:860px}
+details{border-top:1px solid var(--line)}
+details:last-of-type{border-bottom:1px solid var(--line)}
+summary{cursor:pointer;list-style:none;padding:20px 34px 20px 0;position:relative;font-family:var(--f-display);font-size:1.12rem;font-weight:500}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";position:absolute;right:4px;top:19px;color:var(--gold-deep);font-family:var(--f-body);font-size:1.3rem;line-height:1}
+details[open] summary::after{content:"\2013"}
+details p{padding:0 0 20px;color:var(--fg-mute);max-width:62ch}
+
+/* ── footer ─────────────────────────────────────── */
+.foot{background:var(--band);color:var(--band-fg)}
+.foot .wrap{padding-block:clamp(40px,5vw,66px) 30px;display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:34px}
+@media (max-width:760px){.foot .wrap{grid-template-columns:1fr}}
+.foot h4{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:0 0 12px;font-weight:500;font-family:var(--f-body)}
+.foot ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.foot a{font-size:.88rem;color:rgba(243,243,235,.76);text-decoration:none}
+.foot a:hover{color:var(--gold)}
+.foot-note{border-top:1px solid var(--gold-soft);margin-top:4px}
+.foot-note .wrap{display:flex;flex-wrap:wrap;gap:10px 26px;justify-content:space-between;padding-block:18px 26px;grid-template-columns:none}
+.foot-note p{font-size:.7rem;color:rgba(243,243,235,.5);letter-spacing:.06em}
+
+/* ── quick look ─────────────────────────────────── */
+.modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:rgba(12,13,11,.72);backdrop-filter:blur(3px)}
+.sheet{background:var(--page);border:1px solid var(--gold-soft);width:min(880px,100%);max-height:100%;overflow:auto;display:grid;grid-template-columns:1.05fr .95fr}
+@media (max-width:720px){.sheet{grid-template-columns:1fr}}
+.sheet-img{background:var(--plate);padding:16px;display:flex;flex-direction:column;gap:10px}
+.sheet-img img{width:100%;aspect-ratio:1;object-fit:contain}
+.thumbs{display:flex;gap:8px}
+.thumbs button{border:1px solid var(--line);background:#fff;padding:4px;cursor:pointer;width:62px}
+.thumbs button[aria-current="true"]{border-color:var(--gold)}
+.thumbs img{aspect-ratio:1;object-fit:contain}
+.sheet-body{padding:26px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sheet-body h3{font-size:clamp(1.5rem,3vw,2rem)}
+.sheet-close{align-self:flex-start;background:transparent;border:1px solid var(--line);color:var(--fg);font-family:var(--f-body);font-size:.66rem;letter-spacing:.15em;text-transform:uppercase;padding:8px 12px;cursor:pointer}
+.sheet-close:hover{border-color:var(--gold);color:var(--gold-deep)}
+.kv{display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--line);padding-top:14px;font-size:.84rem;color:var(--fg-mute)}
+.kv div{display:flex;gap:12px;justify-content:space-between}
+.kv b{color:var(--fg);font-weight:500;text-align:right}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media (prefers-reduced-motion:no-preference){
+  .rise{animation:rise .7s cubic-bezier(.22,.7,.3,1) both}
+  .rise:nth-child(2){animation-delay:.07s}
+  .rise:nth-child(3){animation-delay:.14s}
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+}
+</style>
+
+<div class="ticker"><div class="wrap">
+  <span>Hand-made in Dubai</span><span>Same-day delivery across the UAE</span><span>260 pieces in the collection</span>
+</div></div>
+
+<header class="hdr"><div class="wrap">
+  <a class="mark" href="https://testtfm.myshopify.com/collections/ambrosia"><b>AMBROSIA</b><small>by The Fresh Market</small></a>
+  <nav class="nav">
+    <a href="#year">Occasions</a>
+    <a href="#signature">Signature</a>
+    <a href="#catalogue">Catalogue</a>
+    <a href="#gifting">Gifting</a>
+  </nav>
+  <a class="btn" href="https://testtfm.myshopify.com/collections/ambrosia">Shop the collection</a>
+</div></header>
+
+<section class="hero band"><div class="wrap">
+  <div class="hero-copy">
+    <p class="eyebrow rise">Fruit &amp; flower arrangements · Dubai</p>
+    <h1 class="rise">We Arrange <em>Smiles</em></h1>
+    <p class="lede rise">Fruit carved and flowers set by hand in our Dubai workshop, built into pieces made to be carried into a room. Two hundred and sixty of them, from a box of dates to a two-metre rose dome.</p>
+    <div class="cta-row rise">
+      <a class="btn" href="#catalogue">Browse the catalogue</a>
+      <a class="btn ghost" href="https://testtfm.myshopify.com/collections/ambrosia">Order on the store</a>
+    </div>
+    <div class="stats rise">
+      <div class="stat"><b>260</b><span>Pieces</span></div>
+      <div class="stat"><b>45</b><span>AED, from</span></div>
+      <div class="stat"><b>Same&#8209;day</b><span>UAE delivery</span></div>
+    </div>
+  </div>
+  <div class="compo">
+    <div class="compo-stage">
+    <div class="compo-main">
+      <img src="https://cdn.shopify.com/s/files/1/0791/7312/4173/files/3000157276669_e47c5495-39e7-49e5-96ce-2ff29879441a.jpg?width=900" alt="Queen of Sheba Royal Gourmet: a dome of roses in a stone vase above tiers of carved fruit" width="900" height="900" fetchpriority="high">
+      <span class="tag">AED 9,500</span>
+    </div>
+    <div class="compo-sub">
+      <img src="https://cdn.shopify.com/s/files/1/0791/7312/4173/files/3000157094027-1_3636c6f6-5f80-4af9-8cbe-9410a4257d76.jpg?width=420" alt="Heart Conquesta Fruit Bouquet: red roses massed into a heart on a moss base" width="420" height="420" loading="lazy">
+    </div>
+    </div>
+    <span class="credit">Queen of Sheba Royal Gourmet · Heart Conquesta</span>
+  </div>
+</div></section>
+
+<div class="marks"><div class="wrap">
+  <div class="mk"><b>Built to order</b><span>Nothing pre-made</span></div>
+  <div class="mk"><b>Fruit &amp; flowers</b><span>Platters, bouquets, boxes</span></div>
+  <div class="mk"><b>AED 45 – 9,500</b><span>Half under AED 400</span></div>
+  <div class="mk"><b>Own brand</b><span>The Fresh Market</span></div>
+</div></div>
+
+<section id="year"><div class="wrap">
+  <div class="sec-head">
+    <div class="head-l">
+      <p class="eyebrow">The Ambrosia year</p>
+      <h2>Ordered by the calendar<br>it is actually made for</h2>
+    </div>
+    <p class="lede">The collection moves with the UAE year — Valentine's into Ramadan, Mother's Day in March, National Day in December. Pick a date and see what gets built for it.</p>
+  </div>
+  <div class="year" id="yearGrid"></div>
+</div></section>
+
+<section id="signature" class="alt"><div class="wrap">
+  <div class="sec-head">
+    <div class="head-l">
+      <p class="eyebrow">Signature · Royal Gourmet</p>
+      <h2>The showpieces</h2>
+    </div>
+    <p class="lede">The largest things Ambrosia builds: a dome of several hundred roses mounted above tiers of carved melon, berries and figs, finished with The Fresh Market medallion. Made for weddings, majlis and openings.</p>
+  </div>
+  <div class="sig" id="sigGrid"></div>
+</div></section>
+
+<section id="catalogue"><div class="wrap">
+  <div class="sec-head">
+    <div class="head-l">
+      <p class="eyebrow">The full collection</p>
+      <h2>260 pieces</h2>
+    </div>
+    <p class="lede">Every Ambrosia piece currently published on the store. Filter it, then open anything to order.</p>
+  </div>
+</div>
+<div class="toolsbar"><div class="wrap tools">
+  <div class="chips" id="styChips" role="group" aria-label="Filter by kind"></div>
+  <div class="field">
+    <label for="q">Search</label>
+    <input id="q" type="search" placeholder="roses, dates, heart…" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="occSel">Occasion</label>
+    <select id="occSel"></select>
+  </div>
+  <div class="field">
+    <label for="sortSel">Order</label>
+    <select id="sortSel">
+      <option value="feat">Showpieces first</option>
+      <option value="asc">Price: low to high</option>
+      <option value="desc">Price: high to low</option>
+      <option value="az">A – Z</option>
+    </select>
+  </div>
+</div></div>
+<div class="wrap">
+  <p class="count" id="count" role="status"></p>
+  <div class="grid" id="grid"></div>
+  <p class="empty" id="empty" hidden>Nothing matches that. Clear the search or pick another occasion.</p>
+  <div class="more"><button class="btn dark" id="more" type="button">Load more</button></div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <div class="sec-head">
+    <div class="head-l">
+      <p class="eyebrow">How a piece is made</p>
+      <h2>Three things happen<br>between the market and the door</h2>
+    </div>
+  </div>
+  <div class="steps">
+    <div class="step"><b>01</b><h3>Picked that morning</h3><p>Fruit is chosen off The Fresh Market floor the day it is used — which is why what is in season shows up in the arrangements before it shows up in the catalogue.</p></div>
+    <div class="step"><b>02</b><h3>Carved and set by hand</h3><p>Melons are scored and shaped, berries threaded, roses set one at a time into the frame. Nothing is assembled in advance, so sizes and colours can be changed on request.</p></div>
+    <div class="step"><b>03</b><h3>Delivered the same day</h3><p>Pieces are boxed upright and sent out across the UAE the same day they are built, because none of this keeps.</p></div>
+  </div>
+</div></section>
+
+<section id="gifting" class="gift band"><div class="wrap">
+  <div class="gift-copy">
+    <p class="eyebrow">Gifting &amp; events</p>
+    <h2>One piece, or forty of them</h2>
+    <p class="lede">Ambrosia builds for corporate gifting, weddings, hotel openings and Eid majlis — repeat arrangements to a single spec, or one commissioned piece. Customised work is already in the catalogue: the Pokémon platter below was built to a brief.</p>
+    <div class="cta-row">
+      <a class="btn" href="https://testtfm.myshopify.com/collections/ambrosia">Talk to the store</a>
+      <button class="btn ghost" type="button" data-occ="weddings">See wedding &amp; event pieces</button>
+    </div>
+  </div>
+  <div class="gift-img">
+    <img src="https://cdn.shopify.com/s/files/1/0791/7312/4173/files/3000157246933.jpg?width=800" alt="Customized Pokémon Fruit Platter, a commissioned arrangement" width="800" height="800" loading="lazy">
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><div class="head-l"><p class="eyebrow">Before you order</p><h2>Questions</h2></div></div>
+  <div class="faq">
+    <details open><summary>How quickly can one arrive?</summary><p>Pieces are hand-made in Dubai and delivered the same day across the UAE. Because every arrangement is built to order rather than taken off a shelf, the day's cut-off and delivery window are confirmed on the store at checkout.</p></details>
+    <details><summary>Can a piece be customised?</summary><p>Yes — several of the pieces here started as commissions and stayed in the catalogue, including the Customized Pokémon Fruit Platter and the two Eid Customize Arrangements. Colours, fruit and size can be specified; order the customised pieces directly from the collection and add your brief.</p></details>
+    <details><summary>What does a piece cost?</summary><p>From AED 45 for a small dates and nuts box up to AED 9,500 for a Royal Gourmet showpiece. Half the collection sits under AED 400, and the most common range is AED 250 – 600.</p></details>
+    <details><summary>What should I send to a large gathering?</summary><p>For a majlis, a wedding or an office, the Royal Gourmet pieces and the large fruit hampers are built to be set down as a centrepiece and eaten from. For one person, a fruit bouquet or a ready-to-eat platter travels better.</p></details>
+    <details><summary>Is everything on this page live?</summary><p>Every piece, price and photograph here is pulled from the Ambrosia collection on the store. Prices are in UAE dirhams, as published on 9 November 2026 — the store itself is always the current source.</p></details>
+  </div>
+</div></section>
+
+<footer class="foot">
+  <div class="wrap">
+    <div>
+      <a class="mark" href="https://testtfm.myshopify.com/collections/ambrosia" style="margin:0 0 12px"><b>AMBROSIA</b><small>by The Fresh Market</small></a>
+      <p class="lede" style="font-size:.88rem">Fruit and flower arrangements, hand-made in Dubai, delivered the same day across the UAE.</p>
+    </div>
+    <div>
+      <h4>Shop by occasion</h4>
+      <ul id="footOcc"></ul>
+    </div>
+    <div>
+      <h4>Shop by kind</h4>
+      <ul id="footSty"></ul>
+    </div>
+  </div>
+  <div class="foot-note"><div class="wrap">
+    <p>Ambrosia — the own brand of The Fresh Market.</p>
+    <p>Prices in AED, as published 9 November 2026.</p>
+  </div></div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+var CDN='https://cdn.shopify.com/s/files/1/0791/7312/4173/files/';
+var SHOP='https://testtfm.myshopify.com/collections/ambrosia/products/';
+var RAW=[["Queen of Sheba Royal Gourmet","queen-of-sheba-royal-gourmet",9500,"3000157276669_e47c5495-39e7-49e5-96ce-2ff29879441a.jpg",["3000157276669-1_2ec02571-9656-4b61-a894-af4aadc0c5f3.jpg","3000157276669-2_c7731607-6254-480e-8ea9-72f80e32275a.jpg"],17,4,0],["Pastel Prince Royal Gourmet","pastel-prince-royal-gourmet",9500,"3000157276683_2f7c126c-01aa-469c-ba27-8dccdd158e8b.jpg",["3000157276683-1_6898c2bf-0604-40ab-98b3-7a1d772fdf9e.jpg","3000157276683-2_ed6cfca4-8d27-4ba7-81f2-dae0a04bd80e.jpg"],17,4,0],["King of Sheba Royal Gourmet","king-of-sheba-royal-gourmet",9500,"3000157276676_c276da15-728d-4e5f-be43-eea1e5d0814f.jpg",["3000157276676-1_13e2a191-e56b-4c01-91b9-93a96ec3ac4b.jpg","3000157276676-2_34ec7ca7-3bf9-4a54-9cfe-5ad7eb09581e.jpg"],17,4,0],["A Summers Day Royal Gourmet","a-summers-day-royal-gourmet",7500,"3000157276775_4486fd50-b71a-4318-8560-ff864cf682c5.jpg",["3000157276775-1.jpg","3000157276775-2.jpg"],17,4,0],["Queen Blue Royal Gourmet","queen-blue-royal-gourmet-3000157276768",6000,"3000157276768_8cedf1af-546f-406d-98b9-71540a0d9d54.jpg",["3000157276768-1_8dd77542-6edc-44c2-bc89-61e980a90891.jpg","3000157276768-2_637ad929-60ec-43ce-bc66-ebc133439c96.jpg"],17,4,0],["Pastel Princess Royale Gourmet","pastel-princess-royale-gourmet",5000,"3000157276782_0b1e710b-e632-4a45-ab15-4ae6c4d09a7d.jpg",["3000157276782-1_d19d164b-1296-44c5-8909-3324e44e0005.jpg","3000157276782-2_49f260c6-6741-4ac9-8c55-c8fbd2be4b68.jpg"],17,4,0],["Fruitful Passion Royale Gourmet","fruitful-passion-royale-gourmet",5000,"3000157276737_6a6d04ae-33ef-466e-ba98-72fb50e1969e.jpg",["3000157276737-1_d45def14-27d9-4509-88bc-ca86d95c5c96.jpg","3000157276737-2_2fd6dfc3-e402-4c0d-93d6-bade70c4e810.jpg"],17,4,0],["Prince Blue Bouquet","prince-blue-bouquet-3000157276744",4500,"3000157276744_8ff77d80-4bf4-4dab-9923-3e47a863b0fd.jpg",["3000157276744-1_5858ab79-3450-48cb-9e3b-b65e4d7bc1b4.jpg","3000157276744-2_763e8acf-9c95-4ff3-8622-8182c11cdf42.jpg"],0,8,0],["Princess Blue Bouquet","princess-blue-bouquet",4500,"3000157276751_26e79e91-5364-467e-af7b-50cb5d82676d.jpg",["3000157276751-1_b076af17-1ad3-4c97-8f8c-31006f1a1a9f.jpg","3000157276751-2_fcadb2c1-9712-40b0-baff-19c47f24cd44.jpg"],0,8,0],["Twilight Whispers","twilight-whispers",4500,"34060228193_f579d325-a776-4d1f-af6e-61bf1de1099a.jpg",[],2,4,0],["Customized Pokémon Fruit Platter","customized-pok-mon-fruit-platter",3500,"3000157246933.jpg",["3000157246933_02ede489-09d6-48c1-90f4-c0cb24df8813.jpg","3000157246933_8c5f1470-e8f2-40d5-bd8b-d868d5a0f55d.jpg"],16,1,1],["EID Customize Arrangement 2","eid-customize-arrangement-2",3500,"1657028111159_fee54a9c-f25b-42a5-a697-20b3d5283d6c.jpg",["1657028111159-1_0e00178c-4116-41c7-9786-99176753d6f3.jpg","1657028111159-2_8630d927-09e2-4722-82ff-d5175705b603.jpg"],1,4,0],["Fruity Floral Fairytale","fruity-floral-fairytale",3500,"1657028364759_f9f18b03-c1ce-42c2-8f70-b2567f6ce1a6.jpg",["1657028364759-1_e869b95d-50db-4120-bffb-5d3b7e0bf37d.jpg","1657028364759-2_0236b769-c2ce-4d8a-8699-312f40ff9c53.jpg"],1,4,0],["Sunset Passion 1","sunset-passion-1",2800,"34060228194_39c75bc5-dee8-485d-b2bf-f48e41947ef5.jpg",[],2,4,0],["Huge Love Flower Bouquet","huge-love-flower-bouquet",2500,"3000157245023_49689e71-ce63-400e-a58f-837c77f92979.jpg",["3000157245023-1_a23a4550-3e2e-4ffc-a54f-d6a9a4bfac6a.jpg","3000157245023-2_bc3e8f7c-b68e-4392-9397-aba487b44fca.jpg"],6,8,0],["A Thousand Wishes Red Roses 50S","a-thousand-wishes-red-roses-50s",2500,"3000157245887_3288911f-a764-4f5a-9224-d93fe364522f.jpg",["3000157245887-1_e2583cfe-03f6-4591-ac2d-161cf9fbd692.jpg","3000157245887-2_9acd9ca1-e0e7-49dd-967d-04f6d40f22fd.jpg"],2,8,0],["Sunset Passion 2","sunset-passion-2",2500,"34060228195_0ae1f2f3-ef2a-4467-a9c9-9d320e5e1737.jpg",[],2,4,0],["Blooming Embrace Bear","blooming-embrace-bear",2250,"34060228192_a64ed975-e4a2-4c10-b374-195b4bf57fb2.jpg",[],2,4,0],["Royal Bloom Teddy","royal-bloom-teddy",2000,"34060231170_89346a00-3efa-4881-ad85-2cfdecce4f1b.jpg",[],2,4,0],["Rosey Pink Pleasure Fruit Tree","rosey-pink-pleasure-fruit-tree",2000,"1657027601111_eaba930a-b2f8-4e1f-8e0e-5c07a92fcad3.jpg",[],1,4,0],["Red Sky","red-sky",1850,"3000157228453_1881a528-d1ad-43e7-9fde-7c970c7cf9c6.jpg",["3000157228453-1_c65c5f2d-c948-4761-ad9d-3ff2d1a3784e.jpg"],4,8,0],["The Queen of Red Roses Bouquet","the-queen-of-red-roses-bouquet",1800,"3000157245085_62d940cb-40b2-4739-bde8-1db068d3b24c.jpg",["3000157245085-1_db3d5a0a-afa1-442f-a5db-4fc4282b05b3.jpg","3000157245085-2_11992073-64bb-4d46-b3e1-fd7901c23786.jpg"],6,8,0],["Dream Pink","dream-pink",1650,"3000157228446-DreamPink.jpg",[],4,4,0],["Tropical Paradise Fruits Tray 2","tropical-paradise-fruits-tray-2",1575,"34060329660_c22abbe2-d842-44ce-8935-373ff5a0136e.jpg",["34060329660-1_3a4e8099-b05c-4c25-b753-1672aaf922c0.jpg","34060329660-2_fc8d80f9-f7fb-4b84-874c-9f4bd68ba3c1.jpg"],1,1,0],["Eternal Devotion","eternal-devotion",1500,"34060228196_f8075ce5-ae10-45d7-867f-b6afdf252461.jpg",[],2,4,0],["Eternal Flame","eternal-flame",1500,"34060228191_c3b4d42c-3507-4c78-b466-8dc7c67612e2.jpg",[],2,4,0],["Half Flowers & Half Fruits Arrangement","!half-flowers-and-half-fruits-arrangement",1500,"3000157094058_6609165b-d475-452f-8554-d056cda73618.jpg",["3000157094058-1.jpg","3000157094058-2.jpg"],17,20,0],["Rainbow Platter XL","rainbow-platter-xl",1250,"3000157212421_f4f1bea3-4662-443a-8374-8addbec4805d.jpg",["3000157212421-1_3d82f50f-4145-4ca5-8ec4-f21af5c84254.jpg","3000157212421-2_71e0679d-6290-47c2-ac52-e4cc4c03c7fd.jpg"],0,1,0],["Ambrosia 100 Kisses 100 Red Roses Small","ambrosia-100-kisses-100-red-roses-small",1250,"3000157193898-100RosesWithVase.jpg",[],0,8,0],["UAE Flag Arrangement (Big)","uae-flag-arrangement-big",1200,"3000157086725_eace5e01-1e1c-453c-af51-15544bcec1c1.jpg",[],9,4,0],["Royalty Gourmet 1 Fruit Platter","royalty-gourmet-1-fruit-platter",1200,"3000157086022_91911d50-9ba1-4afd-b0fc-9f12eb31d33b.jpg",["3000157086022-1_7dd66c1c-d07e-4bcc-aa86-ef38dcd1388f.jpg"],24,4,0],["Plush Blossom Flower Arrangement","plush-blossom-flower-arrangement",1200,"1625989380001_bcb5621a-9040-4c35-8760-ac4c24b9b32b.jpg",[],20,24,0],["UAE Royalty Gourmet","uae-royalty-gourmet",1200,"3000157156046_3f292ee3-73b3-4bd9-af69-e4a9ed9c078c.jpg",[],8,4,0],["Royalty Gourmet \"Vase full of fruits\"","royalty-gourmet-vase-full-of-fruits",1200,"3000157227036_8dd1faf4-af86-4aa7-b422-923722c20e5c.jpg",[],8,16,0],["Royalty Gourmet \"Vase Full of Flowers\"","royalty-gourmet-vase-full-of-flowers",1200,"3000157227043_6db7dfc6-03eb-4c5b-9dbe-bf977d4b0abf.jpg",[],8,24,0],["Whispers of Eden","whispers-of-eden",1200,"3000157353476_90941143-07bb-431e-8ce7-fbc22a51d416.jpg",["3000157353476-1_002133ef-4577-43f4-ba8c-dd38da3e55e1.jpg","3000157353476-2_d7c1a848-f70f-49f1-8297-d9f3bfe49662.jpg"],16,4,0],["Royalty Gourmet Fruit Tray","!royalty-gourmet-fruit-tray",1200,"3000157088972_2b43fe10-cdcb-4352-a8ac-9ee59ec37b79.jpg",["3000157088972-1.jpg","3000157088972-2.jpg"],17,16,0],["100 Reasons To Love You Flower Bouquet","!100-reasons-to-love-you-flower-bouquet",1200,"3000157245092_604d8a95-c040-4b05-bce0-3d843421bb2b.jpg",["3000157245092-1_b69beb63-48b0-411d-a375-9f0e8406acd4.jpg"],6,8,0],["Red Velvet 999 Flower Box","red-velvet-999-flower-box",999,"3000157189204_cd1d04a4-97c3-455a-8fc8-968b0419b951.jpg",["3000157189204-2_a8099aab-0352-4845-aeba-3e854f78c243.jpg"],20,8,0],["My Wild Wonder Flower Bouquet","my-wild-wonder-flower-bouquet",999,"3000157196370_267eba1c-abdc-4e08-8dd8-da9287f2f155.jpg",[],16,8,0],["valentines for everyone","valentines-for-everyone",999,"3000157246402_c7fba113-3633-452a-8c22-6f563f768ea4.jpg",["3000157246402-1_baf5610a-248e-4b4c-b3d3-04dc722d4529.jpg","3000157246402-2_14c91126-4067-4423-8127-ae51b600e0f0.jpg"],3,2,0],["Sweet Love Fruit Bouquet","sweet-love-fruit-bouquet",999,"3000157246778_6b83c0d7-4809-4c87-b52a-cc07fd9c6d0f.jpg",["3000157246778-1_a2ac6910-9ab7-4f7a-a9ce-cc0e38e416de.jpg","3000157246778-2_52014b8f-65cb-42a8-b018-23daf41d5712.jpg"],7,2,0],["Garden Of Whispers","garden-of-whispers",990,"3000157349790_f86b388c-b6fb-4236-9f59-fada0bf1ca2d.jpg",["3000157349790-1_62c16916-5841-4607-8a16-cb05121b07c6.jpg","3000157349790-2_c921a878-2f08-4d40-83dc-651a16b3010f.jpg"],1,4,0],["Luxe Fiore Flower Box","luxe-fiore-flower-box",950,"3000157187668_0c19f97d-06ef-4b7c-b581-8820835f65a4.jpg",["3000157187668-1_d8c72be4-d17d-445d-b591-c082e7bee8bf.jpg"],2,8,0],["Grand Royal Bouquet 1","grand-royal-bouquet-1",950,"3000157281717_012f6841-0f64-46fa-947b-ef06a6094f20.jpg",["3000157281717-1_c048bdc5-35bd-4ced-a095-2887b0c777e3.jpg"],0,8,0],["Grand Royal Bouquet 2","grand-royal-bouquet-2",950,"3005712817110_5c9d4f8b-98eb-4587-ab84-111c17ff0c4d.jpg",["3005712817110-1_4487d1b0-a167-43ce-b94e-df00836c0a61.jpg"],2,8,0],["I Love You Flower Box","i-love-you-flower-box",920,"3000157191573_1747e299-267f-4d23-85c5-65eaf92200f3.jpg",["3000157191573-1_abe1212d-0afc-494b-bc75-136d564fe7ba.jpg"],2,24,0],["UAE Flag Flower Arrangement","uae-flag-flower-arrangement",900,"3000157086657_c8b4655b-f112-42a1-85d7-435858275d91.jpg",[],8,4,0],["Fresh Fusion","fresh-fusion",900,"3000157311698_99261931-37e1-49f9-8a96-185b097c9fa2.jpg",["3000157311698-1_20cd7e24-2d04-4a86-989a-9c696ccb49a1.jpg","3000157311698-2_407417a9-cd20-4b58-b9f8-99a5733d9c4b.jpg"],0,4,0],["Eid Mubarak Deluxe Fruit Tray","eid-mubarak-deluxe-fruit-tray",850,"34060329659_de953a08-ff83-4be8-992b-6c446524dde9.jpg",["34060329659-1_b1fe2d48-ae8f-4365-856a-7f03f208a714.jpg","34060329659-2_231fdfd9-cc78-4331-a959-5c244fc08634.jpg"],1,1,0],["Alnakhla (Palm Date Tree)","alnakhla-palm-date-tree",850,"3000157112400_d2252089-c8bd-4163-817e-e550bcde8465.jpg",[],1,4,0],["Rainbow Platter L","rainbow-platter-l",850,"3000157212414_2ad0ae38-66e7-4f3d-bfe3-4842a894bc0d.jpg",["3000157212414-1_b1cee080-08c6-4cf5-af92-e9df0fae2a22.jpg","3000157212414-2_478fee4c-713a-400f-b84b-fb0f736a128e.jpg"],0,1,0],["Summer Bloom","summer-bloom",850,"3000157228484_1d523bba-bb16-4847-868d-1299e5a6df0a.jpg",["3000157228484-1_fccb8618-2e77-4ef2-8f52-6c0515fa744d.jpg"],0,8,0],["Fruits Royale 2","fruits-royale-2",850,"3000157346270_094ced69-da9f-4eeb-8546-41804c900868.jpg",["3000157346270-1_306d66f0-05ce-4358-94db-9808b49c1f89.jpg","3000157346270-2_3d43b742-e633-4d7f-b703-e15b57cec6a6.jpg"],0,1,0],["Forever Yours Flower Vase","forever-yours-flower-vase",800,"3000157096779_847879d4-0a4a-40ce-894c-690e1ba69780.jpg",["3000157096779-1_32a7fcee-c091-4f49-a19b-d3d28f90478e.jpg"],6,8,0],["New Year Fruit Platter Deluxe","new-year-fruit-platter-deluxe",800,"3000157166175_beb1134d-90e4-45ba-b2ca-de1e8775b306.jpg",[],32,1,0],["Fruitful Treasures","fruitful-treasures",780,"3000157305024_3ef26032-dd51-42ed-ad75-6b7e13995db5.jpg",["3000157305024-1_baf0a517-7601-4a5d-b1f6-5d3037bf48d3.jpg","3000157305024-2_399f8a5c-e4cb-436e-b95d-4e6b866c31f8.jpg"],0,4,0],["Deluxe Decadent Fruits Tray","deluxe-decadent-fruits-tray",750,"1625987012419_9e835990-10a4-4a79-b152-52d3317b3cc1.jpg",["1625987012419-1_3667afc6-8528-4da8-b973-3f2f28680d3d.jpg"],1,1,0],["Heaven Scent 750 Flower Box","heaven-scent-750-flower-box",750,"3000157189198_867d9206-5b04-4efc-a5a5-85b68eeb5606.jpg",[],16,8,0],["Emirates Orchard Symphony","emirates-orchard-symphony",750,"3000157279356_4b5e97e2-a80d-4092-a919-fd5733b87cda.jpg",[],8,4,0],["Good Harvest Basket","good-harvest-basket-size-80-cm-x-40-cm-approx-weight-20-kg",730,"3000157370350_7fdd6262-84bf-4b53-b489-522e560958ca.jpg",[],0,4,0],["Bold and Beautiful Flower Bouquet","bold-and-beautiful-flower-bouquet",650,"3000157196356_c152f85d-6b3d-4332-9798-370f80194215.jpg",["3000157196356-2_4f0b6096-d839-444a-b067-2cdc085bd82c.jpg"],4,4,0],["Sunny Summer Flowers Bouquet","sunny-summer-flowers-bouquet",650,"3000157224400_f1c67612-1fb6-41c9-9463-9f640a229c3b.jpg",["3000157224400-1_583bf1d0-d64d-4ca4-8d24-1cc2c7957d49.jpg"],0,8,0],["Purple Sensation","purple-sensation",650,"3000157228491_c1fc94b4-b0e8-45d4-82ac-53ceaebf55d0.jpg",["3000157228491-1_df726fa3-05fb-42a2-880d-588b4a5997f0.jpg"],0,8,0],["Tropical Fruit Treasury","tropical-fruit-treasury",650,"3000157300807_5ffc6829-bcfd-4eab-8cea-db1cba9e2317.jpg",["3000157300807-1_eb78b40e-fb76-4b24-8714-3998ecbbb477.jpg","3000157300807-2_af40d94d-fac8-451c-833c-439adffc7357.jpg"],17,4,0],["Paradise Fruit Box","paradise-fruit-box",650,"3000157300814_9c82da8a-af13-4e7c-ac3d-1536ea348e03.jpg",["3000157300814-1_44fe9397-37af-4cc0-966a-06a2f10aa26b.jpg","3000157300814-2_bacb5cfc-6500-4ca3-b232-994e945303dd.jpg"],17,4,0],["Ambrosia A Lovers Bunch 50 Red Roses","ambrosia-a-lovers-bunch-50-red-roses-1",650,"3000157193867-50RoseWithVase.jpg",[],0,8,0],["Al Nakhla Palm Date Tree (small)","al-nakhla-palm-date-tree-small",650,"3000157369002.jpg",[],1,4,0],["Floral Christmas Tree","floral-christmas-tree",650,"3000157366964_85f58749-e445-40b3-8bba-99f521804fc3.jpg",[],0,4,0],["Preserved Rose (3 Rose)","preserved-rose-3-rose",620,"34030428168_0b7c4d45-f013-4c04-b256-bfc5a0ec97b1.jpg",[],2,16,0],["Chiling Box Sips Large","chiling-box-sips-large",620,"3000157346676_6bd6dc0e-d504-44d6-b36d-52f82c80754d.jpg",["3000157346676-1_47b32763-39f3-4fa8-a0c9-f0907554b7e3.jpg","3000157346676-2_5267d135-e671-4ceb-8bf3-8ea8e28105ba.jpg"],0,4,0],["Bountiful Harvest Fruit Tray","bountiful-harvest-fruit-tray",600,"1625984190294_a72ff7a7-6985-4816-8d16-dc149762cbc9.jpg",["1625984190294-1_c9fa025e-2ce0-403a-a487-5359f6c2ee4b.jpg"],17,16,0],["Pink Perfection Flower Arrangement","pink-perfection-flower-arrangement",600,"1625989057620_f7453df3-4736-41bb-9838-213c5e899c4c.jpg",["1625989057620-1_f5af8e8c-c35f-4733-a891-f10aa8321ab2.jpg"],20,24,0],["New Year Fruit Arrangement","new-year-fruit-arrangement",600,"3000157166090_72bbfb14-1b3d-4868-8ce5-35d96b4e1981.jpg",[],32,4,0],["Preserved Rose (Single Rose)","preserved-rose-single-rose",580,"34030428167_a7369530-b4b7-48c0-a9fc-4bb9dc3f1b5a.jpg",[],2,16,0],["Fruity Tree Pleasure","fruity-tree-pleasure",550,"3000157227760_7170b04a-ebf2-46fa-acd8-e40d8d6dcd6b.jpg",["3000157227760-1_7fb67a5f-6a9a-4414-9734-b7b1fb279a07.jpg","3000157227760-2_4ac128d8-7b1d-43d0-b6f9-cd8ae463722b.jpg"],1,4,0],["UAE Flag Arrangement (Small)","uae-flag-arrangement-small",550,"3000157086701_2b25e6fc-f217-40b2-9dc9-77d1dc131737.jpg",[],8,4,0],["Sweet Wonderland Box Deluxe","sweet-wonderland-box-deluxe",550,"1640012503597_a8ba54fa-8e26-4852-8bc6-1a55ca435ba1.jpg",["1640012503597-1_97284203-87f4-421b-ac93-3190188c01f2.jpg"],0,6,0],["Everyday Surprises Fruit Bouquet","everyday-surprises-fruit-bouquet",550,"3000157172237_aadc371e-0da8-4a18-aa85-7e391eebd321.jpg",["3000157172237-1_35ef3d86-e47b-43c9-b149-847189982027.jpg"],33,4,0],["Ambrosia Sunrise Surprise Orange Roses + Vase","ambrosia-sunrise-surprise-orange-roses-vase",550,"3000157193874-SunriseSurpriseVase.jpg",[],0,8,0],["Ambrosia White Roses Wonder + Vase","ambrosia-white-roses-wonder-vase",550,"3000157193881-WhiteWonderVase.jpg",[],0,8,0],["Best of Both Worlds","best-of-both-worlds",550,"3005711977624_af5e9438-2c53-4fa1-864b-28d64609ea8e.jpg",["3005711977624-1_4f62d54b-4156-4908-af2e-49ee95ff4da2.jpg"],4,4,0],["Beary Blue","beary-blue",550,"3000157220730_fab5e9d9-ce23-4247-825d-b86989377669.jpg",["3000157220730-1_eeeafea4-261a-416b-9c5a-6629851ab7cf.jpg"],4,8,0],["Pinky Bear","pinky-bear",550,"3000157220747_fdab69fb-78de-417f-8ecf-1417ec5e7cfb.jpg",["3000157220747-1_7983133b-0c7f-4bc9-b37b-de2f293cd155.jpg"],4,8,0],["Flower Pink Fighter","flower-pink-fighter",550,"3000157232405_144691a4-73cf-45df-9055-cd00bfe0af64.jpg",["3000157232405-1_128dff30-2588-4e0b-9957-19a71fa68411.jpg"],0,8,0],["Fruitful Fantasy","fruitful-fantasy",550,"34060230249_260b24fd-b8da-4526-a5e6-42a1e97fdac4.jpg",["34060230249-1_130aa047-f01f-4412-93cf-59af80e8c2e4.jpg"],0,4,0],["Fruits Prestige 1","fruits-prestige-1",550,"3000157346256_23b6db0f-4092-498d-a2dd-2a157b9ecd9e.jpg",["3000157346256-1_d3fe0c9f-085d-47af-b89d-fc3e56b61162.jpg","3000157346256-2_4d9bc4d8-603d-477f-a93a-fb00dada23a3.jpg"],0,1,0],["Fruit Party Tray","!fruit-party-tray",550,"3000157085889_885f2175-2d31-438e-8940-77f004d50f3f.jpg",["3000157085889-1.jpg","3000157085889-2.jpg"],24,16,0],["Golden Eid Fruit Basket","golden-eid-fruit-basket",540,"9914581_cfb927a8-07f6-461b-9960-6791958cbfef.jpg",[],1,4,0],["Lucky To Have You Mom Flower Arrangement","lucky-to-have-you-mom-flower-arrangement",500,"3000157106638_8e3367a9-41d1-4254-aeef-58c9b5f79e86.jpg",[],4,8,0],["Alluring Elegance Fruit And Flower Arrangement","alluring-elegance-fruit-and-flower-arrangement-3000157086114",500,"3000157086114_416f1c23-45d9-4d2e-acdc-10668d00d822.jpg",["3000157086114-1_6398bc79-d8df-426c-ac6a-7ba9bbc4e012.jpg","3000157086114-2_96a60110-527f-45d2-8b1e-d21c4b694c68.jpg"],20,24,0],["The Rising Sunshine Flower Bouquet","the-rising-sunshine-flower-bouquet",500,"1625990590537_b6cb2957-34f8-4273-b053-19439a6dd803.jpg",["1625990590537-1_58062d9a-f252-48ca-b505-b2615a0690e2.jpg"],16,8,0],["Ambrosia Sunrise Surprise Orange Roses","ambrosia-sunrise-surprise-orange-roses",500,"3000157193874-SunriseSurprise.jpg",[],0,8,0],["Ambrosia White Roses Wonder","ambrosia-white-roses-wonder",500,"3000157193881-WhiteWonder.jpg",[],0,8,0],["Perfect in Blue","perfect-in-blue",500,"3000157090517-Perfect_20in_20Blue.jpg",[],0,8,0],["Ambrosia All My Love Orange Roses Bouquet 3000157085971 Orange","ambrosia-all-my-love-orange-roses-bouquet-3000157085971-orange",500,"3000157085971-orange_337fb48c-18dc-4836-bd9e-81f7f414a8fd.jpg",["3000157085971-orange-1_34f9fac4-3075-4244-a81f-27dc07ba6f73.jpg","3000157085971-orange-2_31d1a8b2-f86b-487d-9144-f751d73599fc.jpg"],6,8,0],["Ambrosia All My Love Purple Roses Bouquet","ambrosia-all-my-love-purple-roses-bouquet",500,"3000157085971-Purple_319cbf06-ee5c-493f-96c4-1c87829ceae3.jpg",["3000157085971-Purple-1_d652e6e8-c839-4350-aa0a-cf5f6a610f1b.jpg","3000157085971-Purple-2_54dc1c3e-7dad-4640-9f93-0d7b3b0b77a0.jpg"],6,8,0],["Ambrosia All My Love Red Roses Bouquet","ambrosia-all-my-love-red-roses-bouquet",500,"3000157085971-red_e78254ea-2930-4358-90a4-60d1aca23a4d.jpg",["3000157085971-red-1_973f1c26-8066-4058-b20b-be7c257cb1b0.jpg","3000157085971-red-2_9f971e45-24db-4cdc-afdf-8c58a302d923.jpg"],6,8,0],["Red Velvet Bouquet","red-velvet-bouquet",500,"3000157276720_dc0282a4-4514-41b9-ae66-761b5d45084e.jpg",["3000157276720-1_1b7de4c6-3100-404e-b9cf-b5f50c0726d7.jpg","3000157276720-2_d9d6008f-6831-45d3-ba7d-61b6703de63d.jpg"],0,8,0],["My Mom Forever & Always Flower Box","my-mom-forever-and-always-flower-box",450,"3000157106645_92e5e342-0973-41d3-9849-ae90619229d2.jpg",[],4,8,0],["The Carnival","the-carnival-450",450,"3000157087661_e7d62005-d8d4-466e-b66e-ebdddf0fe984.jpg",[],32,6,0],["Premium Celebration Spirit 4 Fruits Bouquet Blue","premium-celebration-spirit-4-fruits-bouquet-blue-3000157133580",450,"3000157133580_5830285e-a76e-43a6-b730-6e7ee2e3bb3f.jpg",["3000157133580-1_b930759c-1c2a-47d2-b8eb-325ed5b4378d.jpg","3000157133580-2_29d17f99-d6f4-4ada-a2ea-ebfe25191bdc.jpg"],0,6,0],["Premium Celebration Spirit 5 Fruits Bouquet (Red)","premium-celebration-spirit-5-fruits-bouquet-red",450,"3000157133597_e0b08bf4-c988-48a7-a5c3-a921cb305a71.jpg",["3000157133597-1_fa14c74f-8c67-4690-bc4d-5e252e83b09d.jpg","3000157133597-2_8356828c-35e0-4ab4-96cb-e5871982dd72.jpg"],0,6,0],["Strawberry & Cherry Sundae Fruit Bouquet","strawberry-and-cherry-sundae-fruit-bouquet",450,"3000157172213_e83e16a3-743e-47a5-8d33-c06ff5f01566.jpg",["3000157172213-1_40f43790-66cf-4333-878f-391497cbd5f9.jpg","3000157172213-2_3f02dd64-37f0-4740-a065-77321cea0ddd.jpg"],2,2,0],["Floral Bouquet","floral-bouquet",450,"3005711977617_ec5a3988-832d-4b40-97fa-2fc0cf4a4348.jpg",[],4,4,0],["Pink Passion Bouquet","pink-passion-bouquet",450,"3000157276690_37a82d94-1ed1-4223-b6b2-d1661e9011b2.jpg",["3000157276690-1_c487a8e3-0a61-4650-9511-cead4f16ca08.jpg","3000157276690-2_4904a8ed-5931-4b7c-99f8-2135affb65e4.jpg"],0,8,0],["Love In Lilac Bouquet","love-in-lilac-bouquet-3000157276713",450,"3000157276713_6a4cf201-519a-41f4-bf10-cf55ca82fbdc.jpg",["3000157276713-1_71e14951-607e-499a-90d4-ceb59f192fae.jpg","3000157276713-2_9ceeeb16-15a9-4bd7-aea2-1016e76a3a57.jpg"],0,8,0],["Blue Lagoon Bouquet","blue-lagoon-bouquet",450,"3000157276706_c606bc8a-f7bc-45fb-ba56-7e750e432cf5.jpg",["3000157276706-1_72996b81-cd93-41c1-b6f4-146e113a5d10.jpg","3000157276706-2_36cb34ba-c4f5-42c7-985c-d9f9a30a6991.jpg"],0,8,0],["Berry Pink Fantasy Arrangement","berry-pink-fantasy-arrangement",450,"3000157369392_0ada0696-21bf-4240-ac87-2064611ceba1.jpg",[],3,4,0],["Premium Celebration Spirit 6 Fruits Bouquet (Green)","premium-celebration-spirit-6-fruits-bouquet-green",450,"3000157133603_1c66a7c5-4828-4616-be6e-aeab868dfbaa.jpg",["3000157133603-1_e13f462f-8bb1-4752-a52a-9d147186b03b.jpg","3000157133603-2_f88d77c8-6b79-4359-8cd8-b3977abec22c.jpg"],0,6,0],["Beauty in Red Fruit Bouquet","beauty-in-red-fruit-bouquet",450,"3000157247119_90966a4a-2e07-45e9-b0f0-9c580a692ca9.jpg",["3000157247119-1_37ce56dd-4792-404d-a915-3071a09ab51d.jpg","3000157247119-2_153b80bd-b789-41d7-820b-97b1c09f671b.jpg"],6,2,0],["Cake In Bloom","!cake-in-bloom",450,"3000157349783_8577fc03-b49d-46e5-8855-3cf3fe22855f.jpg",["3000157349783-1_752573c0-6ef4-412c-90e6-cca7d735caa0.jpg","3000157349783-2_0ffe8a43-5ded-48ff-b411-7698df9bcaae.jpg"],1,4,0],["Floral Moon Arrangement 2","floral-moon-arrangement-2",439,"34060328259_18f3638f-276a-4795-929e-bf627eaa5064.jpg",[],1,4,0],["Easter Cake","easter-cake",430,"3000157370329.jpg",[],32,4,0],["Fruitier Bouquet","fruitier-bouquet",420,"3000157197766_bfd118a7-086b-474f-a5f5-154cf29f0d7e.jpg",["3000157197766-1_02d29542-e284-4eca-bfee-3f21b6e3d974.jpg"],4,6,0],["Green Aura 2","green-aura-2",420,"3000157304959_7e676bb0-eb5f-4774-92d9-4d7fe80239d1.jpg",["3000157304959-1_45ee4bae-11e7-4107-b054-50b3029dc417.jpg","3000157304959-2_e5d4e732-bf11-44fd-85f2-1fb844d5d8ea.jpg"],0,4,0],["Green Aura 3","green-aura-3",420,"3000157304966_43eeb814-e696-4d92-b538-62a31a22bf38.jpg",["3000157304966-1_b270bf58-4b1d-48a1-b9e3-20d01499e0e2.jpg"],0,4,0],["Scarlet Symphony 1","scarlet-symphony-1",420,"3000157304973_c6a64779-618d-4cac-91c2-338e4559a7ec.jpg",["3000157304973-1_fd1c901f-07ea-4e22-bb2b-b0153c8e879b.jpg"],0,4,0],["Labubu Celebration Spirit","labubu-celebration-spirit",420,"3000157353452_54862bac-c2d2-4243-8a1a-860b7c818d12.jpg",["3000157353452-1_34b20f7b-d2d5-4b3f-8bb6-83434b35c66c.jpg"],0,6,0],["Pink Melody Flower Box","pink-melody-flower-box",400,"9913105_281f876c-9a00-4819-9e8d-79ccc866fc1d.jpg",["9913105-1_34f32b04-4f73-4477-8343-4a85cd12a08f.jpg"],6,8,0],["Lavish Love Fruit Bouquet","lavish-love-fruit-bouquet-400",400,"3000157087678_2e82f2d0-f97e-45ed-a676-cfa061d43d36.jpg",[],32,6,0],["The Flavorsome UAE Flag Bouquet","the-flavorsome-uae-flag-bouquet",400,"3000157237776_e0dadd7a-6af8-4783-9c2c-ac16fed9d3db.jpg",["3000157237776-1_215a7f33-35c0-45f4-92e8-9f5ac74a9c54.jpg"],8,4,0],["Pas Forcement Rose Fruits Bouquet","pas-forcement-rose-fruits-bouquet",400,"3000157245030_011850b3-7f7d-45ec-b918-ab4faac4dfa5.jpg",["3000157245030-1_02eec2d0-96fc-4772-b7ca-b9cdf88d436e.jpg","3000157245030-2_b409f75b-3ff4-43e0-948a-ca699a40fb1e.jpg"],6,2,0],["Blossoming Love Fruits Bouquet","blossoming-love-fruits-bouquet",400,"3000157245047_763b5995-99ef-49cb-b782-60d43d84f588.jpg",["3000157245047-1_66933510-e897-4ca2-89fd-a093d75ba97d.jpg","3000157245047-2_d1f6e770-4c4a-43b9-9706-5361d720073d.jpg"],6,2,0],["Suhur Blessing 3","suhur-blessing-3",390,"34060328257_b1bf8939-a06e-429e-aea3-e0d0f3e856e6.jpg",[],1,4,0],["Ramadan Oasis Assortment","ramadan-oasis-assortment",389,"34060328251_2ef8c052-153e-4f35-91f5-e42c4b64997f.jpg",[],1,4,0],["Universal Love Bouquet","universal-love-bouquet",387,"34060228190_700144de-6fda-4590-be7f-06ab76d5e50d.jpg",["34060228190-1_08b8adf3-d6a7-4618-bc76-a4c618ca3602.jpg"],2,4,0],["Emirati Elegance 1","emirati-elegance-1",385,"3000157306090_2d689d2e-85b6-4f3c-8afe-5c7b896fbdd6.jpg",[],0,1,0],["Emirati Elegance 2","emirati-elegance-2",385,"3000157306106_722c215b-11d3-45b7-a921-6c684059dc73.jpg",[],0,1,0],["Dates & Nuts Box Arrangement Large","dates-and-nuts-box-arrangement-large",380,"3000157112585_ccfe2f89-d39e-485a-b1ee-2d3bd5c6a32a.jpg",["3000157112585-1_d654def8-b9de-4d21-b897-cc096ba599af.jpg"],9,4,0],["Pearl of The Emirates","pearl-of-the-emirates",380,"3000157306083_591b8998-6845-4441-bfff-d7da6944e710.jpg",["3000157306083_4b2b6af8-d62d-4be7-a1f8-b4d93443cbbc.jpg"],0,1,0],["Winterberry Delight Platter","winterberry-delight-platter",380,"3000157319762.jpg",[],0,4,0],["Fruits Prestige 2","fruits-prestige-2",375,"3000157346249_031fcd63-206b-4550-94a9-68453a5f2a8f.jpg",["3000157346249-1_c78f09e2-4131-4213-b9e6-b01fea305fc2.jpg","3000157346249-2_99b4daad-3acb-43f4-ac2e-4a32e8c505af.jpg"],0,1,0],["Suhur Blessing 1","suhur-blessing-1",370,"34060328255_bbfba32e-9ebe-4282-816e-f92792dc2a30.jpg",[],1,4,0],["Pink Passion Box","pink-passion-box",367,"34060228185_aaf1ceee-60f9-417a-82c9-ab20ef7a76f0.jpg",[],2,4,0],["Fruit Christmas Tree Deluxe","fruit-christmas-tree-deluxe",350,"3000157162696_46a1d44c-86c3-4b21-b6f3-a535e2b6c521.jpg",["3000157162696-1_0b28ee4c-0b2f-41af-8ba4-e2ddc7eb6357.jpg","3000157162696-2_8d461b68-b64c-4961-a714-09a44b272762.jpg"],32,1,0],["Celebration Spirit Fruit Bouquet","celebration-spirit-fruit-bouquet",350,"3000157086121_fd9384fc-6873-4120-b0a9-af99d2ea94ef.jpg",["3000157086121-1_231ffdf1-fd37-4583-8d51-7545304e4763.jpg","3000157086121-2_671fcbe4-8b6e-416f-97b6-258b13d800d4.jpg"],9,2,0],["Frostbite Deluxe","frostbite-deluxe",350,"3000157370503.jpg",["3000157370503-1.jpg","3.jpg_1.jpg"],0,4,0],["Heart Conquesta Fruit Bouquet","heart-conquesta-fruit-bouquet",350,"3000157094027-1_3636c6f6-5f80-4af9-8cbe-9410a4257d76.jpg",[],19,2,0],["Celebration Spirit 3 Fruits Bouquet","celebration-spirit-3-fruits-bouquet",350,"3000157091422_725ae45d-adde-43da-b00d-f362e89a8f0a.jpg",["3000157091422-1_9fc4f05b-b454-41ea-b755-b4d73c2e26a5.jpg","3000157091422-2_5e3f7319-e347-4697-842e-f4dfab8d88aa.jpg"],9,2,0],["Celebration Spirit 1 Fruit Bouquet","celebration-spirit-1-fruit-bouquet",350,"3000157086015_f8cf7a86-472d-4e18-846b-1e56fa1b8bac.jpg",["3000157086015-1_bab59f0c-fbd6-499b-b30b-b6e275b799c1.jpg","3000157086015-2_6a42fa67-7e53-4728-bd33-d055f42d65a2.jpg"],9,2,0],["Love You Precious Fruit Bouquet","love-you-precious-fruit-bouquet",350,"3000157105013_9498f688-b488-4753-8321-45d68fce4e1c.jpg",["3000157105013-1_3a05c3b4-fb93-402a-9441-bdf0678e96f9.jpg"],6,2,0],["Classic Fruit Art","classic-fruit-art",350,"3000157109905_b9708e45-73ce-4228-842a-e2ed6e405709.jpg",[],1,1,0],["Fairytale Pinky Fruits Bouquet","fairytale-pinky-fruits-bouquet",350,"9913108_ae7e6d60-a5c1-41c1-bf8e-c7cae6d1b3de.jpg",["9913108-1_98f27ce9-faad-4b26-92ca-00bc2e829cd9.jpg"],0,6,0],["Pink Lady Fruit Bouquet","pink-lady-fruit-bouquet",350,"3000157137830_de0d41ac-8965-4249-8ab0-b59cf4fc9b7d.jpg",["3000157137830-1_be07c839-555f-48d5-8ea7-e8c6baa719e9.jpg"],4,6,0],["Forever Love (Strawberries + Roses)","forever-love-strawberries-roses",350,"3000157191603_200abf5b-7e59-437b-b267-e3f217d1b73f.jpg",["3000157191603-1_231c3a77-f716-4196-bbaf-bb950da35464.jpg"],18,4,0],["Red Roses Bloom","red-roses-bloom",350,"3000157218492_5efa2167-fdcd-47a4-a361-effe53a13eb6.jpg",["3000157218492-1_0d604e38-2b10-46ce-9b74-f939ab852b7f.jpg","3000157218492-2_eabda255-939c-4bfa-a5e0-3056b63948e5.jpg"],0,8,0],["Celebration Spirit Fruit Bouquet (Summer)","celebration-spirit-fruit-bouquet-summer",350,"3000157086121-Summer_6155c825-8c48-4f64-8311-011a678be086.jpg",["3000157086121-Summer-1_3352e5c3-21ae-49e7-9fac-f903ef5cdee0.jpg","3000157086121-Summer-2_b5b00764-b5fb-48a8-a47d-a66f11052695.jpg"],0,4,0],["Natural Flowers Bouquet \"Ring Bouquet\"","natural-flowers-bouquet-ring-bouquet",350,"3000157225858_3af9c9ef-1df9-45ba-aef8-c0ce2fe6d231.jpg",["3000157225858-1_0f0f8946-f043-441a-8d6d-86d1a6bedee1.jpg"],4,8,0],["Summer Garden","summer-garden",350,"3000157225919_3cfc8c29-4e5c-40eb-b2d0-7deac66e7c77.jpg",["3000157225919-1_44e99de0-a351-4a71-aa2c-216fd4dcfd45.jpg"],0,8,0],["Flower Pumpkin Blossom","flower-pumpkin-blossom",350,"3000157234249_719094a6-08e7-4eeb-a3a2-7c0c1d73e425.jpg",["3000157234249-1_6a1d6193-85e3-491f-8a17-479fe83878e2.jpg","3000157234249-2_0526d3ba-ed36-4044-bd7b-c6e68a09fdb6.jpg"],0,4,0],["The Golden Glow Fruit Bouquet","the-golden-glow-fruit-bouquet",350,"3000157237806_5bf17320-7803-47e0-8d1f-eab37ece0c13.jpg",[],0,2,0],["Emirates Flag Flower Box","emirates-flag-flower-box",350,"3000157238575_fbe623ff-193c-4d95-bdaa-17eb3a3265b1.jpg",["3000157238575-1_2887aabb-9901-4b89-a6b1-47a1285a0efe.jpg"],8,9,0],["Silver Dusted Red Roses Bouquet","silver-dusted-red-roses-bouquet",350,"3000157245054_712bdb8c-3ab9-4102-bc5f-5b3cdbcf623e.jpg",["3000157245054-1_219bf8da-24f4-4bb8-b9d3-1568e9d0613b.jpg","3000157245054-2_03b31391-5859-4aa6-b81d-f28add9bc9d0.jpg"],6,8,0],["Sweet Tenderness Pink Bouquet","sweet-tenderness-pink-bouquet",350,"3000157249663_4951405b-3d2e-4f06-8f22-f300c09e729b.jpg",[],4,8,0],["Sweet Violet Flower Bouquet","sweet-violet-flower-bouquet",350,"3000157249670_3404423a-a63b-48ba-b087-99103a54c1d5.jpg",[],4,8,0],["Purple Perfection Flower Bouquet","purple-perfection-flower-bouquet",350,"3000157249687_8f4c5c4f-f305-4fe2-9217-11fe014899f2.jpg",[],4,8,0],["Sweet Blessings","sweet-blessings",350,"34060328264_98457257-ee88-4198-80fd-5d18e86309b2.jpg",["34060328264-1_cf552751-715b-41dc-b92c-19b9fccbfe60.jpg"],1,4,0],["Tropical Breeze","tropical-breeze",350,"3000157296537_93b76d1b-2604-481a-8017-ffa5c2fe4744.jpg",["3000157296537-1_e9ad37df-e1af-42ca-9f58-b3c15c3e2bc9.jpg","3000157296537-2_7c1f682c-a1e8-4a0d-894a-23bcdc7189fe.jpg"],0,1,0],["Green Aura 1","green-aura-1",350,"3000157304942_fce443ae-1599-4f6d-a97d-67d68e351524.jpg",["3000157304942-1_594f2181-29af-490a-956f-2616af16bd45.jpg","3000157304942-2_f9af2686-7fbc-4ab7-9203-e490fb1abe75.jpg"],0,4,0],["Rose Embrace 1","rose-embrace-1",350,"3000157305048_14706bd4-4d01-4607-900e-5138897fb13c.jpg",[],2,8,0],["Scarlet Symphony 2","scarlet-symphony-2",350,"3000157304980_d51ab773-e0b6-43c8-b92e-fb264c66c389.jpg",["3000157304980-1_6d190a03-9326-4199-82e7-6ad157a0b39d.jpg","3000157304980-2_e85b192b-a48e-4c7f-b952-31ea76479f62.jpg"],0,4,0],["Rose Embrace 2","rose-embrace-2",350,"3000157305031_25dd8190-48c1-4d55-825c-a5d15e93d43c.jpg",[],2,8,0],["Golden Noel Box 2","golden-noel-box-2",350,"3000157319878.jpg",[],0,4,0],["Celebration Spirit 2 Fruit Bouquet","celebration-spirit-2-fruit-bouquet",350,"3000157085896_9a73271f-1f46-4915-be09-5d599164bc94.jpg",["3000157085896-1_8ea9eced-69b5-45ba-9afe-244a0d4eb54c.jpg"],9,2,0],["Floral Moon Arrangement 1","floral-moon-arrangement-1",339,"34060328258_c8eb777d-03bf-489b-bafd-56bffb7d7ed6.jpg",[],1,4,0],["UAE Colorful Fruits Platter","uae-colorful-fruits-platter",330,"3000157237547_6790ee18-5be6-40fe-b204-59f8fb48b5e1.jpg",["3000157237547-1_22e71edb-392c-4f18-9a4b-78f22b31ba76.jpg","3000157237547-2_dd380b2f-8809-4090-80c6-92c4ec69b7c6.jpg"],8,1,0],["Summer Fruits Wreath","summer-fruits-wreath",325,"3000157281106_c9bc35c7-1290-40fc-9053-97587ce64bd8.jpg",["3000157281106-1_95ffd0c3-a6dc-4993-9135-2cc084ee1489.jpg"],0,1,0],["Emirati Heritage Feast","emirati-heritage-feast",320,"3000157279349_93255b09-c420-463e-9c90-5b43bca0df1c.jpg",[],8,4,0],["Golden Noel Box 1","golden-noel-box-1",320,"3000157319885.jpg",[],0,4,0],["Ramadan Dates Chocolate Gourmet","ramadan-dates-chocolate-gourmet",320,"3000157345822_2ed9eea7-2b93-4581-89d4-5b3d91cb7a90.jpg",["3000157345822-1_60124750-cb99-4918-92bc-f21a57e2a0d9.jpg"],1,4,0],["Harvest Tower","harvest-tower",310,"3000157304997_5e58fdb6-c2ad-4207-90fe-b406471253eb.jpg",["3000157304997-1_7c424957-dd35-40d4-89d0-a1c22987f281.jpg","3000157304997-2_fa6e819e-ba72-49b7-9653-9d829e729819.jpg"],0,4,0],["Heritage Fruit Hamper","heritage-fruit-hamper-large-size-43-cm-x-45-cm-approx-weight-6-kg-to-7",300,"3000157370381_187dfc1d-bd22-4767-90b4-765ddc8350b7.jpg",[],0,4,0],["Eid Celebration Fruit Box 1","eid-celebration-fruit-box-1",300,"34060329654_8dfe38e7-a43c-403d-b8ae-634772612fbd.jpg",["34060329654-1_29165731-5744-4f7a-8f53-b6253f4242f5.jpg","34060329654-2_3a3d9922-343f-4ffb-833d-71db983ad496.jpg"],1,1,0],["Spring Vibe Flower Box","spring-vibe-flower-box",300,"3000157093013_cda70398-b651-4f02-8f6b-6c264d73de45.jpg",["3000157093013-1_674d2dcc-45b8-409c-87a8-bf3463978dcd.jpg"],17,8,0],["Pink Passion Flower Bouquet","pink-passion-flower-bouquet",300,"1625988904220_64552b9d-d195-4356-a7e5-0b2370c6c04e.jpg",["1625988904220-1_4e87df45-e3db-4d53-8738-e84b0b6a1f72.jpg"],20,8,0],["Pure Serenity Flower Bouquet","pure-serenity-flower-bouquet",300,"1625989808632_d7a0aa3b-a787-46b9-ab5f-72708c296eae.jpg",[],20,8,0],["Forever Love (Strawberries+Roses+Dates)","forever-love-strawberries-roses-dates",299,"3000157191597_3c7bd094-e1f4-47e9-ae91-b96f82f940f1.jpg",[],16,4,0],["Forever Love Heart Box (Strawberries)","forever-love-heart-box-strawberries",299,"3000157191580_01192da5-1611-4ffb-a71a-56562dbc1b85.jpg",["3000157191580-1_b2a279ca-db03-4344-b218-a8d48c1fb50e.jpg"],3,4,0],["Fruity Flag Sharing Platter","fruity-flag-sharing-platter",299,"3000157237783_b30b44e7-3845-4726-a231-52476b21720b.jpg",[],8,1,0],["Ramadan Dates Chocolate Gourmet 2","ramadan-dates-chocolate-gourmet-2",290,"3000157345822-1_d7c92c86-4749-4050-9be7-d845ecd17531.jpg",["3000157345822-1-1_ad6adaac-8015-432e-9bde-ff1bde9a7d03.jpg"],0,4,0],["Island Bliss","island-bliss",285,"3000157304119_451f9243-b31f-4a77-9281-95982b740d1e.jpg",["3000157304119-1_a481e429-2da3-4c9c-a320-a99c323a8a20.jpg","3000157304119-2_38cbf492-75df-4be2-bf34-3acec68c65e9.jpg"],0,1,0],["Tropical Dream","tropical-dream",285,"3000157304126_3f2e770c-5cb5-44c4-85d5-407a361563d0.jpg",["3000157304126-1_3941321c-e479-458b-8aef-a9d4e2741fe6.jpg","3000157304126-2_15f0000e-0e09-4aca-a843-a79b68ce10cc.jpg"],0,1,0],["Joyful Winter Fruit Platter","joyful-winter-fruit-platter",280,"3000157163006_84ebbc9e-7dea-45d9-b338-53657820c450.jpg",[],0,1,0],["Eid Celebration Fruit Box 2","eid-celebration-fruit-box-2",280,"34060329655_1ca70ab1-0608-45a2-8f39-84a3f442ac66.jpg",["34060329655-1_bdc57c7f-bcf8-45a0-8515-8b30471d24ce.jpg","34060329655-2_b3322de5-0ae2-422e-8165-3e19c255e2aa.jpg"],1,1,0],["Eternal Grace Bouquet","eternal-grace-bouquet",280,"3000157296544_b0b31641-fe4d-4d5d-a45b-ca9f37c31561.jpg",[],0,2,0],["Iftar Elegance","iftar-elegance",279,"34060328249_9aac6363-8f37-4cbb-9f86-4e7200e78ba5.jpg",["34060328249-1_305222f5-7e19-452e-8835-760ab4999a7c.jpg"],1,4,0],["Fairytale Platter Large","fairytale-platter-large",275,"3000157227777_053e447c-bfcc-48dc-ac09-c883404089e3.jpg",["3000157227777-1_6a80bc7f-0274-4b97-b388-83577537ebf0.jpg"],4,1,0],["Fruithful Unity 2","fruithful-unity-2",260,"3000157279318_e1e2906b-5dc6-4980-b442-cab8e0bfc40d.jpg",[],9,4,0],["Blooming Heart Box","blooming-heart-box",255,"34060228184_f26ef171-e1b1-48e5-b072-78aa12157cad.jpg",[],2,4,0],["Letter Cake","letter-cake",250,"3000157370466.jpg",["3000157370466-1.jpg"],0,4,0],["Heritage Fruit Hamper Medium","heritage-fruit-hamper-medium-size-31-cm-x-31-cm-approx-weight-5-kg",250,"3000157370374.jpg",[],0,4,0],["Dates & Nuts Box Arrangement Medium","dates-and-nuts-box-arrangement-medium",250,"3000157112592_e2a2dc1c-eb35-4f89-baeb-9c6fd623534e.jpg",[],9,4,0],["The Classic Love (Berries) Medium","the-classic-love-berries-medium",250,"3000157191610_00cec687-c8c7-4043-873b-875e23f4cee4.jpg",["3000157191610-1_7c7d9fa8-7366-4aa8-88d6-2c36d60f5e99.jpg"],16,4,0],["Peach Perfection","peach-perfection",250,"3000157218478_0b1880e3-3714-4826-8f79-4b87bdfda266.jpg",["3000157218478-1_5c0ebe92-e6d5-4ef3-a746-20c57145cb87.jpg","3000157218478-2_43128e53-7951-49b3-899d-9d74486ebe7e.jpg"],0,8,0],["White Paradise","white-paradise",250,"3000157218508_76b13f2b-bac7-430d-9d2a-58622fdd088c.jpg",["3000157218508-1_cf9897da-8955-4aa9-898f-751709d4683b.jpg","3000157218508-2_31d3a1c4-4c9e-4052-9989-49a8b6bbcfb7.jpg"],0,8,0],["Hot Pink","hot-pink",250,"3000157218515_29e7018f-fd9f-40de-8e58-3d093b4d0086.jpg",["3000157218515-1_02633b28-4565-4617-a2c4-5a5608413393.jpg"],4,8,0],["Ambrosia Jolly Fruit Cups 2","ambrosia-jolly-fruit-cups-2",250,"3000157138004-Jolly_20Fruit_20Cups2.jpg",[],0,1,0],["Ambrosia Jolly Fruit Cups 1","ambrosia-jolly-fruit-cups-1",250,"3000157138004-Jolly_Fruit_Cups1.jpg",[],0,1,0],["Ramadan Crescent Bouquet","ramadan-crescent-bouquet",250,"34060328260_258684cd-a716-4b79-8c1a-213cb195cb0c.jpg",[],1,4,0],["Ohara Rose Bouquet","ohara-rose-bouquet",250,"3000157300784_2c8db9c8-95d9-4e9c-a286-ba94b82b5f8b.jpg",["3000157300784-1_78cd9e57-8380-4a21-9620-00c9d888eefa.jpg","3000157300784-2_0d28b45d-794b-434f-affe-30585c446988.jpg"],0,8,0],["Radiant Blush Bouquet","radiant-blush-bouquet",250,"3000157300777_da966a9c-f7d0-490d-b48a-817184a750ca.jpg",["3000157300777-1_a1b7c5e1-e286-4b16-b83c-e352992a91e0.jpg","3000157300777-2_6a643e3d-1318-448a-b741-58e33c844941.jpg"],0,8,0],["Elegant Bloom Bouquet","elegant-bloom-bouquet",250,"3000157300791_a85c81ff-b604-475d-856f-5967e81a972d.jpg",["3000157300791-1_506547ee-63c6-4709-8c07-652c8df721dc.jpg","3000157300791-2_09f97d4f-49ff-4094-b6cc-374a30f2400d.jpg"],0,8,0],["Divine Fusion Box","divine-fusion-box",250,"3000157304133_8a00a1ea-54d1-4fcc-944c-e20e265f4117.jpg",["3000157304133-1_718b2942-66dd-4971-81a6-bcaff61bc8f1.jpg"],0,1,0],["Chiling Box Sips Small","chiling-box-sips-small",250,"3000157346669_3b4519b9-4c9e-4d3d-b1bb-64e25e158643.jpg",["3000157346669-1_0f8c5dd9-d083-48bf-be8a-14211966fc19.jpg"],0,4,0],["Seasons Bounty Fruit Basket small","seasons-bounty-fruit-basket-small",250,"1625990299632_f87ac84f-9425-498f-839f-c8fea2bf8631.jpg",["1625990299632-1_89256b26-d5cc-440e-81ca-83e663cc27c8.jpg","1625990299632-2_03658761-5d96-4a4e-bed3-cdefd3d5f184.jpg"],1,32,0],["Purest Love Fruits Platter","purest-love-fruits-platter",250,"3000157106669_9066e5f6-61e5-418c-b297-5a6e7611bfa1.jpg",[],4,4,0],["Savory Fruits Platter 1","savory-fruits-platter-1",250,"3000157225728_a30ac119-822f-4bf8-bbbc-6870983f252d.jpg",["3000157225728-1_d26c50e5-fb95-4b21-82ff-473a7fa75cd0.jpg"],1,1,0],["Harvest Harmony Box","harvest-harmony-box",250,"3000157304140_69ed738d-9a59-4f1a-8faf-3f7c85df1957.jpg",["3000157304140-1_752f809d-bfae-443d-91b8-04399f6b5667.jpg"],0,1,0],["Halloween Platter 2","halloween-platter-2",249,"3000157146016_dea51d04-dbd3-493a-af67-efe6d22e60e3.jpg",["3000157146016-1_d5c74daa-f0b9-44ae-889f-6a095c556470.jpg"],0,1,0],["Halloween Platter 1","halloween-platter-1",249,"3000157146009_3ce539cd-40fd-4885-95f8-a1fb7a5299cb.jpg",["3000157146009-1_a925823b-c901-41d6-858e-5c3f8511952e.jpg"],0,1,0],["Floral Heart Gift Box","floral-heart-gift-box",248,"34060228183_840fca5e-50da-4b50-9d6e-24b30bb7933d.jpg",[],2,4,0],["Suhur Blessing 2","suhur-blessing-2",239,"34060328256_0b692e09-53ec-4231-8e3d-da7b7dae6c0c.jpg",[],1,4,0],["Diwali Platter 2","diwali-platter-2",230,"3000157146634_10ffda65-a2ed-4897-9f81-c65a1c21c98e.jpg",["3000157146634-1_b47f3376-6286-4520-9d42-d01007ea7421.jpg"],0,1,0],["Fairytale Platter (Small)","fairytale-platter-small",225,"3000157227784_729530a8-55c1-4e67-b11d-3c06e02d3e78.jpg",["3000157227784-1_29693d7d-f265-410a-853a-4ed897452853.jpg"],4,1,0],["Rose in Reverie","rose-in-reverie",225,"3000157305055_3e639513-57c9-4ba7-841a-afa045d454a2.jpg",[],0,8,0],["Brownies and Me","brownies-and-me",220,"3000157370527.jpg",["3000157370527-1.jpg"],0,4,1],["Vegetables Party Platter","vegetables-party-platter",220,"3000157238049_f085c8d7-c063-4faf-8f0e-6fc253acbb9f.jpg",[],0,1,0],["Love Frame Pink","love-frame-pink",220,"3000157246839_e9d23f56-8817-4b56-8459-44533df7f160.jpg",["3000157246839-1_ce27a9bd-95ce-4222-8c3b-379009ff15bb.jpg"],2,8,0],["Cupcake Blossoms Pink","cupcake-blossoms-pink",220,"9912550-pink-1_3ae1a4e5-653a-421f-a569-5a3a8ec20097.jpg",[],16,4,0],["Cupcake Blossoms Green","cupcake-blossoms-green",220,"9912550-green-1_05da3832-579e-451b-a307-e710c18000f0.jpg",[],16,4,0],["Cupcake Blossoms Red","cupcake-blossoms-red",220,"9912550-Red_081d033c-a092-4a6d-9aab-61a34266cb41.jpg",["9912550-Red-1_a4fd23d5-3917-4487-9848-caaa4039895c.jpg"],16,4,0],["Dubai Chewy Choco Box","dubai-chewy-choco-box",200,"3000157370497.jpg",["3000157370497-1.jpg","3000157370497-1_ccdc2501-2a40-4143-873d-740d63bb4d24.jpg"],0,4,0],["Queen of My Heart Fruit Platter","queen-of-my-heart-fruit-platter",200,"3000157106652_b8a7ab84-1ee7-436c-8d82-f23c12f1c9ef.jpg",[],4,4,0],["Executive Platter","executive-platter-200",200,"3000157086107_4f9d6158-890e-4b64-a481-3a8b114ac4f8.jpg",[],0,1,0],["Diwali Platter 1","diwali-platter-1",200,"3000157146627_d8a68c01-97d5-46a7-bb04-8b4ac43ee128.jpg",["3000157146627-1_cbbe3d4e-746d-4cbd-a53d-f36604377505.jpg"],0,1,0],["Citrus Floral","citrus-floral",200,"3000157237110_f90a718e-d92e-4f7a-a023-03994586025a.jpg",["3000157237110-1_f0607e68-75a9-4e13-9ed0-fe1dd4257a20.jpg"],0,4,0],["Christmas Centerpiece","christmas-centerpiece",200,"3000157239954_fda815ac-ac7d-4b53-8c2b-1ec7f7852fd4.jpg",["3000157239954-1_562baec2-7f2e-4796-9992-e98a7c49328e.jpg"],32,8,0],["My Sweet Lady 3","my-sweet-lady-3",200,"9913107-My_20Sweet_20Lady3.jpg",[],4,4,0],["My Sweet Lady 2","my-sweet-lady-2",200,"9913107-My_20Sweet_20Lady2.jpg",[],4,4,0],["My Sweet Lady 4","my-sweet-lady-4",200,"9913107-My_20Sweet_20Lady4.jpg",[],4,4,0],["Oriental Delights Basket 3","oriental-delights-basket-3",200,"34060328252_16f4cb23-2e0e-44fe-93a4-22c1a074e117.jpg",[],1,4,0],["Strawberry Chocolate Delight Box","strawberry-chocolate-delight-box",200,"3000157319748.jpg",[],1,4,0],["Choco-Fruit Harmony Box","choco-fruit-harmony-box",200,"3000157319755.jpg",[],1,4,0],["My Sweet Lady","my-sweet-lady",200,"9913107-MySweetLady.png",[],4,4,0],["Celebration Spirit Mini","!celebration-spirit-mini",200,"3000157243589_36e01704-4ebc-41a0-a6aa-0e11580bfd29.jpg",["3000157243589.jpg","3000157243589_146abc60-f8db-40a8-b657-80f6f9f895a4.jpg"],0,2,0],["Winter Symphony 1","winter-symphony-1",195,"3000157281816_0a07464b-78d1-40ac-bf89-6a28173d0d5a.jpg",["3000157281816-1_8f3a3d10-66db-4a69-9a91-d7ee44339d6d.jpg"],0,1,0],["Winter Symphony 2","winter-symphony-2",195,"3000157281823_f52dcc14-1e24-4285-b054-39e9c3397d8b.jpg",["3000157281823-1_830b6dee-571b-423f-a4c2-68f42403ed72.jpg","3000157281823-2_772afc0e-06c6-40db-b7a1-7d106ab2c5f2.jpg"],0,1,0],["UAE Flag-Inspired Platter","uae-flag-inspired-platter",180,"3000157279400-1_5f1eacf5-ca82-46d0-94ac-8898036bf3c1.jpg",[],8,4,0],["Queen of Hearts Cake","queen-of-hearts-cake",180,"3000157346218_907caf61-c33f-4336-b4a9-7e453c396364.jpg",[],4,4,0],["Queen of Hearts Cake 2","queen-of-hearts-cake-2",180,"3000157346218-2_557f3553-04f6-4d98-a745-01ad5dfdc432.jpg",[],4,4,0],["Fruithful Unity","fruithful-unity",180,"3000157279301_56b110e8-a224-48d3-8432-dd6a59e0dc66.jpg",["3000157279301-1_1e1351cb-9849-4b29-94b1-000c8d611d44.jpg"],8,4,0],["Fruity Elegance Cake Mini","fruity-elegance-cake-mini",175,"1662208816903_d0a78cda-e249-49e5-a2c3-eef718288664.jpg",["1662208816903-1_00c02666-078b-4e1a-b1af-ec3907fdf4a8.jpg","1662208816903-2_e136edef-4efe-4ccf-8a35-160a25c7ac5c.jpg"],0,1,0],["White Branches","white-branches",175,"3000157237097_8c6c2ae8-00dd-4b48-89ac-ab8e64ef1c1f.jpg",["3000157237097-1_8e792660-1015-4f79-9c06-55e79b5efabb.jpg"],0,8,0],["Celestial Bliss 2","celestial-bliss-2",165,"3000157281809_c3a779ef-588e-42a5-9041-3ad2a40e30b9.jpg",["3000157281809-1_202a4678-7d82-4a09-815a-eb2e27b58cea.jpg","3000157281809-2_65dccf8e-6d10-42e8-b16a-528144fdda46.jpg"],0,20,0],["Celestial Bliss 1","!celestial-bliss-1",165,"3000157281793_1e7f5b23-258a-4258-971e-9745c2fa022b.jpg",["3000157281793-1_4f27fcb7-2bdc-42da-b852-c72c2617c072.jpg","3000157281793-2_537192ef-3694-4f90-9c65-5ff7974c17a6.jpg"],0,20,0],["Forever Love","forever-love",150,"9914488_0bfabcc6-a2c5-4711-9db0-a25ae7a8a54a.jpg",[],2,8,0],["Flowers on Earth","flowers-on-earth",150,"3000157237103_02c693ce-cb95-42c0-8392-25f235ce11f8.jpg",[],0,8,0],["Gathering Fruit Platter","gathering-fruit-platter",150,"3000157238056_a7e4c545-fb30-4dbb-b736-458f41f1fea8.jpg",[],0,1,0],["Dried Gypsophila","dried-gypsophila",150,"9912360-DriedGypsophila-BlueBreeze.jpg",[],0,8,0],["Dates & Nuts Box Arrangement Small","dates-and-nuts-box-arrangement-small",120,"3000157112608_38c676cd-8220-48b6-8143-f4a0ff98c583.jpg",["3000157112608-1_e1f18551-f97d-46de-a49a-05cfb6ccfb09.jpg"],9,4,0],["Oriental Delights Basket 2","oriental-delights-basket-2",120,"34060328253_8e04f27a-3729-4289-866b-5c2887c26eeb.jpg",[],1,4,0],["Timeless Elegance","timeless-elegance",100,"3000157140083-Red_5507586f-f54b-449e-8ee4-743f10aa9553.jpg",["3000157140083-Red-1_49361eba-3b75-42e7-a3c0-68078f1a077d.jpg"],0,8,0],["Oriental Delights Basket 1","oriental-delights-basket-1",90,"34060328254_650ae207-0929-416d-9a30-a1824156e842.jpg",[],1,4,0],["Your Love Red Rose","your-love-red-rose",65,"3000157247256_c9aa60c6-6c90-45a9-a1e9-f19eb84a7053.jpg",[],2,4,0],["Salted Caramel Cake","salted-caramel-cake",65,"34010131923_0d358db0-2fa3-498d-b53c-b7069e7c80f3.jpg",["34010131923-1_a31da1fb-bdc3-4671-9c64-2d8a5624e44b.jpg","34010131923-2_05fadbcf-ed9c-4316-955f-2b8e5e22dc50.jpg"],16,4,0],["Red Roses","red-roses",60,"3000157192273_4157e6d0-cfee-4f0f-a0cb-39804632024f.jpg",[],16,8,0],["Chocolate Cake","chocolate-cake",55,"34010131924_435d9c6b-9a40-43e0-b2d9-dfd876058580.jpg",["34010131924-1_443cb09b-ec94-4a33-bb0c-686502429849.jpg","34010131924-2_c7402918-bc97-4db8-ab29-458dd84cde3f.jpg"],16,4,0],["Strawberry Vanilla Cake","strawberry-vanilla-cake",55,"34010131924-Vanilla_654221e4-6227-496f-90ff-e67733a276f5.jpg",["34010131924-Vanilla-1_8961b6b9-1fa1-4064-88cc-67582959c397.jpg","34010131924-Vanilla-2_d729299e-6e0e-4129-bf99-9b013197f23e.jpg"],16,4,0],["Savory Sands Nuts","savory-sands-nuts",45,"3000157279325_4fe40ed3-ee35-49a9-accb-518e5237e7a4.jpg",[],8,4,0]];
+var OCC=['ramadan','valentines','mothers','national','weddings','christmas'];
+var STY=['platter','bouquet','fruitflower','flowers','acrylic','hamper'];
+var OCC_LABEL={ramadan:'Ramadan & Eid',valentines:"Valentine's Day",mothers:"Mother's Day",national:'National Day & Feasts',weddings:'Weddings & Events',christmas:'Christmas & New Year'};
+var STY_LABEL={platter:'Fruit platters',bouquet:'Fruit bouquets',fruitflower:'Fruit & flowers',flowers:'Flowers',acrylic:'Acrylic',hamper:'Hampers'};
+
+var P=RAW.map(function(r){
+  return {name:r[0],
+    handle:(r[1].charAt(0)==='!'?r[1].slice(1):'ambrosia-'+r[1]),
+    price:r[2], img:r[3], alt:r[4]||[], occ:r[5], sty:r[6], isNew:!!r[7]};
+});
+function img(f,w){return CDN+f+'?width='+w;}
+function money(n){return 'AED '+n.toLocaleString('en-US');}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function bit(list,key){return 1<<list.indexOf(key);}
+function inOcc(p,k){return (p.occ & bit(OCC,k))!==0;}
+function inSty(p,k){return (p.sty & bit(STY,k))!==0;}
+function group(k,isOcc){return P.filter(function(p){return isOcc?inOcc(p,k):inSty(p,k);});}
+function from(list){return list.reduce(function(m,p){return Math.min(m,p.price);},1/0);}
+
+/* ── the Ambrosia year ─────────────────────────── */
+var YEAR=[
+  {k:'valentines', when:'14 February',          img:'3000157094027-1_3636c6f6-5f80-4af9-8cbe-9410a4257d76.jpg', alt:'A heart of red roses on a moss base'},
+  {k:'ramadan',    when:'Ramadan · Eid',        img:'34060329659_de953a08-ff83-4be8-992b-6c446524dde9.jpg',    alt:'Eid Mubarak deluxe fruit tray'},
+  {k:'mothers',    when:'21 March · UAE',       img:'3000157245085_62d940cb-40b2-4739-bde8-1db068d3b24c.jpg',  alt:'A large bouquet of red roses'},
+  {k:'weddings',   when:'Year-round',           img:'3000157276683_2f7c126c-01aa-469c-ba27-8dccdd158e8b.jpg',  alt:'Pastel Prince Royal Gourmet showpiece'},
+  {k:'national',   when:'2 December',           img:'3000157086725_eace5e01-1e1c-453c-af51-15544bcec1c1.jpg',  alt:'UAE flag arrangement in fruit and flowers'},
+  {k:'christmas',  when:'December · New Year',  img:'3000157162696_46a1d44c-86c3-4b21-b6f3-a535e2b6c521.jpg',  alt:'Fruit Christmas tree deluxe'}
+];
+document.getElementById('yearGrid').innerHTML=YEAR.map(function(y){
+  var g=group(y.k,true);
+  return '<button class="occ" type="button" data-occ="'+y.k+'">'
+    +'<span class="occ-img"><img src="'+img(y.img,620)+'" alt="'+esc(y.alt)+'" width="620" height="620" loading="lazy" decoding="async"></span>'
+    +'<span class="occ-when">'+esc(y.when)+'<i></i></span>'
+    +'<h3>'+esc(OCC_LABEL[y.k])+'</h3>'
+    +'<span class="occ-meta">'+g.length+' pieces · from '+money(from(g))+'</span>'
+    +'</button>';
+}).join('');
+
+/* ── signature ─────────────────────────────────── */
+document.getElementById('sigGrid').innerHTML=P.slice(0,4).map(function(p){
+  return '<a href="'+SHOP+p.handle+'" target="_blank" rel="noopener">'
+    +'<span class="sig-img"><img src="'+img(p.img,620)+'" alt="'+esc(p.name)+'" width="620" height="620" loading="lazy" decoding="async"></span>'
+    +'<h3>'+esc(p.name)+'</h3><span class="price">'+money(p.price)+'</span></a>';
+}).join('');
+
+/* ── catalogue ─────────────────────────────────── */
+var state={sty:'all',occ:'all',q:'',sort:'feat',shown:24};
+var grid=document.getElementById('grid'),countEl=document.getElementById('count'),
+    emptyEl=document.getElementById('empty'),moreBtn=document.getElementById('more');
+
+var styChips=document.getElementById('styChips');
+styChips.innerHTML='<button class="chip" type="button" data-sty="all" aria-pressed="true">All 260</button>'
+  +STY.filter(function(k){return group(k,false).length>3;}).map(function(k){
+    return '<button class="chip" type="button" data-sty="'+k+'" aria-pressed="false">'+esc(STY_LABEL[k])+' '+group(k,false).length+'</button>';
+  }).join('');
+
+document.getElementById('occSel').innerHTML='<option value="all">Any occasion</option>'
+  +OCC.map(function(k){return '<option value="'+k+'">'+esc(OCC_LABEL[k])+' ('+group(k,true).length+')</option>';}).join('');
+
+function matches(){
+  var q=state.q.trim().toLowerCase();
+  var list=P.filter(function(p){
+    if(state.sty!=='all' && !inSty(p,state.sty)) return false;
+    if(state.occ!=='all' && !inOcc(p,state.occ)) return false;
+    if(q && p.name.toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  if(state.sort==='asc') list=list.slice().sort(function(a,b){return a.price-b.price;});
+  else if(state.sort==='desc') list=list.slice().sort(function(a,b){return b.price-a.price;});
+  else if(state.sort==='az') list=list.slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+  return list;
+}
+function occNames(p){
+  return OCC.filter(function(k){return inOcc(p,k);}).map(function(k){return OCC_LABEL[k];}).slice(0,2).join(' · ');
+}
+function render(){
+  var list=matches(), slice=list.slice(0,state.shown);
+  grid.innerHTML=slice.map(function(p,i){
+    return '<article class="card">'
+      +'<div class="card-plate">'
+      +(p.isNew?'<span class="badge">New</span>':'')
+      +'<img src="'+img(p.img,560)+'" alt="'+esc(p.name)+'" width="560" height="560" loading="lazy" decoding="async">'
+      +'<button class="look" type="button" data-i="'+P.indexOf(p)+'">Quick look</button>'
+      +'</div><div class="card-body">'
+      +'<a href="'+SHOP+p.handle+'" target="_blank" rel="noopener">'+esc(p.name)+'</a>'
+      +'<span class="card-occ">'+esc(occNames(p)||'All year')+'</span>'
+      +'<span class="price">'+money(p.price)+'</span>'
+      +'</div></article>';
+  }).join('');
+  countEl.textContent=list.length+(list.length===1?' piece':' pieces')+(list.length>slice.length?' · showing '+slice.length:'');
+  emptyEl.hidden=list.length>0;
+  moreBtn.parentNode.hidden=list.length<=slice.length;
+}
+function reset(){state.shown=24;render();}
+
+styChips.addEventListener('click',function(e){
+  var b=e.target.closest('.chip'); if(!b) return;
+  state.sty=b.dataset.sty;
+  [].forEach.call(styChips.children,function(c){c.setAttribute('aria-pressed',String(c===b));});
+  reset();
+});
+document.getElementById('occSel').addEventListener('change',function(e){state.occ=e.target.value;reset();});
+document.getElementById('sortSel').addEventListener('change',function(e){state.sort=e.target.value;reset();});
+var t;document.getElementById('q').addEventListener('input',function(e){
+  clearTimeout(t);var v=e.target.value;t=setTimeout(function(){state.q=v;reset();},160);
+});
+moreBtn.addEventListener('click',function(){state.shown+=24;render();});
+
+/* occasion jump, from the year cards and the gifting band */
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-occ]'); if(!b) return;
+  var sel=document.getElementById('occSel');
+  sel.value=b.dataset.occ; state.occ=b.dataset.occ; state.sty='all';
+  [].forEach.call(styChips.children,function(c){c.setAttribute('aria-pressed',String(c.dataset.sty==='all'));});
+  reset();
+  document.getElementById('catalogue').scrollIntoView({behavior:'smooth',block:'start'});
+});
+
+/* ── quick look ────────────────────────────────── */
+var modal=null,lastFocus=null;
+function closeModal(){ if(!modal) return; modal.remove(); modal=null; document.body.style.overflow=''; if(lastFocus) lastFocus.focus(); }
+function openModal(p){
+  lastFocus=document.activeElement;
+  var shots=[p.img].concat(p.alt);
+  modal=document.createElement('div');
+  modal.className='modal'; modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true'); modal.setAttribute('aria-label',p.name);
+  modal.innerHTML='<div class="sheet">'
+    +'<div class="sheet-img"><img id="shot" src="'+img(shots[0],900)+'" alt="'+esc(p.name)+'" width="900" height="900">'
+    +(shots.length>1?'<div class="thumbs">'+shots.map(function(s,i){
+        return '<button type="button" data-s="'+i+'" aria-current="'+(i===0)+'"><img src="'+img(s,160)+'" alt="View '+(i+1)+'" width="160" height="160"></button>';}).join('')+'</div>':'')
+    +'</div>'
+    +'<div class="sheet-body">'
+    +'<button class="sheet-close" type="button">Close</button>'
+    +'<h3>'+esc(p.name)+'</h3>'
+    +'<p class="price" style="font-size:1.05rem">'+money(p.price)+'</p>'
+    +'<p class="lede" style="font-size:.95rem">Hand-made in Dubai by Ambrosia and delivered the same day.</p>'
+    +'<div class="kv">'
+      +'<div><span>Kind</span><b>'+esc(STY.filter(function(k){return inSty(p,k);}).map(function(k){return STY_LABEL[k];}).join(', ')||'Arrangement')+'</b></div>'
+      +'<div><span>Occasions</span><b>'+esc(OCC.filter(function(k){return inOcc(p,k);}).map(function(k){return OCC_LABEL[k];}).join(', ')||'All year')+'</b></div>'
+      +'<div><span>Price</span><b>'+money(p.price)+'</b></div>'
+    +'</div>'
+    +'<a class="btn dark" href="'+SHOP+p.handle+'" target="_blank" rel="noopener">Order on the store</a>'
+    +'</div></div>';
+  document.body.appendChild(modal); document.body.style.overflow='hidden';
+  modal.querySelector('.sheet-close').focus();
+  modal.addEventListener('click',function(e){
+    if(e.target===modal){closeModal();return;}
+    if(e.target.closest('.sheet-close')){closeModal();return;}
+    var th=e.target.closest('[data-s]');
+    if(th){
+      modal.querySelector('#shot').src=img(shots[+th.dataset.s],900);
+      [].forEach.call(modal.querySelectorAll('.thumbs button'),function(b){b.setAttribute('aria-current',String(b===th));});
+    }
+  });
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('.look'); if(!b) return;
+  e.preventDefault(); openModal(P[+b.dataset.i]);
+});
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
+
+/* ── footer links ──────────────────────────────── */
+document.getElementById('footOcc').innerHTML=OCC.map(function(k){
+  return '<li><a href="#catalogue" data-occ="'+k+'">'+esc(OCC_LABEL[k])+'</a></li>';}).join('');
+document.getElementById('footSty').innerHTML=STY.filter(function(k){return group(k,false).length>3;}).map(function(k){
+  return '<li><a href="https://testtfm.myshopify.com/collections/ambrosia" target="_blank" rel="noopener">'+esc(STY_LABEL[k])+'</a></li>';}).join('');
+
+render();
+})();
+</script>
