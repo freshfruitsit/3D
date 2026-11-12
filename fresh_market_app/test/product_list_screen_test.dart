@@ -213,7 +213,7 @@ void main() {
     expect(find.text('Featured'), findsNothing);
   });
 
-  testWidgets('favourites list comes from the store without the network',
+  testWidgets('favourites list shows the saved products and refreshes them',
       (tester) async {
     final api = FakeShopifyApi.sample();
     final favourites = FavouritesStore();
@@ -230,7 +230,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(api.calls, isEmpty);
+    // Each saved product is reloaded once for today's price and stock;
+    // no collection is loaded.
+    expect(api.calls.toSet(),
+        {'product(zespri-kiwi-sungold)', 'product(cucumber)'});
     expect(find.text('Favourites'), findsOneWidget);
     expect(find.text('2 products'), findsOneWidget);
     // Newest favourite first.

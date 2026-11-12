@@ -102,6 +102,21 @@ class _SearchScreenState extends State<SearchScreen> {
     _search(term);
   }
 
+  /// A pre-filled search comes from a brand tile, where the store's loose
+  /// matching (descriptions) would show unrelated products under the
+  /// brand's name. Those keep only products that name the term.
+  bool _isInitialQuery(String query) =>
+      query.toLowerCase() == widget.initialQuery?.trim().toLowerCase();
+
+  /// True when the product's title, vendor or a tag (`brand:Jazz`,
+  /// `origin:Thailand`) contains [term].
+  static bool _mentions(Product product, String term) {
+    final wanted = term.toLowerCase();
+    return product.title.toLowerCase().contains(wanted) ||
+        product.vendor.toLowerCase().contains(wanted) ||
+        product.tags.any((tag) => tag.toLowerCase().contains(wanted));
+  }
+
   Future<void> _search(String query) async {
     final request = ++_request;
     final api = context.read<ShopifyApi>();
@@ -111,9 +126,12 @@ class _SearchScreenState extends State<SearchScreen> {
       _error = null;
     });
     try {
-      final results =
+      var results =
           await api.search(query, limit: SearchScreen.resultLimit);
       if (!mounted || request != _request) return;
+      if (_isInitialQuery(query)) {
+        results = results.where((p) => _mentions(p, query)).toList();
+      }
       setState(() {
         _results = results;
         _loading = false;

@@ -110,11 +110,12 @@ class HttpShopifyApi implements ShopifyApi {
   /// The clock of the cache (replaceable in tests).
   DateTime Function() now = DateTime.now;
 
-  void _remember(Product product) {
-    if (product.handle.isEmpty) return;
+  void _remember(Product product, [String? handle]) {
+    final key = handle ?? product.handle;
+    if (key.isEmpty) return;
     _productCache
-      ..remove(product.handle)
-      ..[product.handle] = (product: product, loadedAt: now());
+      ..remove(key)
+      ..[key] = (product: product, loadedAt: now());
     while (_productCache.length > productCacheSize) {
       _productCache.remove(_productCache.keys.first);
     }
@@ -130,7 +131,10 @@ class HttpShopifyApi implements ShopifyApi {
       'limit': '$limit',
       'page': '$page',
     });
-    return _parse(() => Product.listFromJson(_asMap(json)));
+    final products = _parse(() => Product.listFromJson(_asMap(json)));
+    // So search and cart rows agree with the list just shown.
+    products.forEach(_remember);
+    return products;
   }
 
   @override
@@ -189,7 +193,7 @@ class HttpShopifyApi implements ShopifyApi {
     // The .js shape is used because it carries `available` per variant.
     final json = await _getJson('/products/$handle.js', const {});
     final product = _parse(() => Product.fromJson(_asMap(json)));
-    _remember(product);
+    _remember(product, handle);
     return product;
   }
 

@@ -7,7 +7,9 @@ import 'screens/checkout_screen.dart';
 import 'screens/product_detail_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/search_screen.dart';
+import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
+import 'theme/app_theme.dart';
 
 /// Every way of moving between screens. Screens call these instead of
 /// building routes themselves, so the bottom bar rules stay in one place:
@@ -52,10 +54,49 @@ abstract final class AppNav {
         ),
       );
 
+  /// Shown when cart lines had to be removed because the store no longer
+  /// has them.
+  static const String removedItemsMessage =
+      'Some items are no longer available and were removed.';
+
+  /// Says [message] above the floating bottom bar.
+  static void showNotice(BuildContext context, String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.fromLTRB(
+            AppDims.gutter,
+            0,
+            AppDims.gutter,
+            AppDims.bottomBarSpace(context),
+          ),
+        ),
+      );
+  }
+
   /// Checkout for the current cart, full screen. Does nothing when the
   /// cart is empty.
+  ///
+  /// The cart is first checked against the store, because Shopify refuses
+  /// a checkout that contains a variant it no longer has. If lines had to
+  /// be removed the shopper stays on the cart and is told so.
   static Future<void> openCheckout(BuildContext context) async {
-    final url = context.read<CartStore>().checkoutUrl;
+    final cart = context.read<CartStore>();
+    if (cart.isEmpty) return;
+    final removed = await cart
+        .revalidate(context.read<ShopifyApi>())
+        .timeout(const Duration(seconds: 8), onTimeout: () => 0);
+    if (!context.mounted) return;
+    if (removed > 0) {
+      showNotice(context, removedItemsMessage);
+      return;
+    }
+    final url = cart.checkoutUrl;
     if (url == null) return;
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(builder: (_) => CheckoutScreen(url: url)),

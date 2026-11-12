@@ -14,8 +14,30 @@ import '../widgets/state_views.dart';
 
 /// The Cart tab: the lines of the cart with steppers and a summary card
 /// with the Checkout button resting above the floating bottom bar.
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _revalidate();
+  }
+
+  /// The cart is saved on the device, possibly days ago: bring names and
+  /// prices up to date and drop lines the store no longer has.
+  Future<void> _revalidate() async {
+    final removed = await context
+        .read<CartStore>()
+        .revalidate(context.read<ShopifyApi>());
+    if (removed > 0 && mounted) {
+      AppNav.showNotice(context, AppNav.removedItemsMessage);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,15 +141,16 @@ class _CartRowState extends State<_CartRow> {
   Future<void> _openProduct() async {
     final handle = widget.line.handle;
     if (_opening || handle.isEmpty) return;
-    _opening = true;
+    setState(() => _opening = true);
     try {
       final product = await context.read<ShopifyApi>().product(handle);
       if (!mounted) return;
+      setState(() => _opening = false);
       await AppNav.openProduct(context, product);
-    } on ApiException {
-      // Stay on the cart.
+    } on ApiException catch (e) {
+      if (mounted) AppNav.showNotice(context, e.userMessage);
     } finally {
-      _opening = false;
+      if (mounted && _opening) setState(() => _opening = false);
     }
   }
 
@@ -151,7 +174,27 @@ class _CartRowState extends State<_CartRow> {
                 SizedBox(
                   width: 72,
                   height: 72,
-                  child: ProductImage(url: line.imageUrl, logicalWidth: 72),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Opacity(
+                        opacity: _opening ? 0.4 : 1,
+                        child: ProductImage(
+                          url: line.imageUrl,
+                          logicalWidth: 72,
+                        ),
+                      ),
+                      // The product is loading before its page opens.
+                      if (_opening)
+                        const Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -205,39 +248,81 @@ class _CartRowState extends State<_CartRow> {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
+class _SummaryCard extends StatefulWidget {
   const _SummaryCard({required this.subtotalCents});
 
   final int subtotalCents;
 
   @override
+  State<_SummaryCard> createState() => _SummaryCardState();
+}
+
+class _SummaryCardState extends State<_SummaryCard> {
+  /// True while the cart is checked against the store before checkout.
+  bool _checking = false;
+
+  Future<void> _checkout() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    try {
+      await AppNav.openCheckout(context);
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: AppDecor.card.copyWith(boxShadow: AppDecor.floatShadow),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('Subtotal', style: AppText.cardHeading),
-              ),
-              Text(formatMoney(subtotalCents), style: AppText.heading),
-            ],
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            'Delivery and taxes are calculated at checkout.',
-            style: AppText.caption,
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: () => AppNav.openCheckout(context),
-            child: const Text('Checkout'),
-          ),
-        ],
+    // Capped text scaling keeps the card a bounded height, so the list
+    // above always has room.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Container(
+        decoration: AppDecor.card.copyWith(boxShadow: AppDecor.floatShadow),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Subtotal', style: AppText.cardHeading),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      formatMoney(widget.subtotalCents),
+                      style: AppText.heading,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Delivery and taxes are calculated at checkout.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _checkout,
+              child: _checking
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Checkout'),
+            ),
+          ],
+        ),
       ),
     );
   }
