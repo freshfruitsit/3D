@@ -114,7 +114,7 @@ class CartLine {
 class CartStore extends ChangeNotifier {
   /// Reads any saved cart from [prefs]. With no [prefs] the cart lives in
   /// memory only (tests).
-  CartStore({SharedPreferences? this._prefs}) {
+  CartStore({this._prefs}) {
     _restore();
   }
 
