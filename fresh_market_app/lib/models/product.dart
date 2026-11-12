@@ -193,8 +193,8 @@ class Product {
   String sizeLine([Variant? variant]) {
     final v = variant ?? defaultVariant;
     return [
-      if (origin != null) origin!,
-      if (v?.label != null) v!.label!,
+      ?origin,
+      ?v?.label,
     ].join(' · ');
   }
 

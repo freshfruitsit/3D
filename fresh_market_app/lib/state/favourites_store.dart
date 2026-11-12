@@ -10,7 +10,7 @@ import '../models/product.dart';
 class FavouritesStore extends ChangeNotifier {
   /// Reads saved favourites from [prefs]. With no [prefs] they live in
   /// memory only (tests).
-  FavouritesStore({SharedPreferences? prefs}) : _prefs = prefs {
+  FavouritesStore({SharedPreferences? this._prefs}) {
     _restore();
   }
 

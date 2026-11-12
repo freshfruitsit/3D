@@ -66,7 +66,7 @@ class CartLine {
 
   /// "500 GM · Dhs. 4.75 each", or just "Dhs. 300.00 each".
   String get detailLine => [
-        if (variantTitle != null) variantTitle!,
+        ?variantTitle,
         '${formatMoney(priceCents)} each',
       ].join(' · ');
 
@@ -114,7 +114,7 @@ class CartLine {
 class CartStore extends ChangeNotifier {
   /// Reads any saved cart from [prefs]. With no [prefs] the cart lives in
   /// memory only (tests).
-  CartStore({SharedPreferences? prefs}) : _prefs = prefs {
+  CartStore({SharedPreferences? this._prefs}) {
     _restore();
   }
 
