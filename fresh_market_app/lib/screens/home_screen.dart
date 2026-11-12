@@ -1,17 +1,621 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../app_nav.dart';
+import '../data/catalog.dart';
+import '../models/product.dart';
+import '../services/shopify_api.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_search_field.dart';
+import '../widgets/category_tile.dart';
+import '../widgets/product_card.dart';
+import '../widgets/section_header.dart';
+import '../widgets/state_views.dart';
 
-/// STUB: replaced by the screen's owner. Keep the class name and
-/// constructor(s): the shell and AppNav depend on them.
-class HomeScreen extends StatelessWidget {
+/// The Home tab: header, search, banners, categories, product rails, the
+/// brands row and the "Made in UAE" card.
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  /// How many products a rail shows before "View all".
+  static const int railLimit = 10;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+/// What one rail currently has to show.
+class _RailData {
+  const _RailData({this.products, this.error, this.loading = false});
+
+  /// Null until the first successful load.
+  final List<Product>? products;
+
+  /// Shopper-safe message of the last failed load.
+  final String? error;
+
+  final bool loading;
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final Map<String, _RailData> _rails = {};
+
+  /// Latest request number per rail, so a slow old answer cannot overwrite
+  /// a newer one.
+  final Map<String, int> _requests = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final rail in Catalog.rails) {
+      _rails[rail.handle] = const _RailData(loading: true);
+      unawaited(_loadRail(rail));
+    }
+  }
+
+  Future<void> _loadRail(HomeRail rail) async {
+    final handle = rail.handle;
+    final request = (_requests[handle] ?? 0) + 1;
+    _requests[handle] = request;
+    final before = _rails[handle];
+    if (before == null || !before.loading) {
+      setState(() {
+        // Keep showing what is there while it reloads.
+        _rails[handle] =
+            _RailData(products: before?.products, loading: true);
+      });
+    }
+    _RailData next;
+    try {
+      final products = await context
+          .read<ShopifyApi>()
+          .collectionProducts(handle, limit: HomeScreen.railLimit);
+      next = _RailData(products: products);
+    } on ApiException catch (e) {
+      next = _RailData(error: e.userMessage);
+    } catch (_) {
+      next = const _RailData(error: 'Something went wrong. Please try again.');
+    }
+    if (!mounted || _requests[handle] != request) return;
+    setState(() => _rails[handle] = next);
+  }
+
+  Future<void> _refresh() => Future.wait(Catalog.rails.map(_loadRail));
+
+  Widget _rail(HomeRail rail) => _ProductRail(
+        rail: rail,
+        data: _rails[rail.handle] ?? const _RailData(loading: true),
+        onRetry: () => _loadRail(rail),
+      );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(child: Text('Home', style: AppText.heading)),
+        bottom: false,
+        child: RefreshIndicator(
+          color: AppColors.brand,
+          backgroundColor: AppColors.surface,
+          onRefresh: _refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.only(
+              top: 8,
+              bottom: AppDims.bottomBarSpace(context),
+            ),
+            children: [
+              const _Header(),
+              const SizedBox(height: 12),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+                child: SearchFieldButton(
+                  onTap: () => AppNav.openSearch(context),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const _BannerCarousel(),
+              const SizedBox(height: 20),
+              const SectionHeader(title: 'Shop By Category'),
+              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
+                child: CategoryGrid(),
+              ),
+              for (final rail in Catalog.railsBeforeBrands) _rail(rail),
+              const _BrandsRow(),
+              for (final rail in Catalog.railsAfterBrands) _rail(rail),
+              const SizedBox(height: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
+                child: _LocalCard(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Logo, the (static) delivery area and the "1Hr Express" chip.
+class _Header extends StatelessWidget {
+  const _Header();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppDims.controlBorderRadius,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Image.asset(
+              Catalog.logoAsset,
+              fit: BoxFit.contain,
+              semanticLabel: 'Fresh Market',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Deliver to', style: AppText.caption),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 18, color: AppColors.ink),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        'Choose your area',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.cardHeading,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 7, 12, 7),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bolt, size: 18, color: AppColors.brand),
+                const SizedBox(width: 2),
+                Text(
+                  '1Hr Express',
+                  style: AppText.caption.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.brand,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The three bundled banners with page dots. Advances by itself; a tap
+/// opens the banner's collection.
+class _BannerCarousel extends StatefulWidget {
+  const _BannerCarousel();
+
+  /// Width / height of the banner area (the first banner's own shape; the
+  /// taller ones are cropped top and bottom).
+  static const double aspectRatio = 780 / 332;
+
+  static const Duration interval = Duration(seconds: 5);
+
+  @override
+  State<_BannerCarousel> createState() => _BannerCarouselState();
+}
+
+class _BannerCarouselState extends State<_BannerCarousel> {
+  final PageController _controller = PageController();
+  Timer? _timer;
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _restartTimer();
+  }
+
+  void _restartTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(_BannerCarousel.interval, (_) => _advance());
+  }
+
+  void _advance() {
+    if (!mounted || !_controller.hasClients) return;
+    // Do not move the banners while the tab is hidden or covered.
+    if (!TickerMode.valuesOf(context).enabled) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    final next = (_page + 1) % Catalog.banners.length;
+    _controller.animateToPage(
+      next,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const banners = Catalog.banners;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final height = (constraints.maxWidth - 2 * AppDims.gutter) /
+                _BannerCarousel.aspectRatio;
+            return SizedBox(
+              height: height,
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: banners.length,
+                onPageChanged: (index) {
+                  setState(() => _page = index);
+                  _restartTimer();
+                },
+                itemBuilder: (context, index) {
+                  final banner = banners[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppDims.gutter),
+                    child: Semantics(
+                      button: true,
+                      label: 'Shop ${banner.title}',
+                      child: Material(
+                        key: ValueKey('banner-$index'),
+                        color: AppColors.tile,
+                        borderRadius: AppDims.cardBorderRadius,
+                        clipBehavior: Clip.antiAlias,
+                        child: Ink.image(
+                          image: AssetImage(banner.asset),
+                          fit: BoxFit.cover,
+                          child: InkWell(
+                            onTap: () => AppNav.openCollection(
+                              context,
+                              handle: banner.handle,
+                              title: banner.title,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        ExcludeSemantics(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < banners.length; i++)
+                AnimatedContainer(
+                  key: ValueKey('banner-dot-$i'),
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == _page ? 18 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i == _page ? AppColors.ink : AppColors.border,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One horizontal product rail: heading with "View all", then cards, a
+/// skeleton while loading or a retry row on failure. A collection with no
+/// products shows nothing at all.
+class _ProductRail extends StatelessWidget {
+  const _ProductRail({
+    required this.rail,
+    required this.data,
+    required this.onRetry,
+  });
+
+  final HomeRail rail;
+  final _RailData data;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final products = data.products;
+    final height = ProductCard.heightOf(context);
+
+    final Widget content;
+    if (products != null) {
+      if (products.isEmpty) return const SizedBox.shrink();
+      content = SizedBox(
+        height: height,
+        child: ListView.separated(
+          key: PageStorageKey('rail-${rail.handle}'),
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+          itemCount: products.length,
+          separatorBuilder: (_, _) => const SizedBox(width: ProductCard.gap),
+          itemBuilder: (context, index) => SizedBox(
+            width: ProductCard.railWidth,
+            child: ProductCard(product: products[index]),
+          ),
+        ),
+      );
+    } else if (data.error != null) {
+      content = ErrorView(message: data.error!, onRetry: onRetry, compact: true);
+    } else {
+      content = _RailSkeleton(
+        key: ValueKey('rail-loading-${rail.handle}'),
+        height: height,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SectionHeader(
+            title: rail.title,
+            onViewAll: () => AppNav.openCollection(
+              context,
+              handle: rail.handle,
+              title: rail.title,
+            ),
+          ),
+          const SizedBox(height: 4),
+          content,
+        ],
+      ),
+    );
+  }
+}
+
+/// Card-shaped placeholders shown while a rail loads for the first time.
+class _RailSkeleton extends StatelessWidget {
+  const _RailSkeleton({super.key, required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double width, double height) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: AppColors.disabledFill,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+
+    return Semantics(
+      label: 'Loading products',
+      child: SizedBox(
+        height: height,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+          itemCount: 3,
+          separatorBuilder: (_, _) => const SizedBox(width: ProductCard.gap),
+          itemBuilder: (context, index) => Container(
+            width: ProductCard.railWidth,
+            decoration: AppDecor.card,
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 116,
+                  decoration: BoxDecoration(
+                    color: AppColors.disabledFill,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                bar(120, 12),
+                const SizedBox(height: 8),
+                bar(72, 10),
+                const SizedBox(height: 12),
+                bar(64, 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Brands We Love": the ten brand images from the store's website. The
+/// store's own brands collection is empty, so a brand opens Search.
+class _BrandsRow extends StatelessWidget {
+  const _BrandsRow();
+
+  static const double _imageSize = 104;
+
+  static const TextStyle _nameStyle = TextStyle(
+    fontFamily: AppText.family,
+    fontSize: 12,
+    height: 1.3,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ink,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    const brands = Catalog.brands;
+    final nameHeight =
+        MediaQuery.textScalerOf(context).scale(12) * 1.3 * 2 + 1;
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SectionHeader(title: 'Brands We Love'),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: _imageSize + 6 + nameHeight,
+            child: ListView.separated(
+              key: const PageStorageKey('brands'),
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+              itemCount: brands.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final brand = brands[index];
+                return Semantics(
+                  button: true,
+                  label: brand.name,
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    key: ValueKey('brand-$index'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => AppNav.openSearch(
+                      context,
+                      initialQuery: brand.searchTerm,
+                    ),
+                    child: SizedBox(
+                      width: _imageSize,
+                      child: Column(
+                        children: [
+                          Container(
+                            width: _imageSize,
+                            height: _imageSize,
+                            clipBehavior: Clip.antiAlias,
+                            foregroundDecoration: BoxDecoration(
+                              borderRadius: AppDims.cardBorderRadius,
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            decoration: const BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: AppDims.cardBorderRadius,
+                            ),
+                            child: Image.asset(brand.asset, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            brand.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: _nameStyle,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The "Discover our fresh local products" card.
+class _LocalCard extends StatelessWidget {
+  const _LocalCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: AppDecor.card,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AspectRatio(
+            aspectRatio: 666 / 279,
+            child: ExcludeSemantics(
+              child: Image.asset(Catalog.localAsset, fit: BoxFit.cover),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'MADE IN UAE',
+                  style: AppText.caption.copyWith(
+                    color: AppColors.brand,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Discover our fresh local products',
+                  style: AppText.cardHeading,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Organic tomatoes, beetroot, marrow, capsicum and more, '
+                  'grown in the UAE and picked for you within 24 hours.',
+                  style: AppText.body,
+                ),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: () => AppNav.openCollection(
+                    context,
+                    handle: Catalog.localHandle,
+                    title: Catalog.localTitle,
+                  ),
+                  child: const Text('Discover now'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

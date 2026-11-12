@@ -36,7 +36,11 @@ Future<void> pumpScreen(
       cart: cart ?? CartStore(),
       favourites: favourites ?? FavouritesStore(),
       shell: shell,
-      child: MaterialApp(theme: buildAppTheme(), home: screen),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(),
+        home: screen,
+      ),
     ),
   );
 }
