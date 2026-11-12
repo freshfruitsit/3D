@@ -75,8 +75,9 @@ abstract interface class ShopifyApi {
   /// variants). An empty query gives an empty list.
   Future<List<Product>> search(String query, {int limit = 10});
 
-  /// One full product by handle.
-  Future<Product> product(String handle);
+  /// One full product by handle. With [refresh] it is always loaded from
+  /// the store, never from a cache.
+  Future<Product> product(String handle, {bool refresh = false});
 }
 
 /// [ShopifyApi] over the public storefront JSON endpoints.
@@ -94,7 +95,30 @@ class HttpShopifyApi implements ShopifyApi {
   /// Full products already loaded, by handle. Keeps search fast, because a
   /// search result has to be loaded as a full product before it can be
   /// added to the cart.
-  final Map<String, Product> _productCache = {};
+  ///
+  /// Entries older than [productCacheTtl] are loaded again, so prices and
+  /// stock do not go stale while the app stays open. Oldest entry first.
+  final Map<String, ({Product product, DateTime loadedAt})> _productCache =
+      {};
+
+  /// How long a cached product is trusted.
+  static const Duration productCacheTtl = Duration(minutes: 5);
+
+  /// The most products kept in the cache.
+  static const int productCacheSize = 200;
+
+  /// The clock of the cache (replaceable in tests).
+  DateTime Function() now = DateTime.now;
+
+  void _remember(Product product) {
+    if (product.handle.isEmpty) return;
+    _productCache
+      ..remove(product.handle)
+      ..[product.handle] = (product: product, loadedAt: now());
+    while (_productCache.length > productCacheSize) {
+      _productCache.remove(_productCache.keys.first);
+    }
+  }
 
   @override
   Future<List<Product>> collectionProducts(
@@ -155,13 +179,17 @@ class HttpShopifyApi implements ShopifyApi {
   }
 
   @override
-  Future<Product> product(String handle) async {
+  Future<Product> product(String handle, {bool refresh = false}) async {
     final cached = _productCache[handle];
-    if (cached != null) return cached;
+    if (!refresh &&
+        cached != null &&
+        now().difference(cached.loadedAt) < productCacheTtl) {
+      return cached.product;
+    }
     // The .js shape is used because it carries `available` per variant.
     final json = await _getJson('/products/$handle.js', const {});
     final product = _parse(() => Product.fromJson(_asMap(json)));
-    _productCache[handle] = product;
+    _remember(product);
     return product;
   }
 

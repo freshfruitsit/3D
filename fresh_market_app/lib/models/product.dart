@@ -147,6 +147,30 @@ class Product {
     return 'Options';
   }
 
+  /// This product with every variant marked sold out (for a product the
+  /// store no longer has).
+  Product soldOut() => Product(
+        id: id,
+        title: title,
+        handle: handle,
+        descriptionHtml: descriptionHtml,
+        vendor: vendor,
+        productType: productType,
+        tags: tags,
+        variants: [
+          for (final v in variants)
+            Variant(
+              id: v.id,
+              title: v.title,
+              priceCents: v.priceCents,
+              compareAtCents: v.compareAtCents,
+              available: false,
+            ),
+        ],
+        images: images,
+        options: options,
+      );
+
   Variant? variantById(int id) {
     for (final v in variants) {
       if (v.id == id) return v;

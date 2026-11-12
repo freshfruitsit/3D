@@ -72,10 +72,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: SafeArea(
-                bottom: false,
+            child: SafeArea(
+              bottom: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -491,7 +491,7 @@ class _BuyBar extends StatelessWidget {
               Row(
                 children: [
                   SizedBox(
-                    width: 112,
+                    width: 124,
                     child: QuantityStepper(
                       quantity: quantity,
                       onDecrement: onDecrement,

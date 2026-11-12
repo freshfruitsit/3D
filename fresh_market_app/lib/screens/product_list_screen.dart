@@ -30,7 +30,8 @@ class ProductListScreen extends StatefulWidget {
     required this.title,
   });
 
-  /// The shopper's favourites, from the FavouritesStore (no network).
+  /// The shopper's favourites, from the FavouritesStore; their price and
+  /// stock are refreshed from the store when the list opens.
   const ProductListScreen.favourites({super.key})
       : handle = null,
         title = 'Favourites';
@@ -79,8 +80,17 @@ class _ProductListScreenState extends State<ProductListScreen> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
-    if (!widget.isFavourites) _loadFirst();
+    if (widget.isFavourites) {
+      _refreshFavourites();
+    } else {
+      _loadFirst();
+    }
   }
+
+  /// Favourites are saved copies; bring their price and stock up to date.
+  Future<void> _refreshFavourites() => context
+      .read<FavouritesStore>()
+      .refresh(context.read<ShopifyApi>());
 
   @override
   void didUpdateWidget(ProductListScreen oldWidget) {
@@ -89,6 +99,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _sort = ProductSort.featured;
       if (widget.isFavourites) {
         _generation++;
+        _refreshFavourites();
       } else {
         _loadFirst();
       }
@@ -176,7 +187,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
   /// Loads every product of the collection (large pages), so a price sort
   /// orders the whole collection and not only the pages seen so far.
   Future<void> _loadAll() async {
-    final generation = _generation;
+    // A new generation, so a "load more" answer still on its way is dropped
+    // and cannot switch paging back on.
+    final generation = ++_generation;
     final api = context.read<ShopifyApi>();
     setState(() {
       _loadingAll = true;
@@ -230,7 +243,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Future<void> _refresh() async {
-    if (widget.isFavourites) return;
+    if (widget.isFavourites) return _refreshFavourites();
     await _loadFirst();
   }
 
@@ -402,14 +415,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: widget.isFavourites
-            ? scrollView
-            : RefreshIndicator(
-                color: AppColors.brand,
-                backgroundColor: AppColors.surface,
-                onRefresh: _refresh,
-                child: scrollView,
-              ),
+        child: RefreshIndicator(
+          color: AppColors.brand,
+          backgroundColor: AppColors.surface,
+          onRefresh: _refresh,
+          child: scrollView,
+        ),
       ),
     );
   }

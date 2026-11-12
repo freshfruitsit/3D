@@ -110,7 +110,7 @@ class FakeShopifyApi implements ShopifyApi {
   }
 
   @override
-  Future<Product> product(String handle) async {
+  Future<Product> product(String handle, {bool refresh = false}) async {
     await _before('product($handle)');
     for (final p in _allProducts) {
       if (p.handle == handle) return p;

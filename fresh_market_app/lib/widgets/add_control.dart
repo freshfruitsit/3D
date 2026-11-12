@@ -109,7 +109,10 @@ class QuantityStepper extends StatelessWidget {
                   showBin ? 'Remove from cart' : 'Decrease quantity',
                   onDecrement,
                 ),
-                count,
+                // Shrinks when a large system font would not fit.
+                Flexible(
+                  child: FittedBox(fit: BoxFit.scaleDown, child: count),
+                ),
                 button(Icons.add, 'Increase quantity', onIncrement),
               ],
             ),

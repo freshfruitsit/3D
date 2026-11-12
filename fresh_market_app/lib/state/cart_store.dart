@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/money.dart';
 import '../models/product.dart';
+import '../services/shopify_api.dart';
 
 /// One line of the cart. Holds everything needed to draw the row without
 /// the network.
@@ -190,6 +191,55 @@ class CartStore extends ChangeNotifier {
     if (_lines.isEmpty) return;
     _lines.clear();
     _changed();
+  }
+
+  /// Checks every line against the store: a line whose product or variant
+  /// no longer exists is removed (Shopify refuses a checkout containing
+  /// one), the others get today's name, price and photo. A product that
+  /// cannot be loaded right now (offline) is left as it is.
+  ///
+  /// Returns how many lines were removed.
+  Future<int> revalidate(ShopifyApi api) async {
+    final handles = {
+      for (final line in _lines.values)
+        if (line.handle.isNotEmpty) line.handle,
+    };
+    if (handles.isEmpty) return 0;
+
+    // handle -> fresh product, or null when the store no longer has it.
+    final fresh = <String, Product?>{};
+    await Future.wait(handles.map((handle) async {
+      try {
+        fresh[handle] = await api.product(handle, refresh: true);
+      } on HttpStatusException catch (e) {
+        if (e.isNotFound) fresh[handle] = null;
+      } on ApiException {
+        // Unknown for now; keep the line.
+      }
+    }));
+
+    var removed = 0;
+    var changed = false;
+    // Lines as they are now: the shopper may have edited the cart while
+    // the products were loading.
+    for (final line in _lines.values.toList()) {
+      if (!fresh.containsKey(line.handle)) continue;
+      final product = fresh[line.handle];
+      final variant = product?.variantById(line.variantId);
+      if (product == null || variant == null) {
+        _lines.remove(line.variantId);
+        removed++;
+        changed = true;
+        continue;
+      }
+      final next = CartLine.of(product, variant, line.quantity);
+      if (!mapEquals(next.toJson(), line.toJson())) {
+        _lines[line.variantId] = next;
+        changed = true;
+      }
+    }
+    if (changed) _changed();
+    return removed;
   }
 
   /// The Shopify cart permalink that opens checkout with this cart, or

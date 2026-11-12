@@ -129,19 +129,23 @@ class _NavItem extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 3),
-            Text(
-              tab.label,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              softWrap: false,
-              textScaler: MediaQuery.textScalerOf(context)
-                  .clamp(maxScaleFactor: 1.2),
-              style: TextStyle(
-                fontFamily: AppText.family,
-                fontSize: 11,
-                height: 1.2,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                color: active ? AppColors.ink : AppColors.secondary,
+            // Shrinks to the tab width when the system font is enlarged,
+            // so "Categories" is never cut off.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                tab.label,
+                maxLines: 1,
+                softWrap: false,
+                textScaler: MediaQuery.textScalerOf(context)
+                    .clamp(maxScaleFactor: 1.2),
+                style: TextStyle(
+                  fontFamily: AppText.family,
+                  fontSize: 11,
+                  height: 1.2,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? AppColors.ink : AppColors.secondary,
+                ),
               ),
             ),
           ],
