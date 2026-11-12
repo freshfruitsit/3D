@@ -40,6 +40,7 @@ dependencies:
   shared_preferences: ^2.5.6
   webview_flutter: ^4.14.1
   url_launcher: ^6.3.3
+  video_player: ^2.14.1
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +66,8 @@ flutter:
     - assets/banners/
     - assets/brands/
     - assets/categories/
+    - assets/promos/
+    - assets/video/
 
   fonts:
     - family: Inter
