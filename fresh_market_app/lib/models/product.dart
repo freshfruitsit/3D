@@ -205,14 +205,15 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final rawTags = json['tags'];
-    final tags = <String>[
-      if (rawTags is List)
-        for (final t in rawTags)
-          if (t is String) t
-      else if (rawTags is String)
-        for (final t in rawTags.split(','))
-          if (t.trim().isNotEmpty) t.trim(),
-    ];
+    final tags = <String>[];
+    if (rawTags is List) {
+      tags.addAll(rawTags.whereType<String>());
+    } else if (rawTags is String) {
+      // `/products/x.json` sends one comma-separated string.
+      tags.addAll(
+        rawTags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty),
+      );
+    }
 
     final images = <String>[];
     for (final image in (json['images'] as List? ?? const [])) {
