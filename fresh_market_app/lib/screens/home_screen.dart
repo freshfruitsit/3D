@@ -9,13 +9,15 @@ import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_search_field.dart';
+import '../widgets/brand_tile.dart';
 import '../widgets/category_tile.dart';
 import '../widgets/product_card.dart';
+import '../widgets/promo_row.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
 
 /// The Home tab: header, search, banners, categories, product rails, the
-/// brands row and the "Made in UAE" card.
+/// brands grid, the offers row and the "Made in UAE" card.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -63,15 +65,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (before == null || !before.loading) {
       setState(() {
         // Keep showing what is there while it reloads.
-        _rails[handle] =
-            _RailData(products: before?.products, loading: true);
+        _rails[handle] = _RailData(products: before?.products, loading: true);
       });
     }
     _RailData next;
     try {
-      final products = await context
-          .read<ShopifyApi>()
-          .collectionProducts(handle, limit: HomeScreen.railLimit);
+      final products = await context.read<ShopifyApi>().collectionProducts(
+            handle,
+            limit: HomeScreen.railLimit,
+          );
       next = _RailData(products: products);
     } on ApiException catch (e) {
       next = _RailData(error: e.userMessage);
@@ -103,14 +105,15 @@ class _HomeScreenState extends State<HomeScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(
               top: 8,
-              bottom: AppDims.bottomBarSpace(context),
+              // Extra room so the last card can scroll clear of the Ask
+              // button, which floats above the bottom bar.
+              bottom: AppDims.floatingSpace(context),
             ),
             children: [
               const _Header(),
               const SizedBox(height: 12),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+                padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
                 child: SearchFieldButton(
                   onTap: () => AppNav.openSearch(context),
                 ),
@@ -125,8 +128,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: CategoryGrid(),
               ),
               for (final rail in Catalog.railsBeforeBrands) _rail(rail),
-              const _BrandsRow(),
+              const SizedBox(height: 20),
+              const SectionHeader(title: 'Brands We Love'),
+              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
+                child: BrandGrid(),
+              ),
               for (final rail in Catalog.railsAfterBrands) _rail(rail),
+              const SizedBox(height: 20),
+              const SectionHeader(title: 'Offers'),
+              const SizedBox(height: 4),
+              const PromoRow(),
+              for (final rail in Catalog.railsAfterOffers) _rail(rail),
               const SizedBox(height: 24),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
@@ -174,8 +188,11 @@ class _Header extends StatelessWidget {
                 const Text('Deliver to', style: AppText.caption),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 18, color: AppColors.ink),
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 18,
+                      color: AppColors.ink,
+                    ),
                     const SizedBox(width: 2),
                     Flexible(
                       child: Text(
@@ -294,7 +311,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                   final banner = banners[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppDims.gutter),
+                      horizontal: AppDims.gutter,
+                    ),
                     child: Semantics(
                       button: true,
                       label: 'Shop ${banner.title}',
@@ -384,7 +402,11 @@ class _ProductRail extends StatelessWidget {
         ),
       );
     } else if (data.error != null) {
-      content = ErrorView(message: data.error!, onRetry: onRetry, compact: true);
+      content = ErrorView(
+        message: data.error!,
+        onRetry: onRetry,
+        compact: true,
+      );
     } else {
       content = _RailSkeleton(
         key: ValueKey('rail-loading-${rail.handle}'),
@@ -465,95 +487,6 @@ class _RailSkeleton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// "Brands We Love": the ten brand images from the store's website. The
-/// store's own brands collection is empty, so a brand opens Search.
-class _BrandsRow extends StatelessWidget {
-  const _BrandsRow();
-
-  static const double _imageSize = 104;
-
-  static const TextStyle _nameStyle = TextStyle(
-    fontFamily: AppText.family,
-    fontSize: 12,
-    height: 1.3,
-    fontWeight: FontWeight.w600,
-    color: AppColors.ink,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    const brands = Catalog.brands;
-    final nameHeight =
-        MediaQuery.textScalerOf(context).scale(12) * 1.3 * 2 + 1;
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SectionHeader(title: 'Brands We Love'),
-          const SizedBox(height: 4),
-          SizedBox(
-            height: _imageSize + 6 + nameHeight,
-            child: ListView.separated(
-              key: const PageStorageKey('brands'),
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
-              itemCount: brands.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final brand = brands[index];
-                return Semantics(
-                  button: true,
-                  label: brand.name,
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    key: ValueKey('brand-$index'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => AppNav.openSearch(
-                      context,
-                      initialQuery: brand.searchTerm,
-                    ),
-                    child: SizedBox(
-                      width: _imageSize,
-                      child: Column(
-                        children: [
-                          Container(
-                            width: _imageSize,
-                            height: _imageSize,
-                            clipBehavior: Clip.antiAlias,
-                            foregroundDecoration: BoxDecoration(
-                              borderRadius: AppDims.cardBorderRadius,
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            decoration: const BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: AppDims.cardBorderRadius,
-                            ),
-                            child: Image.asset(brand.asset, fit: BoxFit.cover),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            brand.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: _nameStyle,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

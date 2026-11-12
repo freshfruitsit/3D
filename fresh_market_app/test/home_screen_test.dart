@@ -5,9 +5,13 @@ import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/screens/search_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
+import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/app_search_field.dart';
+import 'package:fresh_market_app/widgets/brand_tile.dart';
 import 'package:fresh_market_app/widgets/category_tile.dart';
 import 'package:fresh_market_app/widgets/product_card.dart';
+import 'package:fresh_market_app/widgets/promo_row.dart';
+import 'package:fresh_market_app/widgets/section_header.dart';
 import 'package:fresh_market_app/widgets/state_views.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -21,6 +25,13 @@ Finder get _page => find
 
 Future<void> _scrollTo(WidgetTester tester, Finder target) async {
   await tester.scrollUntilVisible(target, 250, scrollable: _page);
+  await tester.pump();
+}
+
+/// Scrolls the page until [target] is built, then puts it mid-screen.
+Future<void> _centre(WidgetTester tester, Finder target) async {
+  await _scrollTo(tester, target);
+  await Scrollable.ensureVisible(tester.element(target), alignment: 0.5);
   await tester.pump();
 }
 
@@ -46,7 +57,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('sections come in the specified order, brands between rails',
+  testWidgets('sections come in the specified order, brands and offers between rails',
       (tester) async {
     final api = FakeShopifyApi.sample();
     await pumpScreen(tester, const HomeScreen(), api: api);
@@ -63,6 +74,7 @@ void main() {
       'Best Deals',
       'Brands We Love',
       'Fresh Pick For You',
+      'Offers',
       'Berries',
       'Seasonal Blooms',
       'Discover our fresh local products',
@@ -180,38 +192,174 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('brands row lists the ten brands and opens Search pre-filled',
+  testWidgets('brands grid shows the ten brands in four columns',
       (tester) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
-    await _scrollTo(tester, find.text('Brands We Love'));
+    await _centre(tester, find.byKey(const ValueKey('brand-5')));
 
-    expect(find.text('Chiquita Bananas'), findsOneWidget);
-    expect(find.text('Zespri Kiwi'), findsOneWidget);
-    final image = tester.widget<Image>(find.descendant(
+    expect(find.byType(BrandTile), findsNWidgets(10));
+    const labels = [
+      'CHIQUITA', 'ZESPRI', 'SEBASTIANO', 'JAZZ', 'GEMS', //
+      'FRUITWAY', 'DAZZLE', 'THAI FRESH', 'PINK LADY', 'JULIET',
+    ];
+    const files = [
+      'brand_0.png', 'brand_1.jpg', 'brand_2.jpg', 'brand_3.jpg', //
+      'brand_4.jpg', 'brand_5.jpg', 'brand_6.jpg', 'brand_7.png',
+      'brand_8.png', 'brand_9.jpg',
+    ];
+    for (var i = 0; i < 10; i++) {
+      final tile = find.byKey(ValueKey('brand-$i'));
+      expect(find.descendant(of: tile, matching: find.text(labels[i])),
+          findsOneWidget);
+      final image = tester.widget<Image>(
+          find.descendant(of: tile, matching: find.byType(Image)));
+      expect((image.image as AssetImage).assetName,
+          'assets/brands/${files[i]}');
+      expect(image.fit, BoxFit.cover);
+    }
+
+    // Four equal columns inside the gutter, 8 apart; a new row after four.
+    Rect rect(int i) => tester.getRect(find.byKey(ValueKey('brand-$i')));
+    const width = (390 - 2 * 16 - 3 * 8) / 4;
+    expect(rect(0).left, 16);
+    expect(rect(0).width, moreOrLessEquals(width));
+    expect(rect(3).right, moreOrLessEquals(390 - 16));
+    expect(rect(3).top, rect(0).top);
+    expect(rect(4).left, 16);
+    expect(rect(4).top, moreOrLessEquals(rect(0).bottom + 8));
+    expect(rect(9).left, rect(1).left);
+    expect(rect(9).top, greaterThan(rect(4).top));
+
+    // The image is a square filling the tile inside 6px padding.
+    final image = tester.getRect(find.descendant(
       of: find.byKey(const ValueKey('brand-0')),
       matching: find.byType(Image),
     ));
-    expect((image.image as AssetImage).assetName, 'assets/brands/brand_0.png');
-    expect(tester.getSize(find.byWidget(image)), const Size(104, 104));
+    expect(image.width, moreOrLessEquals(width - 12));
+    expect(image.height, moreOrLessEquals(width - 12));
+    expect(image.left, moreOrLessEquals(rect(0).left + 6));
+    expect(image.top, moreOrLessEquals(rect(0).top + 6));
 
-    // The last brand is reachable by scrolling the row.
-    final row = find.descendant(
-      of: find.byKey(const PageStorageKey('brands')),
-      matching: find.byType(Scrollable),
+    // Same tile look as the category grid.
+    final material = tester.widget<Material>(find.descendant(
+      of: find.byKey(const ValueKey('brand-0')),
+      matching: find.byType(Material),
+    ));
+    expect(material.color, AppColors.tile);
+    expect(
+      material.shape,
+      const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: AppColors.border),
+      ),
     );
-    await tester.scrollUntilVisible(find.text('Juliet Apple'), 200,
-        scrollable: row);
-    await tester.drag(row, const Offset(-200, 0));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('brand-9')), findsOneWidget);
+    final label = tester.widget<Text>(find.text('CHIQUITA'));
+    expect(label.style!.fontSize, 11);
+    expect(label.style!.fontWeight, FontWeight.w700);
+    expect(label.style!.color, const Color(0xFF14361F));
+    expect(tester.takeException(), isNull);
+  });
 
-    await tester.tap(find.text('Juliet Apple'));
+  testWidgets('a brand tile opens Search pre-filled', (tester) async {
+    await pumpScreen(tester, const HomeScreen());
+    await tester.pump();
+    await _centre(tester, find.byKey(const ValueKey('brand-5')));
+
+    await tester.tap(find.text('THAI FRESH'));
     await tester.pump();
     await tester.pump(_settle);
     final search = tester.widget<SearchScreen>(find.byType(SearchScreen));
-    expect(search.initialQuery, 'Juliet');
+    expect(search.initialQuery, 'Thai');
   });
+
+  testWidgets('brand tiles are labelled buttons', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpScreen(tester, const HomeScreen());
+    await tester.pump();
+    await _centre(tester, find.byKey(const ValueKey('brand-5')));
+    expect(find.bySemanticsLabel('Pink Lady'), findsOneWidget);
+    expect(find.bySemanticsLabel('Juliet'), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('offers row shows the four portrait banners in order',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpScreen(tester, const HomeScreen());
+    await tester.pump();
+    await _centre(tester, find.byKey(const ValueKey('promo-0')));
+
+    expect(find.text('Offers'), findsOneWidget);
+    // No "View all" beside the Offers heading.
+    final heading = tester.widget<SectionHeader>(
+        find.widgetWithText(SectionHeader, 'Offers'));
+    expect(heading.onViewAll, isNull);
+
+    final row = find.descendant(
+      of: find.byType(PromoRow),
+      matching: find.byType(Scrollable),
+    );
+    const assets = ['bulk', 'deals', 'essentials', 'ambrosia'];
+    const titles = [
+      'Bulk Buy', 'Best Deals', 'Deals on Essentials', 'Ambrosia', //
+    ];
+    for (var i = 0; i < 4; i++) {
+      final banner = find.byKey(ValueKey('promo-$i'));
+      await tester.scrollUntilVisible(banner, 120, scrollable: row);
+      await tester.pump();
+      expect(tester.getSize(banner), const Size(156, 208));
+      final ink = tester.widget<Ink>(
+          find.descendant(of: banner, matching: find.byType(Ink)));
+      final decoration = ink.decoration! as BoxDecoration;
+      expect((decoration.image!.image as AssetImage).assetName,
+          'assets/promos/${assets[i]}.jpg');
+      expect(decoration.image!.fit, BoxFit.cover);
+      expect(find.bySemanticsLabel('Shop ${titles[i]}'), findsOneWidget);
+    }
+    final material = tester.widget<Material>(find.byKey(const ValueKey('promo-3')));
+    expect(
+      material.shape,
+      const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: Color(0xFFB4D1B8)),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    handle.dispose();
+  });
+
+  const offerTargets = [
+    ('bulk-buy', 'Bulk Buy'),
+    ('best-deals', 'Best Deals'),
+    ('deals-on-essentials', 'Deals on Essentials'),
+    ('ambrosia', 'Ambrosia'),
+  ];
+  for (var i = 0; i < offerTargets.length; i++) {
+    testWidgets('offer banner ${i + 1} opens ${offerTargets[i].$1}',
+        (tester) async {
+      await pumpScreen(tester, const HomeScreen());
+      await tester.pump();
+      final banner = find.byKey(ValueKey('promo-$i'));
+      await _centre(tester, find.byKey(const ValueKey('promo-0')));
+      await tester.scrollUntilVisible(
+        banner,
+        120,
+        scrollable: find.descendant(
+          of: find.byType(PromoRow),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(banner);
+      await tester.pump();
+      await tester.pump(_settle);
+      final list = tester.widget<ProductListScreen>(
+          find.byType(ProductListScreen));
+      expect(list.handle, offerTargets[i].$1);
+      expect(list.title, offerTargets[i].$2);
+    });
+  }
 
   testWidgets('search field opens Search with no query', (tester) async {
     await pumpScreen(tester, const HomeScreen());

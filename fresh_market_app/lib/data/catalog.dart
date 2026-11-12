@@ -38,9 +38,23 @@ class HomeBanner {
 class BrandEntry {
   const BrandEntry(this.name, this.asset, this.searchTerm);
 
+  /// Shown uppercase on the tile.
   final String name;
   final String asset;
   final String searchTerm;
+}
+
+/// A portrait banner of the "Offers" row on Home.
+class PromoEntry {
+  const PromoEntry(this.asset, this.handle, this.title);
+
+  final String asset;
+
+  /// Collection the banner opens.
+  final String handle;
+
+  /// Title of the list the banner opens; also its spoken label.
+  final String title;
 }
 
 abstract final class Catalog {
@@ -82,31 +96,44 @@ abstract final class Catalog {
   static const HomeRail blooms =
       HomeRail('Seasonal Blooms', 'ambrosia-flowers');
 
-  /// Rails shown above the "Brands We Love" row.
+  /// Rails shown above the "Brands We Love" grid.
   static const List<HomeRail> railsBeforeBrands = [topDeals, bestDeals];
 
-  /// Rails shown below the "Brands We Love" row.
-  static const List<HomeRail> railsAfterBrands = [freshPick, berries, blooms];
+  /// Rails shown between the "Brands We Love" grid and the "Offers" row.
+  static const List<HomeRail> railsAfterBrands = [freshPick];
+
+  /// Rails shown below the "Offers" row.
+  static const List<HomeRail> railsAfterOffers = [berries, blooms];
 
   /// All five Home rails in display order.
   static const List<HomeRail> rails = [
     ...railsBeforeBrands,
     ...railsAfterBrands,
+    ...railsAfterOffers,
   ];
 
-  /// "Brands We Love", in display order. Images come from the store's
+  /// "Brands We Love", in grid order. Images come from the store's
   /// website.
   static const List<BrandEntry> brands = [
-    BrandEntry('Chiquita Bananas', 'assets/brands/brand_0.png', 'Chiquita'),
-    BrandEntry('Zespri Kiwi', 'assets/brands/brand_1.jpg', 'Zespri'),
-    BrandEntry('Sebastiano Banana', 'assets/brands/brand_2.jpg', 'Sebastiano'),
-    BrandEntry('Jazz Apple', 'assets/brands/brand_3.jpg', 'Jazz'),
-    BrandEntry('Gems Mandarin', 'assets/brands/brand_4.jpg', 'Gems'),
-    BrandEntry('Fruitway Pears', 'assets/brands/brand_5.jpg', 'Fruitway'),
-    BrandEntry('Dazzle Apple', 'assets/brands/brand_6.jpg', 'Dazzle'),
+    BrandEntry('Chiquita', 'assets/brands/brand_0.png', 'Chiquita'),
+    BrandEntry('Zespri', 'assets/brands/brand_1.jpg', 'Zespri'),
+    BrandEntry('Sebastiano', 'assets/brands/brand_2.jpg', 'Sebastiano'),
+    BrandEntry('Jazz', 'assets/brands/brand_3.jpg', 'Jazz'),
+    BrandEntry('Gems', 'assets/brands/brand_4.jpg', 'Gems'),
+    BrandEntry('Fruitway', 'assets/brands/brand_5.jpg', 'Fruitway'),
+    BrandEntry('Dazzle', 'assets/brands/brand_6.jpg', 'Dazzle'),
     BrandEntry('Thai Fresh', 'assets/brands/brand_7.png', 'Thai'),
-    BrandEntry('Pink Lady Apple', 'assets/brands/brand_8.png', 'Pink Lady'),
-    BrandEntry('Juliet Apple', 'assets/brands/brand_9.jpg', 'Juliet'),
+    BrandEntry('Pink Lady', 'assets/brands/brand_8.png', 'Pink Lady'),
+    BrandEntry('Juliet', 'assets/brands/brand_9.jpg', 'Juliet'),
+  ];
+
+  /// The "Offers" banners on Home, in row order.
+  static const List<PromoEntry> promos = [
+    PromoEntry('assets/promos/bulk.jpg', 'bulk-buy', 'Bulk Buy'),
+    PromoEntry('assets/promos/deals.jpg', 'best-deals', 'Best Deals'),
+    PromoEntry('assets/promos/essentials.jpg', 'deals-on-essentials',
+        'Deals on Essentials'),
+    PromoEntry('assets/promos/ambrosia.jpg', 'ambrosia', 'Ambrosia'),
   ];
 
   /// The Deals tab.

@@ -53,6 +53,16 @@ abstract final class AppDims {
   static double bottomBarSpace(BuildContext context) =>
       navBarClearance + MediaQuery.viewPaddingOf(context).bottom;
 
+  /// Height of the floating Ask button plus the gap between it and the
+  /// bottom bar (AskButton.height + AskButton.gapAboveNavBar).
+  static const double askButtonClearance = 60;
+
+  /// Bottom padding for scrollable content on screens that also show the
+  /// Ask button above the bottom bar, so the last row can scroll clear of
+  /// it.
+  static double floatingSpace(BuildContext context) =>
+      bottomBarSpace(context) + askButtonClearance;
+
   static const BorderRadius cardBorderRadius =
       BorderRadius.all(Radius.circular(cardRadius));
   static const BorderRadius controlBorderRadius =

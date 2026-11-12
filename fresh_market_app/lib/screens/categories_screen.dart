@@ -20,7 +20,7 @@ class CategoriesScreen extends StatelessWidget {
             AppDims.gutter,
             12,
             AppDims.gutter,
-            AppDims.bottomBarSpace(context),
+            AppDims.floatingSpace(context),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

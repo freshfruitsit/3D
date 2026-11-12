@@ -59,8 +59,13 @@ abstract final class AppNav {
   static const String removedItemsMessage =
       'Some items are no longer available and were removed.';
 
-  /// Says [message] above the floating bottom bar.
-  static void showNotice(BuildContext context, String message) {
+  /// Says [message] above the floating bottom bar and the Ask button, or
+  /// [bottomMargin] above the bottom of a screen that has neither.
+  static void showNotice(
+    BuildContext context,
+    String message, {
+    double? bottomMargin,
+  }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
     messenger
@@ -73,7 +78,7 @@ abstract final class AppNav {
             AppDims.gutter,
             0,
             AppDims.gutter,
-            AppDims.bottomBarSpace(context),
+            bottomMargin ?? AppDims.floatingSpace(context),
           ),
         ),
       );

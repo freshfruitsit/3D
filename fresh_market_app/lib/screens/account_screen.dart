@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import '../app_nav.dart';
 import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
+import 'intro_screen.dart';
 
 /// The Account tab: a sign-in card (sign-in is not available in this
-/// version) and the way into the favourites list.
+/// version), the way into the favourites list and a replay of the intro.
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
@@ -22,7 +23,7 @@ class AccountScreen extends StatelessWidget {
             AppDims.gutter,
             16,
             AppDims.gutter,
-            AppDims.bottomBarSpace(context),
+            AppDims.floatingSpace(context),
           ),
           children: [
             const Text('Account', style: AppText.title),
@@ -48,51 +49,88 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              decoration: AppDecor.card,
-              clipBehavior: Clip.antiAlias,
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: () => AppNav.openFavourites(context),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          favourites > 0
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 22,
-                          color: favourites > 0 ? AppColors.red : AppColors.ink,
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text('Favourites', style: AppText.cardHeading),
-                        ),
-                        Text(
-                          '$favourites',
-                          semanticsLabel: favourites == 1
-                              ? '1 saved product'
-                              : '$favourites saved products',
-                          style: AppText.caption.copyWith(fontSize: 14),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.chevron_right,
-                          size: 22,
-                          color: AppColors.secondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+            _AccountRow(
+              icon: favourites > 0 ? Icons.favorite : Icons.favorite_border,
+              iconColor: favourites > 0 ? AppColors.red : AppColors.ink,
+              label: 'Favourites',
+              onTap: () => AppNav.openFavourites(context),
+              trailing: Text(
+                '$favourites',
+                semanticsLabel: favourites == 1
+                    ? '1 saved product'
+                    : '$favourites saved products',
+                style: AppText.caption.copyWith(fontSize: 14),
               ),
             ),
+            const SizedBox(height: 12),
+            _AccountRow(
+              icon: Icons.play_circle_outline,
+              label: 'Watch the intro again',
+              onTap: () => _watchIntro(context),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Plays the intro over the whole screen (no bottom bar) and comes back
+  /// here when it finishes.
+  static Future<void> _watchIntro(BuildContext context) =>
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (routeContext) => IntroScreen(
+            onDone: () => Navigator.of(routeContext).pop(),
+          ),
+        ),
+      );
+}
+
+/// One white tappable row: icon, label, optional value, chevron.
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor = AppColors.ink,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: AppDecor.card,
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                Icon(icon, size: 22, color: iconColor),
+                const SizedBox(width: 12),
+                Expanded(child: Text(label, style: AppText.cardHeading)),
+                if (trailing != null) ...[
+                  trailing!,
+                  const SizedBox(width: 4),
+                ],
+                const Icon(
+                  Icons.chevron_right,
+                  size: 22,
+                  color: AppColors.secondary,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

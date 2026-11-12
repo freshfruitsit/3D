@@ -6,7 +6,12 @@ import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:fresh_market_app/widgets/floating_nav_bar.dart';
 import 'package:fresh_market_app/widgets/product_card.dart';
+import 'package:fresh_market_app/screens/assistant_screen.dart';
+import 'package:fresh_market_app/screens/intro_screen.dart';
+import 'package:fresh_market_app/widgets/ask_button.dart';
+import 'package:fresh_market_app/widgets/intro_gate.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/test_app.dart';
 
@@ -14,6 +19,7 @@ void main() {
   testWidgets('app starts on Home and the bottom bar switches tabs',
       (tester) async {
     usePhoneSize(tester);
+    SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
     final shell = ShellController();
     final cart = CartStore();
     final products = sampleProducts();
@@ -25,6 +31,7 @@ void main() {
       favourites: FavouritesStore(),
       shell: shell,
     ));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(FloatingNavBar), findsOneWidget);
@@ -44,6 +51,118 @@ void main() {
       expect(tester.widget<FloatingNavBar>(bar).current, tab);
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('first launch shows the intro, then Home; not again after',
+      (tester) async {
+    usePhoneSize(tester);
+    SharedPreferences.setMockInitialValues({});
+    Widget app() => FreshMarketApp(
+          key: UniqueKey(),
+          api: FakeShopifyApi.sample(),
+          cart: CartStore(),
+          favourites: FavouritesStore(),
+        );
+
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(IntroScreen), findsOneWidget);
+    expect(find.byType(FloatingNavBar), findsNothing);
+
+    await tester.tap(find.text('Start shopping'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(IntroScreen), findsNothing);
+    expect(find.byType(FloatingNavBar), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(IntroGate.seenKey), isTrue);
+
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(IntroScreen), findsNothing);
+    expect(find.byType(FloatingNavBar), findsOneWidget);
+  });
+
+  testWidgets('Ask button sits 12px above the bar, hides on Cart and with '
+      'the keyboard, and opens the assistant', (tester) async {
+    usePhoneSize(tester);
+    SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
+    final shell = ShellController();
+    await tester.pumpWidget(FreshMarketApp(
+      api: FakeShopifyApi.sample(),
+      cart: CartStore(),
+      favourites: FavouritesStore(),
+      shell: shell,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final ask = find.byType(AskButton);
+    final bar = find.byType(FloatingNavBar);
+    expect(ask, findsOneWidget);
+    final askRect = tester.getRect(ask);
+    final barRect = tester.getRect(bar);
+    final screen = tester.getSize(find.byType(AppShell));
+    expect(barRect.top - askRect.bottom,
+        moreOrLessEquals(AskButton.gapAboveNavBar));
+    expect(screen.width - askRect.right, moreOrLessEquals(16));
+
+    shell.select(AppTab.cart);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(ask, findsNothing);
+    shell.select(AppTab.home);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(ask, findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 600);
+    await tester.pump();
+    expect(ask, findsNothing);
+    expect(bar, findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pump();
+
+    await tester.tap(ask);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AssistantScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('at the end of the Deals list no add control is under the '
+      'Ask button', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
+    final shell = ShellController();
+    await tester.pumpWidget(FreshMarketApp(
+      api: FakeShopifyApi.sample(),
+      cart: CartStore(),
+      favourites: FavouritesStore(),
+      shell: shell,
+    ));
+    await tester.pump();
+    shell.select(AppTab.deals);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Not hitTestable(): a control under the Ask button is exactly the
+    // one that would be left out.
+    final controls = find.byType(AddControl);
+    expect(controls, findsWidgets);
+    await tester.drag(find.byType(ProductCard).first, const Offset(0, -3000));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final askRect = tester.getRect(find.byType(AskButton));
+    expect(controls, findsWidgets);
+    for (final element in controls.evaluate()) {
+      final box = element.renderObject! as RenderBox;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      expect(rect.overlaps(askRect), isFalse, reason: '$rect under $askRect');
+    }
   });
 
   testWidgets('product card adds to the cart and turns into a stepper',

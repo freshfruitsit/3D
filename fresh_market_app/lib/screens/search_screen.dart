@@ -189,7 +189,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _body(BuildContext context) {
-    final bottom = AppDims.bottomBarSpace(context);
+    final bottom = AppDims.floatingSpace(context);
 
     if (_query.isEmpty) {
       return SingleChildScrollView(

@@ -12,7 +12,9 @@ import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
 import 'state/favourites_store.dart';
 import 'theme/app_theme.dart';
+import 'widgets/ask_button.dart';
 import 'widgets/floating_nav_bar.dart';
+import 'widgets/intro_gate.dart';
 
 export 'widgets/floating_nav_bar.dart' show AppTab;
 
@@ -103,7 +105,8 @@ class FreshMarketApp extends StatelessWidget {
         title: 'Fresh Market',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: const AppShell(),
+        // First launch shows the intro video once, then the shell.
+        home: const IntroGate(child: AppShell()),
       ),
     );
   }
@@ -264,6 +267,18 @@ class _AppShellState extends State<AppShell> {
                     onSelected: context.read<ShellController>().select,
                   ),
                 ),
+                // The assistant button floats above the bar's right end and
+                // hides with it. Not on Cart, where it would sit on the
+                // order summary and its checkout button.
+                if (current != AppTab.cart)
+                  Positioned(
+                    right: AppDims.gutter,
+                    bottom: FloatingNavBar.bottomInset +
+                        safeBottom +
+                        FloatingNavBar.height +
+                        AskButton.gapAboveNavBar,
+                    child: const AskButton(),
+                  ),
               ],
             ],
           ),

@@ -313,7 +313,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final source = favourites ?? _items;
     final products = _sorted(source);
     final canPop = Navigator.of(context).canPop();
-    final bottomSpace = AppDims.bottomBarSpace(context);
+    final bottomSpace = AppDims.floatingSpace(context);
 
     final showLoading = !widget.isFavourites && (_loadingFirst || _loadingAll);
     final firstError = widget.isFavourites ? null : _firstError;
