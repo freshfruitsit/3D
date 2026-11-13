@@ -318,14 +318,19 @@ class CartStore extends ChangeNotifier {
   Uri? get checkoutUrl => checkoutUrlWith(const {});
 
   /// [checkoutUrl] carrying the order's cart [attributes] (the website's
-  /// "Delivery mode", "Delivery area", ...).
+  /// "Delivery mode", "Delivery area", ...) and the checkout fields to
+  /// fill in ([prefill], see `CheckoutPrefill.params`).
   /// Sold-out lines are left out.
-  Uri? checkoutUrlWith(Map<String, String> attributes) => buildCheckoutUrl(
+  Uri? checkoutUrlWith(
+    Map<String, String> attributes, {
+    Map<String, String> prefill = const {},
+  }) => buildCheckoutUrl(
         {
           for (final line in _lines.values)
             if (line.available) line.variantId: line.quantity,
         },
         attributes: attributes,
+        prefill: prefill,
       );
 
   /// Units of Express items ([CartLine.express]) and of the others; a line
@@ -342,12 +347,16 @@ class CartStore extends ChangeNotifier {
 
   /// `https://testtfm.myshopify.com/cart/{variantId}:{qty},{variantId}:{qty}`,
   /// followed by `?attributes[Name]=value&...` for each of [attributes]
-  /// (percent-encoded; Shopify cart permalinks copy them onto the cart).
+  /// (percent-encoded; Shopify cart permalinks copy them onto the cart),
+  /// then `&key=value` for each of [prefill] (checkout fields such as
+  /// `checkout[email]`, percent-encoded the same way; empty values are
+  /// left out).
   /// Entries with a quantity of 0 or less are left out; null when nothing
   /// remains.
   static Uri? buildCheckoutUrl(
     Map<int, int> quantitiesByVariantId, {
     Map<String, String> attributes = const {},
+    Map<String, String> prefill = const {},
   }) {
     final parts = [
       for (final entry in quantitiesByVariantId.entries)
@@ -358,6 +367,10 @@ class CartStore extends ChangeNotifier {
       for (final entry in attributes.entries)
         '${Uri.encodeComponent('attributes[${entry.key}]')}='
             '${Uri.encodeComponent(entry.value)}',
+      for (final entry in prefill.entries)
+        if (entry.value.trim().isNotEmpty)
+          '${Uri.encodeComponent(entry.key)}='
+              '${Uri.encodeComponent(entry.value)}',
     ].join('&');
     return Uri.parse(
       'https://$storeHost/cart/${parts.join(',')}'

@@ -4,15 +4,21 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'delivery/delivery.dart';
 import 'models/product.dart';
+import 'profile/checkout_prefill.dart';
+import 'profile/customer_details.dart';
+import 'screens/address_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/location_screen.dart';
+import 'screens/my_details_screen.dart';
 import 'screens/product_detail_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
+import 'state/profile_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/a11y.dart';
+import 'widgets/deliver_to.dart';
 
 /// Every way of moving between screens. Screens call these instead of
 /// building routes themselves, so the bottom bar rules stay in one place:
@@ -175,6 +181,92 @@ abstract final class AppNav {
     }
   }
 
+  /// "My details", full screen. Says [MyDetailsScreen.savedMessage] when
+  /// saved (see [showNotice] for [noticeBottomMargin]); returns true then.
+  static Future<bool> openMyDetails(
+    BuildContext context, {
+    double? noticeBottomMargin,
+  }) async {
+    final saved = await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<bool>(builder: (_) => const MyDetailsScreen()),
+    );
+    if (saved != true) return false;
+    if (context.mounted) {
+      showNotice(
+        context,
+        MyDetailsScreen.savedMessage,
+        bottomMargin: noticeBottomMargin,
+      );
+    }
+    return true;
+  }
+
+  /// Adds an address (starting in [area]) or edits [address], full
+  /// screen. Returns the saved address; says "Address saved." or, when it
+  /// was deleted, "Address deleted.".
+  static Future<SavedAddress?> openAddress(
+    BuildContext context, {
+    SavedAddress? address,
+    DeliveryArea? area,
+    double? noticeBottomMargin,
+  }) async {
+    final profile = context.read<ProfileStore>();
+    final saved = await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<SavedAddress>(
+        builder: (_) => AddressScreen(address: address, initialArea: area),
+      ),
+    );
+    if (!context.mounted) return saved;
+    final deleted = address != null && profile.addressById(address.id) == null;
+    if (saved != null || deleted) {
+      showNotice(
+        context,
+        deleted ? addressDeleted : addressSaved,
+        bottomMargin: noticeBottomMargin,
+      );
+    }
+    return saved;
+  }
+
+  static const String addressSaved = 'Address saved.';
+  static const String addressDeleted = 'Address deleted.';
+
+  /// The location picker for an address's area: returns the area picked
+  /// (the delivery location does not change), or null.
+  static Future<DeliveryArea?> pickAddressArea(
+    BuildContext context, {
+    DeliveryArea? initial,
+  }) => Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<DeliveryArea>(
+      fullscreenDialog: true,
+      builder: (_) => LocationScreen(pickOnly: true, initialArea: initial),
+    ),
+  );
+
+  /// Delivers the order to [address]: it becomes the cart's address, and
+  /// when it is in another area the delivery location (and with it the
+  /// delivery promise) moves there, which is said ("Delivering to Dubai
+  /// Marina").
+  static void deliverTo(
+    BuildContext context,
+    SavedAddress address, {
+    double? noticeBottomMargin,
+  }) {
+    final delivery = context.read<DeliveryStore>();
+    context.read<ProfileStore>().choose(address.id);
+    final area = delivery.area;
+    if (area == null || !CustomerInput.sameArea(area, address.area)) {
+      final message = delivery.setArea(address.area);
+      showNotice(context, message, bottomMargin: noticeBottomMargin);
+    } else {
+      announce(
+        context,
+        'Delivering to your ${address.label.label} address, '
+        '${address.firstLine}',
+      );
+    }
+  }
+
   /// Checkout for the current cart, full screen. Does nothing when the
   /// cart is empty.
   ///
@@ -185,6 +277,11 @@ abstract final class AppNav {
   /// bottom bar, or [noticeBottomMargin] above the bottom of a screen that
   /// has none (see [showNotice]). The checkout link carries the website's
   /// delivery cart attributes.
+  ///
+  /// Checkout opens with the shopper's saved details filled in (see
+  /// [CheckoutPrefill]). With nothing saved, the first checkout offers the
+  /// "Fill in checkout faster" sheet; closing it stays on the cart.
+  /// Every way into checkout (the cart, the assistant) comes here.
   static Future<void> openCheckout(
     BuildContext context, {
     double? noticeBottomMargin,
@@ -240,7 +337,22 @@ abstract final class AppNav {
         delivery.setMode(DeliveryMode.market);
       }
     }
-    final url = cart.checkoutUrlWith(delivery.cartAttributes ?? const {});
+    final profile = context.read<ProfileStore>();
+    if (profile.offersCheckoutSheet && delivery.area != null) {
+      final area = delivery.area!;
+      final answer = await showCheckoutDetailsSheet(
+        context,
+        area: area,
+        initial: profile.oneTime,
+      );
+      if (answer == null || !context.mounted) return;
+      profile.applyCheckoutSheet(answer, area);
+    }
+    final url = checkoutUrlFor(
+      cart: cart,
+      delivery: delivery,
+      profile: profile,
+    );
     if (url == null) {
       if (cart.soldOutLines > 0) {
         showNotice(context, soldOutOnly, bottomMargin: noticeBottomMargin);
@@ -249,6 +361,29 @@ abstract final class AppNav {
     }
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(builder: (_) => CheckoutScreen(url: url)),
+    );
+  }
+
+  /// The checkout link for [cart]: the website's delivery cart attributes
+  /// (plus the address's delivery instructions) and the shopper's details
+  /// for the current delivery area. Null when nothing can be bought.
+  static Uri? checkoutUrlFor({
+    required CartStore cart,
+    required DeliveryStore delivery,
+    required ProfileStore profile,
+  }) {
+    final area = delivery.area;
+    final details = profile.checkoutDetails(area);
+    return cart.checkoutUrlWith(
+      {
+        ...?delivery.cartAttributes,
+        ...CheckoutPrefill.attributes(address: details.address, area: area),
+      },
+      prefill: CheckoutPrefill.params(
+        contact: details.contact,
+        address: details.address,
+        area: area,
+      ),
     );
   }
 

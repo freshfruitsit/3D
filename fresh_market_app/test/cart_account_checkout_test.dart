@@ -272,10 +272,9 @@ void main() {
       await pumpScreen(tester, const AccountScreen());
 
       expect(find.text('Account'), findsOneWidget);
-      expect(
-        find.text('Sign in to see your orders and saved addresses'),
-        findsOneWidget,
-      );
+      // A smaller note now: the details card above it is what the
+      // shopper fills in (saved addresses live there).
+      expect(find.text('Sign in to see your orders'), findsOneWidget);
       expect(
         find.text('Sign-in is not available in this version.'),
         findsOneWidget,

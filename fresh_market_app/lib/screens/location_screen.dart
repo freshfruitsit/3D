@@ -26,6 +26,8 @@ class LocationScreen extends StatefulWidget {
     this.firstLaunch = false,
     this.reason,
     this.onPicked,
+    this.pickOnly = false,
+    this.initialArea,
   });
 
   /// The first choice of area: it must be made, so there is no close
@@ -39,6 +41,21 @@ class LocationScreen extends StatefulWidget {
   /// Receives the message after a place was saved. When null the screen
   /// closes its route with the message as the result.
   final ValueChanged<String>? onPicked;
+
+  /// Picks the area of a saved address: the chosen [DeliveryArea] closes
+  /// the route as its result and the delivery location is not changed.
+  final bool pickOnly;
+
+  /// Where a [pickOnly] picker starts; the delivery area when null.
+  final DeliveryArea? initialArea;
+
+  /// The [pickOnly] title, subtitle and note under the button.
+  static const String addressTitle = 'Where is this address?';
+  static const String addressSubtitle =
+      'Choose the area this address is in. Your delivery location stays '
+      'the same.';
+  static const String addressNote =
+      'The emirate comes from the area you choose.';
 
   static const String subtitle =
       "We'll show delivery times and what's available for your area.";
@@ -119,7 +136,7 @@ class _LocationScreenState extends State<LocationScreen> {
     _services = context.read<LocationServices?>() ?? const LocationServices();
     _search = PlaceSearchController(search: _services.search);
     // Opened to change the area: start from the current one.
-    final area = context.read<DeliveryStore>().area;
+    final area = widget.initialArea ?? context.read<DeliveryStore>().area;
     if (area != null) _pick = DeliveryPlace.fromArea(area);
   }
 
@@ -195,6 +212,11 @@ class _LocationScreenState extends State<LocationScreen> {
   void _confirm() {
     final pick = _pick;
     if (pick == null) return;
+    if (widget.pickOnly) {
+      final area = pick.toArea();
+      if (area != null) Navigator.of(context).pop(area);
+      return;
+    }
     final message = context.read<DeliveryStore>().setPlace(pick);
     if (message == null) return; // not a place we deliver to
     final onPicked = widget.onPicked;
@@ -289,11 +311,24 @@ class _LocationScreenState extends State<LocationScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<DeliveryStore>();
-    final summary = DeliveryCopy.pickSummary(
+    var summary = DeliveryCopy.pickSummary(
       _pick,
       store.now(),
       hasMap: _services.showMap,
     );
+    final pickedArea = _pick?.toArea();
+    if (widget.pickOnly) {
+      summary = PickSummary(
+        heading: summary.heading,
+        placeLabel: summary.placeLabel,
+        options: summary.options,
+        buttonLabel: summary.canConfirm && pickedArea != null
+            ? 'Use ${pickedArea.name}'
+            : summary.buttonLabel,
+        canConfirm: summary.canConfirm,
+        note: summary.canConfirm ? LocationScreen.addressNote : summary.note,
+      );
+    }
     final reason = widget.reason;
 
     return Scaffold(
@@ -304,7 +339,12 @@ class _LocationScreenState extends State<LocationScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _Header(
-              title: DeliveryCopy.pickerTitle(hasArea: store.hasArea),
+              title: widget.pickOnly
+                  ? LocationScreen.addressTitle
+                  : DeliveryCopy.pickerTitle(hasArea: store.hasArea),
+              subtitle: widget.pickOnly
+                  ? LocationScreen.addressSubtitle
+                  : LocationScreen.subtitle,
               onClose: widget.firstLaunch
                   ? null
                   : () => Navigator.of(context).maybePop(),
@@ -537,9 +577,14 @@ class _LocationScreenState extends State<LocationScreen> {
 
 /// Title (24/800), subtitle and, when it may be closed, the close button.
 class _Header extends StatelessWidget {
-  const _Header({required this.title, required this.onClose});
+  const _Header({
+    required this.title,
+    required this.subtitle,
+    required this.onClose,
+  });
 
   final String title;
+  final String subtitle;
   final VoidCallback? onClose;
 
   @override
@@ -567,7 +612,7 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  LocationScreen.subtitle,
+                  subtitle,
                   style: AppText.bodySmall.copyWith(
                     color: AppColors.secondary,
                   ),

@@ -12,6 +12,7 @@ import 'services/location_services.dart';
 import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
 import 'state/favourites_store.dart';
+import 'state/profile_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/a11y.dart';
 import 'widgets/ask_button.dart';
@@ -52,6 +53,7 @@ class AppScope extends StatelessWidget {
     required this.cart,
     required this.favourites,
     this.delivery,
+    this.profile,
     this.locationServices,
     this.shell,
     required this.child,
@@ -64,6 +66,10 @@ class AppScope extends StatelessWidget {
   /// The shopper's delivery area and mode. When null an in-memory store
   /// with no area is created (and disposed with this scope).
   final DeliveryStore? delivery;
+
+  /// The shopper's details for checkout. When null an empty in-memory
+  /// store is created that never shows the first-checkout sheet.
+  final ProfileStore? profile;
 
   /// What the location picker may use (phone location, address search,
   /// map); the real ones when null.
@@ -84,6 +90,12 @@ class AppScope extends StatelessWidget {
           ChangeNotifierProvider<DeliveryStore>.value(value: delivery!)
         else
           ChangeNotifierProvider<DeliveryStore>(create: (_) => DeliveryStore()),
+        if (profile != null)
+          ChangeNotifierProvider<ProfileStore>.value(value: profile!)
+        else
+          ChangeNotifierProvider<ProfileStore>(
+            create: (_) => ProfileStore(askAtCheckout: false),
+          ),
         Provider<LocationServices>.value(
           value: locationServices ?? const LocationServices(),
         ),
@@ -107,6 +119,7 @@ class FreshMarketApp extends StatelessWidget {
     required this.cart,
     required this.favourites,
     this.deliveryStore,
+    this.profile,
     this.locationServices,
     this.shell,
     this.showIntro = true,
@@ -120,6 +133,9 @@ class FreshMarketApp extends StatelessWidget {
   /// area, so the location picker is shown first (tests pass one with an
   /// area to go straight to Home).
   final DeliveryStore? deliveryStore;
+
+  /// The shopper's saved details (see [AppScope.profile]).
+  final ProfileStore? profile;
 
   /// See [AppScope.locationServices].
   final LocationServices? locationServices;
@@ -135,6 +151,7 @@ class FreshMarketApp extends StatelessWidget {
       cart: cart,
       favourites: favourites,
       delivery: deliveryStore,
+      profile: profile,
       locationServices: locationServices,
       shell: shell,
       child: MaterialApp(

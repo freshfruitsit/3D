@@ -8,6 +8,7 @@ import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_control.dart';
+import '../widgets/deliver_to.dart';
 import '../widgets/delivery_widgets.dart';
 import '../widgets/price_widgets.dart';
 import '../widgets/product_image.dart';
@@ -145,7 +146,18 @@ class _CartScreenState extends State<CartScreen> {
                       ? const SizedBox(height: 8)
                       : const Divider(height: 1),
                   itemBuilder: (context, index) {
-                    if (index == 0) return const CartDeliveryCard();
+                    if (index == 0) {
+                      // Where and how, then to whom (the details checkout
+                      // is filled in with).
+                      return const Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          CartDeliveryCard(),
+                          SizedBox(height: 8),
+                          CartDeliverToCard(),
+                        ],
+                      );
+                    }
                     if (index > lines.length) return summary;
                     final line = lines[index - 1];
                     return _CartRow(
