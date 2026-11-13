@@ -52,6 +52,7 @@ class PromoRow extends StatelessWidget {
                             context,
                             handle: promo.handle,
                             title: promo.title,
+                            onSaleOnly: promo.onSaleOnly,
                           ),
                   ),
                 ),

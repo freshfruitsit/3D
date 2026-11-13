@@ -114,7 +114,11 @@ class QuantityStepper extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // The pill's round ends sit around the minus and plus icons, as
+          // the add (+) circle does in its own touch target.
           Positioned.fill(
+            left: (height - pillHeight) / 2,
+            right: (height - pillHeight) / 2,
             top: (height - pillHeight) / 2,
             bottom: (height - pillHeight) / 2,
             child: DecoratedBox(

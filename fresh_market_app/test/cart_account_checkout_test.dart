@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/assistant/assistant_brain.dart';
 import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/screens/account_screen.dart';
@@ -173,6 +174,80 @@ void main() {
     });
   });
 
+  group('Express closed at checkout', () {
+    Future<List<String>> openCheckout(
+      WidgetTester tester,
+      DeliveryStore delivery,
+    ) async {
+      final launched = mockLauncher(tester, result: true);
+      final cart = CartStore()..add(kiwi, kiwi.variants[0]);
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: cart,
+        delivery: delivery,
+      );
+      await tester.tap(
+        find.ancestor(
+          of: find.textContaining('Checkout · '),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      // The button spins while the question is open: no pumpAndSettle.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      return launched;
+    }
+
+    Finder inDialog(String text) => find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text(text),
+    );
+
+    testWidgets('23:00 in Express: asked first; Fresh Market goes to the '
+        'store as Fresh Market', (tester) async {
+      final delivery = testDelivery(
+        at: uaeTime(23),
+        mode: DeliveryMode.express,
+      );
+      final launched = await openCheckout(tester, delivery);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(inDialog('Express is closed'), findsOneWidget);
+      expect(
+        inDialog(
+          'Express is closed right now. It runs 8 AM to 10 PM. Fresh Market '
+          'delivers tomorrow morning before 11 am.',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(inDialog('Switch to Fresh Market'));
+      await tester.pumpAndSettle();
+      expect(delivery.mode, DeliveryMode.market);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(launched.single, contains('Delivery%20mode%5D=Fresh%20Market'));
+    });
+
+    testWidgets('keeping Express checks out as before', (tester) async {
+      final delivery = testDelivery(
+        at: uaeTime(23),
+        mode: DeliveryMode.express,
+      );
+      final launched = await openCheckout(tester, delivery);
+      await tester.tap(inDialog('Keep Express'));
+      await tester.pumpAndSettle();
+      expect(delivery.mode, DeliveryMode.express);
+      expect(launched.single, contains('Delivery%20mode%5D=Express'));
+    });
+
+    testWidgets('Express open: no question', (tester) async {
+      final delivery = testDelivery(at: uaeTime(10), mode: DeliveryMode.express);
+      final launched = await openCheckout(tester, delivery);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(launched.single, contains('Delivery%20mode%5D=Express'));
+    });
+  });
+
   group('CheckoutScreen', () {
     final url = Uri.parse('https://testtfm.myshopify.com/cart/2001:1');
 
@@ -253,6 +328,84 @@ void main() {
       expect(find.text(beef.title), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('Help & contact opens the store\'s phone, email and contact '
+        'page', (tester) async {
+      final opened = <Uri>[];
+      var result = true;
+      await pumpScreen(
+        tester,
+        AccountScreen(
+          launcher: (uri) async {
+            opened.add(uri);
+            return result;
+          },
+        ),
+      );
+
+      // A 56pt row under "Watch the intro again", with the real contacts.
+      final row = find.byKey(const ValueKey('account-help'));
+      expect(
+        find.descendant(of: row, matching: find.text('Help & contact')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('800 1 627538 · care@freshmarket.ae'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.support_agent_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(56));
+      expect(
+        tester.getTopLeft(row).dy,
+        greaterThan(tester.getTopLeft(find.text('Watch the intro again')).dy),
+      );
+
+      // The sheet: the website's contact text and the three links.
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.text(AssistantBrain.contactText), findsOneWidget);
+      expect(find.text('Call 800 1 627538'), findsOneWidget);
+      expect(find.text('Email us'), findsOneWidget);
+      expect(find.text('Contact page'), findsOneWidget);
+
+      await tester.tap(find.text('Call 800 1 627538'));
+      await tester.pumpAndSettle();
+      expect(find.text('Email us'), findsNothing, reason: 'sheet closed');
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Email us'));
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Contact page'));
+      await tester.pumpAndSettle();
+      expect(opened, [
+        Uri.parse('tel:8001627538'),
+        Uri.parse('mailto:care@freshmarket.ae'),
+        Uri.parse('https://testtfm.myshopify.com/pages/contact'),
+      ]);
+
+      // Nothing can open it: the number to call instead.
+      result = false;
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Call 800 1 627538'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text("Couldn't open the phone app. Call 8001627538 instead."),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('design', () {
@@ -292,14 +445,19 @@ void main() {
       );
     });
 
-    testWidgets('the empty cart offers an ink outlined Start shopping',
+    testWidgets('the empty cart offers the green Start shopping',
         (tester) async {
       await pumpScreen(tester, const CartScreen());
-      expect(
-        find.widgetWithText(OutlinedButton, 'Start shopping'),
-        findsOneWidget,
+      final button = find.widgetWithText(FilledButton, 'Start shopping');
+      expect(button, findsOneWidget);
+      // The theme's green buying button, not an ink outline.
+      expect(tester.widget<FilledButton>(button).style, isNull);
+      expect(find.byType(OutlinedButton), findsNothing);
+      final material = tester.widget<Material>(
+        find.descendant(of: button, matching: find.byType(Material)).first,
       );
-      expect(find.byType(FilledButton), findsNothing);
+      expect(material.color, AppColors.green);
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
     });
 
     testWidgets('Account has no green and no dead Sign in button',

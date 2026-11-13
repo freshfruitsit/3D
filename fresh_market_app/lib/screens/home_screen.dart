@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../app.dart';
 import '../app_nav.dart';
 import '../data/catalog.dart';
+import '../data/deals.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../theme/app_theme.dart';
@@ -77,10 +78,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _RailData next;
     try {
-      final products = await context.read<ShopifyApi>().collectionProducts(
-        handle,
-        limit: HomeScreen.railLimit,
-      );
+      final api = context.read<ShopifyApi>();
+      // A deals rail looks through the whole collection for the products
+      // that are really on sale.
+      final products = rail.onSaleOnly
+          ? Deals.ranked(await api.wholeCollection(handle))
+          : await api.collectionProducts(handle, limit: HomeScreen.railLimit);
       next = _RailData(products: products);
     } on ApiException catch (e) {
       next = _RailData(error: e.userMessage);
@@ -103,11 +106,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }) => _ProductRail(
     rail: rail,
     style: _railStyles[rail.handle] ?? _defaultRailStyle,
-    data: _rails[rail.handle] ?? const _RailData(loading: true),
+    data: _shownData(rail),
     onRetry: () => _loadRail(rail),
     afterGrid: afterGrid,
     afterTileRow: afterTileRow,
   );
+
+  /// What [rail] shows. A deals rail leaves out the products a rail above
+  /// it already shows, so two rails never start with the same card, and
+  /// stops at [HomeScreen.railLimit].
+  _RailData _shownData(HomeRail rail) {
+    final data = _rails[rail.handle] ?? const _RailData(loading: true);
+    final products = data.products;
+    if (!rail.onSaleOnly || products == null) return data;
+    final above = <int>{
+      for (final other in Catalog.rails.takeWhile((r) => r != rail))
+        for (final p in _rails[other.handle]?.products ?? const <Product>[])
+          p.id,
+    };
+    return _RailData(
+      products: products
+          .where((p) => !above.contains(p.id))
+          .take(HomeScreen.railLimit)
+          .toList(),
+      error: data.error,
+      loading: data.loading,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,14 +250,23 @@ class _Section extends StatelessWidget {
   /// centred in it; this is the free space above and below the tag, taken
   /// off the gaps so the gaps the eye sees are [AppDims.sectionGap] and
   /// [AppDims.headingGap].
-  static double touchInset(BuildContext context) {
+  static double touchInset(BuildContext context, {required bool seeAll}) {
     final tag = SectionTag.heightOf(context);
-    return tag >= AppDims.touch ? 0 : (AppDims.touch - tag) / 2;
+    // "See all" is 48 tall where Material pads tap targets (phones), 44
+    // otherwise.
+    final link = !seeAll
+        ? 0.0
+        : Theme.of(context).materialTapTargetSize ==
+              MaterialTapTargetSize.padded
+        ? 48.0
+        : AppDims.touch;
+    final row = [AppDims.touch, tag, link].reduce((a, b) => a > b ? a : b);
+    return (row - tag) / 2;
   }
 
   @override
   Widget build(BuildContext context) {
-    final inset = touchInset(context);
+    final inset = touchInset(context, seeAll: onViewAll != null);
     return Padding(
       padding: EdgeInsets.only(
         top:
@@ -256,7 +290,7 @@ class _Section extends StatelessWidget {
 /// ink with a green stripe).
 const Map<String, ({IconData icon})> _railStyles = {
   'fresh-meat': (icon: Icons.local_fire_department),
-  'best-deals': (icon: Icons.sell),
+  Deals.sourceHandle: (icon: Icons.sell),
   'best-sellers': (icon: Icons.eco),
   'berries': (icon: Icons.spa),
   'ambrosia-flowers': (icon: Icons.local_florist),
@@ -287,9 +321,11 @@ class _Header extends StatelessWidget {
         border: Border(bottom: BorderSide(color: AppColors.hairline)),
       ),
       child: Padding(
+        // 4 on top: the wordmark row is a 44pt touch target already, so
+        // the logo still sits about 11pt under the status bar.
         padding: EdgeInsets.fromLTRB(
           AppDims.gutter,
-          top + 8,
+          top + 4,
           AppDims.gutter,
           1,
         ),
@@ -541,6 +577,7 @@ class _ProductRail extends StatelessWidget {
         context,
         handle: rail.handle,
         title: rail.title,
+        onSaleOnly: rail.onSaleOnly,
       ),
       child: content,
     );

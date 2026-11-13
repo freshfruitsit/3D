@@ -336,7 +336,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       }
     }
     if (opened || !mounted) return;
-    AppNav.showNotice(context, _linkFailure(link), bottomMargin: 12);
+    AppNav.showNotice(context, linkFailureMessage(link), bottomMargin: 12);
   }
 
   @override
@@ -451,7 +451,9 @@ String _linkTarget(String link) {
   }
 }
 
-String _linkFailure(String link) {
+/// What to say when [link] (a `tel:`, `mailto:` or store link) could not
+/// be opened: the number or address to use instead.
+String linkFailureMessage(String link) {
   final target = _linkTarget(link);
   return switch (_linkScheme(link)) {
     'tel' => target.isEmpty
@@ -944,7 +946,13 @@ class _ProductRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                AddControl(product: product, variant: variant),
+                // The "Removed … Undo" notice sits where the assistant's
+                // other notices do.
+                AddControl(
+                  product: product,
+                  variant: variant,
+                  noticeBottomMargin: 12,
+                ),
               ],
             ),
           ),

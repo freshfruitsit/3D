@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../app.dart';
 import '../app_nav.dart';
+import '../data/catalog.dart';
+import '../data/deals.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../state/favourites_store.dart';
@@ -14,6 +16,9 @@ import '../widgets/state_views.dart';
 /// How the grid is ordered.
 enum ProductSort {
   featured('Featured'),
+
+  /// Deals only: in stock first, then the biggest percentage off.
+  biggestSaving('Biggest saving'),
   priceLowToHigh('Price: low to high');
 
   const ProductSort(this.label);
@@ -21,24 +26,38 @@ enum ProductSort {
 }
 
 /// A two-column product grid: a collection (category tile, banner, rail
-/// "View all", the Deals tab) loaded page by page, or the favourites.
+/// "View all") loaded page by page, the deals (the Deals tab) or the
+/// favourites.
 class ProductListScreen extends StatefulWidget {
-  /// Products of one collection, loaded page by page.
+  /// Products of one collection, loaded page by page. With [onSaleOnly]
+  /// the whole collection is loaded and only its marked-down products are
+  /// shown, biggest saving first (see [Deals]).
   const ProductListScreen.collection({
     super.key,
     required String this.handle,
     required this.title,
+    this.onSaleOnly = false,
   });
+
+  /// The store's marked-down products, biggest saving first: the Deals
+  /// tab, and "See all" of Home's "Best Deals" rail.
+  const ProductListScreen.deals({super.key, this.title = Catalog.dealsTitle})
+      : handle = Deals.sourceHandle,
+        onSaleOnly = true;
 
   /// The shopper's favourites, from the FavouritesStore; their price and
   /// stock are refreshed from the store when the list opens.
   const ProductListScreen.favourites({super.key})
       : handle = null,
-        title = 'Favourites';
+        title = 'Favourites',
+        onSaleOnly = false;
 
   /// Collection handle; null for the favourites list.
   final String? handle;
   final String title;
+
+  /// Only the collection's products that are really on sale.
+  final bool onSaleOnly;
 
   bool get isFavourites => handle == null;
 
@@ -47,12 +66,6 @@ class ProductListScreen extends StatefulWidget {
 }
 
 class _ProductListScreenState extends State<ProductListScreen> {
-  /// Page size used to fetch a whole collection for price sorting.
-  static const int _bulkLimit = 250;
-
-  /// Safety cap on bulk pages (2,000 products).
-  static const int _bulkMaxPages = 8;
-
   /// Start loading the next page this far before the end of the list.
   static const double _loadAheadExtent = 700;
 
@@ -71,7 +84,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
   ApiException? _moreError;
   ApiException? _sortError;
 
-  ProductSort _sort = ProductSort.featured;
+  /// The orders the sort pill switches between; the first is the default.
+  List<ProductSort> get _sorts => widget.onSaleOnly
+      ? const [ProductSort.biggestSaving, ProductSort.priceLowToHigh]
+      : const [ProductSort.featured, ProductSort.priceLowToHigh];
+
+  late ProductSort _sort = _sorts.first;
 
   /// Bumped on every reset so answers to old requests are dropped.
   int _generation = 0;
@@ -95,8 +113,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
   @override
   void didUpdateWidget(ProductListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.handle != widget.handle) {
-      _sort = ProductSort.featured;
+    if (oldWidget.handle != widget.handle ||
+        oldWidget.onSaleOnly != widget.onSaleOnly) {
+      _sort = _sorts.first;
       if (widget.isFavourites) {
         _generation++;
         _refreshFavourites();
@@ -123,13 +142,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _ids.clear();
       _nextPage = 1;
       _hasMore = true;
-      _loadingFirst = true;
+      // The deals load as one whole collection instead (see below).
+      _loadingFirst = !widget.onSaleOnly;
       _loadingMore = false;
       _loadingAll = false;
       _firstError = null;
       _moreError = null;
       _sortError = null;
     });
+    // The deals can only be picked out of the whole collection.
+    if (widget.onSaleOnly) return _loadAll();
     try {
       final page = await api.collectionProducts(handle);
       if (!mounted || generation != _generation) return;
@@ -185,7 +207,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   /// Loads every product of the collection (large pages), so a price sort
-  /// orders the whole collection and not only the pages seen so far.
+  /// orders the whole collection and not only the pages seen so far, and
+  /// the deals are found wherever they are in it.
   Future<void> _loadAll() async {
     // A new generation, so a "load more" answer still on its way is dropped
     // and cannot switch paging back on.
@@ -198,25 +221,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _sortError = null;
     });
     try {
-      final all = <Product>[];
-      final ids = <int>{};
-      for (var page = 1; page <= _bulkMaxPages; page++) {
-        final batch = await api.collectionProducts(
-          widget.handle!,
-          page: page,
-          limit: _bulkLimit,
-        );
-        if (!mounted || generation != _generation) return;
-        for (final p in batch) {
-          if (ids.add(p.id)) all.add(p);
-        }
-        if (batch.length < _bulkLimit) break;
-      }
+      final all = await api.wholeCollection(widget.handle!);
+      if (!mounted || generation != _generation) return;
       setState(() {
-        _items = all;
+        _items = widget.onSaleOnly ? all.where(Deals.isDeal).toList() : all;
         _ids
           ..clear()
-          ..addAll(ids);
+          ..addAll(all.map((p) => p.id));
         // Past the cap the list is simply left as it is.
         _hasMore = false;
         _loadingAll = false;
@@ -226,8 +237,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
       if (!mounted || generation != _generation) return;
       setState(() {
         _loadingAll = false;
-        _sort = ProductSort.featured;
-        _sortError = e;
+        if (widget.onSaleOnly) {
+          // Nothing to show yet: the full-screen error with "Try again".
+          _firstError = e;
+        } else {
+          _sort = _sorts.first;
+          _sortError = e;
+        }
       });
     }
   }
@@ -270,9 +286,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   // ---- Sorting -----------------------------------------------------------
 
   void _toggleSort() {
-    final next = _sort == ProductSort.featured
-        ? ProductSort.priceLowToHigh
-        : ProductSort.featured;
+    final sorts = _sorts;
+    final next = sorts[(sorts.indexOf(_sort) + 1) % sorts.length];
     setState(() {
       _sort = next;
       _sortError = null;
@@ -293,6 +308,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   List<Product> _sorted(List<Product> source) {
     if (_sort == ProductSort.featured) return source;
+    if (_sort == ProductSort.biggestSaving) return Deals.ranked(source);
     // Stable: equal prices keep the store's order.
     final indexed = [
       for (var i = 0; i < source.length; i++) (i, source[i]),
@@ -361,12 +377,21 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     actionLabel: 'Start shopping',
                     onAction: () => AppNav.goToTab(context, AppTab.home),
                   )
-                : EmptyView(
-                    title: 'Nothing here right now',
-                    message: 'This section has no products at the moment.',
-                    actionLabel: 'Start shopping',
-                    onAction: () => AppNav.goToTab(context, AppTab.home),
-                  ),
+                : widget.onSaleOnly
+                    ? EmptyView(
+                        icon: Icons.sell_outlined,
+                        title: 'No offers right now',
+                        message: 'Marked-down products show up here.',
+                        actionLabel: 'Start shopping',
+                        onAction: () => AppNav.goToTab(context, AppTab.home),
+                      )
+                    : EmptyView(
+                        title: 'Nothing here right now',
+                        message:
+                            'This section has no products at the moment.',
+                        actionLabel: 'Start shopping',
+                        onAction: () => AppNav.goToTab(context, AppTab.home),
+                      ),
           ),
         ),
       ];

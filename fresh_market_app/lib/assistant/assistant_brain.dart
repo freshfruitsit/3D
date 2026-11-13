@@ -948,7 +948,7 @@ class AssistantBrain {
 
     const action = OpenCollectionAction(
       'See all deals',
-      handle: Catalog.dealsHandle,
+      handle: Catalog.bestDealsHandle,
       title: 'Best Deals',
     );
 

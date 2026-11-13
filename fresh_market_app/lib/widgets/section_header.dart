@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
+import 'a11y.dart';
 
 /// A section heading drawn as an ink tag (white title and icon) that runs
 /// in from the left edge of the screen and ends in a slant, followed by a
@@ -30,41 +31,56 @@ class SectionHeader extends StatelessWidget {
   /// The link's text.
   static const String seeAll = 'See all';
 
+  /// Above this text scale "See all" goes under the tag, so the title
+  /// keeps the width it needs.
+  static const double stackAbove = 1.5;
+
   @override
   Widget build(BuildContext context) {
+    final tag = Align(
+      alignment: Alignment.centerLeft,
+      child: SectionTag(title: title, icon: icon),
+    );
+    final link = onViewAll == null
+        ? null
+        : TextButton(
+            onPressed: onViewAll,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.ink,
+              textStyle: AppText.link,
+              padding: const EdgeInsets.only(left: 8, right: 4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(seeAll, semanticsLabel: '$seeAll $title'),
+                const SizedBox(width: 2),
+                const Icon(Icons.chevron_right, size: 20),
+              ],
+            ),
+          );
+    final stacked =
+        link != null &&
+        MediaQuery.textScalerOf(context).scale(10) / 10 > stackAbove;
     return Padding(
       padding: padding,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: AppDims.touch),
-        child: Row(
-          children: [
-            Flexible(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SectionTag(title: title, icon: icon),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  tag,
+                  Align(alignment: Alignment.centerRight, child: link),
+                ],
+              )
+            : Row(
+                children: [
+                  Flexible(child: tag),
+                  if (link != null) ...[const SizedBox(width: 8), link],
+                ],
               ),
-            ),
-            if (onViewAll != null) ...[
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: onViewAll,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.ink,
-                  textStyle: AppText.link,
-                  padding: const EdgeInsets.only(left: 8, right: 4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(seeAll, semanticsLabel: '$seeAll $title'),
-                    const SizedBox(width: 2),
-                    const Icon(Icons.chevron_right, size: 20),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -134,12 +150,26 @@ class SectionTag extends StatelessWidget {
                 ],
                 Flexible(
                   // Two lines (a taller tag) at a large font size rather
-                  // than "Today's Top…".
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
+                  // than "Today's Top…"; a word too wide for the tag on its
+                  // own is set a little smaller instead of broken.
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final style = effectiveTextStyle(context, titleStyle);
+                      final size = fittingFontSize(
+                        title,
+                        style,
+                        MediaQuery.textScalerOf(context),
+                        constraints.maxWidth,
+                      );
+                      return Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: size == style.fontSize
+                            ? titleStyle
+                            : titleStyle.copyWith(fontSize: size),
+                      );
+                    },
                   ),
                 ),
               ],

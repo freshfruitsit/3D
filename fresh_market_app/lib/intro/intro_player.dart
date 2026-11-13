@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
 
@@ -5,8 +6,8 @@ import 'package:video_player/video_player.dart';
 /// [VideoIntroPlayer]; tests supply a fake, because a real video cannot
 /// play in a widget test.
 ///
-/// Listeners are told whenever [isReady], [position], [duration] or
-/// [isCompleted] change.
+/// Listeners are told whenever [isReady], [position], [duration],
+/// [isCompleted] or [caption] change.
 abstract class IntroPlayer implements Listenable {
   /// Loads the video. Throws if it cannot be played.
   Future<void> initialize();
@@ -22,6 +23,10 @@ abstract class IntroPlayer implements Listenable {
 
   /// True once playback has reached the end.
   bool get isCompleted;
+
+  /// The caption of what is being said at [position]; empty between
+  /// lines, and always empty when the video has no caption file.
+  String get caption;
 
   Future<void> play();
   Future<void> pause();
@@ -42,14 +47,32 @@ class VideoIntroPlayer implements IntroPlayer {
 
   static const String introVideoAsset = 'assets/video/intro.mp4';
 
+  /// The captions of the speaker's words (WebVTT), shown while the sound
+  /// is on. They come from a transcript of the reel: until that file is
+  /// bundled, the video plays without captions.
+  static const String introCaptionsAsset = 'assets/video/intro.vtt';
+
   final String asset;
 
   // Other apps' audio (music, a call) keeps playing: the intro starts
   // muted and must not take the audio away from them.
   late final VideoPlayerController _controller = VideoPlayerController.asset(
     asset,
+    closedCaptionFile: _loadCaptions(),
     videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
   );
+
+  /// The caption file; an empty one when it is missing or unreadable, so
+  /// the video still plays.
+  static Future<ClosedCaptionFile> _loadCaptions() async {
+    try {
+      return WebVTTCaptionFile(
+        await rootBundle.loadString(introCaptionsAsset),
+      );
+    } catch (_) {
+      return WebVTTCaptionFile('');
+    }
+  }
 
   VideoPlayerValue get _value => _controller.value;
 
@@ -70,6 +93,9 @@ class VideoIntroPlayer implements IntroPlayer {
 
   @override
   bool get isCompleted => _value.isCompleted;
+
+  @override
+  String get caption => _value.caption.text;
 
   @override
   Future<void> play() => _controller.play();

@@ -28,6 +28,8 @@ class FakeIntroPlayer extends ChangeNotifier implements IntroPlayer {
   Duration duration = const Duration(seconds: 34);
   @override
   bool isCompleted = false;
+  @override
+  String caption = '';
 
   @override
   bool get isReady => ready;
@@ -79,6 +81,7 @@ Future<void> pumpIntro(
   required FakeIntroPlayer player,
   required VoidCallback onDone,
   EdgeInsets viewPadding = EdgeInsets.zero,
+  bool disableAnimations = false,
 }) async {
   usePhoneSize(tester);
   await tester.pumpWidget(
@@ -89,6 +92,7 @@ Future<void> pumpIntro(
           size: const Size(390, 844),
           padding: viewPadding,
           viewPadding: viewPadding,
+          disableAnimations: disableAnimations,
         ),
         child: IntroScreen(onDone: onDone, playerFactory: () => player),
       ),
@@ -105,6 +109,37 @@ void main() {
   tearDown(() => IntroScreen.debugDefaultPlayerFactory = null);
 
   group('IntroScreen', () {
+    testWidgets('with reduce motion the poster stays and nothing plays',
+        (tester) async {
+      final player = FakeIntroPlayer();
+      var done = 0;
+      await pumpIntro(
+        tester,
+        player: player,
+        onDone: () => done++,
+        disableAnimations: true,
+      );
+      await tester.pump();
+
+      expect(player.playCalls, 0);
+      expect(player.playing, isFalse);
+      expect(find.byKey(IntroScreen.posterKey), findsOneWidget);
+      expect(find.byKey(IntroScreen.videoKey), findsNothing);
+
+      // Back in the foreground it still does not start by itself.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      );
+      await tester.pump();
+      expect(player.playCalls, 0);
+
+      // Skip still works.
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+      expect(done, 1);
+    });
+
     testWidgets('plays muted and shows the poster until the first frame',
         (tester) async {
       final player = FakeIntroPlayer();
@@ -158,6 +193,60 @@ void main() {
       await tester.tap(find.byKey(IntroScreen.muteKey));
       await tester.pump();
       expect(player.muted, isTrue);
+    });
+
+    testWidgets('once the sound is on, the speech shows as captions over the '
+        'dark bottom of the picture', (tester) async {
+      final player = FakeIntroPlayer();
+      await pumpIntro(tester, player: player, onDone: () {});
+      player.seek(const Duration(seconds: 2));
+      player
+        ..caption = 'A caption line'
+        ..notifyListeners();
+      await tester.pump();
+      // Muted: no speech is heard, so no caption.
+      expect(find.byKey(IntroScreen.captionKey), findsNothing);
+
+      await tester.tap(find.byKey(IntroScreen.muteKey));
+      await tester.pump();
+      expect(find.byKey(IntroScreen.captionKey), findsOneWidget);
+      final text = tester.widget<Text>(find.text('A caption line'));
+      expect(text.style!.color, Colors.white);
+      expect(text.style!.fontSize, 15);
+      expect(text.style!.fontWeight, FontWeight.w600);
+      // On its dark plate, above the welcome text and Start shopping.
+      final plate = tester.widget<Container>(
+        find.byKey(IntroScreen.captionKey),
+      );
+      final plateColor = (plate.decoration! as BoxDecoration).color!;
+      expect(plateColor.a, greaterThanOrEqualTo(0.7));
+      final caption = tester.getRect(find.byKey(IntroScreen.captionKey));
+      expect(
+        caption.bottom,
+        lessThan(tester.getRect(find.text(IntroScreen.welcome)).top),
+      );
+      expect(caption.top, greaterThan(844 / 2));
+
+      // The caption follows the speech, and goes between lines.
+      player
+        ..caption = 'The next line'
+        ..notifyListeners();
+      await tester.pump();
+      expect(find.text('The next line'), findsOneWidget);
+      player
+        ..caption = ''
+        ..notifyListeners();
+      await tester.pump();
+      expect(find.byKey(IntroScreen.captionKey), findsNothing);
+
+      // Muted again: hidden.
+      player
+        ..caption = 'A caption line'
+        ..notifyListeners();
+      await tester.tap(find.byKey(IntroScreen.muteKey));
+      await tester.pump();
+      expect(find.byKey(IntroScreen.captionKey), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('the top controls are 44px touch targets', (tester) async {

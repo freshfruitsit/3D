@@ -29,6 +29,8 @@ class FakeShopifyApi implements ShopifyApi {
       'fruits',
       'vegetables',
       'local-uae',
+      // Shopify's built-in collection of every product (the deals).
+      'all',
     ],
   }) => FakeShopifyApi(
     collections: {for (final h in handles) h: sampleProducts()},

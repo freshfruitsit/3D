@@ -123,6 +123,8 @@ class _CartScreenState extends State<CartScreen> {
                         'Add fresh fruit, vegetables and more to get started.',
                     actionLabel: 'Start shopping',
                     onAction: () => AppNav.goToTab(context, AppTab.home),
+                    // A buying CTA: the green button.
+                    primary: true,
                   ),
                 ),
               )

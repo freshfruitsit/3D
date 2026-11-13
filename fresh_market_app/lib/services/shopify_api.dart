@@ -80,6 +80,34 @@ abstract interface class ShopifyApi {
   Future<Product> product(String handle, {bool refresh = false});
 }
 
+/// Loads a collection in one go, for a price sort or the deals.
+extension WholeCollection on ShopifyApi {
+  /// Page size used to fetch a whole collection.
+  static const int bulkLimit = 250;
+
+  /// Safety cap on bulk pages (2,000 products).
+  static const int bulkMaxPages = 8;
+
+  /// Every product of [handle] in the store's order, loaded in pages of
+  /// [bulkLimit]; past [bulkMaxPages] pages the rest is left out.
+  Future<List<Product>> wholeCollection(String handle) async {
+    final all = <Product>[];
+    final ids = <int>{};
+    for (var page = 1; page <= bulkMaxPages; page++) {
+      final batch = await collectionProducts(
+        handle,
+        page: page,
+        limit: bulkLimit,
+      );
+      for (final p in batch) {
+        if (ids.add(p.id)) all.add(p);
+      }
+      if (batch.length < bulkLimit) break;
+    }
+    return all;
+  }
+}
+
 /// [ShopifyApi] over the public storefront JSON endpoints.
 class HttpShopifyApi implements ShopifyApi {
   HttpShopifyApi({

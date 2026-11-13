@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/models/money.dart';
 import 'package:fresh_market_app/models/product.dart';
 import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
+import 'package:fresh_market_app/widgets/price_widgets.dart';
 import 'package:fresh_market_app/widgets/product_card.dart';
 import 'package:fresh_market_app/widgets/state_views.dart';
 import 'package:material_ui/material_ui.dart';
@@ -31,6 +33,27 @@ List<Product> manyProducts(int count) => [
           images: const [],
         ),
     ];
+
+/// A single-variant product at [cents], marked down from [compareAt] when
+/// given.
+Product dealProduct(int id, int cents, {int? compareAt, bool available = true}) =>
+    Product(
+      id: id,
+      title: 'Deal $id',
+      handle: 'deal-$id',
+      vendor: 'Fresh Market',
+      productType: 'Meat',
+      variants: [
+        Variant(
+          id: 7000 + id,
+          title: 'Default Title',
+          priceCents: cents,
+          compareAtCents: compareAt,
+          available: available,
+        ),
+      ],
+      images: const [],
+    );
 
 const fruits = ProductListScreen.collection(handle: 'fruits', title: 'Fruits');
 
@@ -313,5 +336,104 @@ void main() {
     await tester.pump();
     expect(find.byType(ProductCard), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  group('Deals', () {
+    // The store's whole catalogue: three products really on sale among
+    // plain ones, past the first page of 250 (one is sold out).
+    List<Product> store() => [
+          ...manyProducts(240),
+          dealProduct(1, 4500, compareAt: 5200), // 13%
+          dealProduct(2, 6250, compareAt: 11500), // 46%
+          ...manyProducts(30).map((p) => dealProduct(p.id + 1000, 900)),
+          dealProduct(3, 1950, compareAt: 2300), // 15%
+          dealProduct(4, 1000, compareAt: 5000, available: false), // 80%
+          dealProduct(5, 500, compareAt: 400), // "compare-at" below price
+        ];
+
+    testWidgets('the tab shows only real savings, biggest saving first',
+        (tester) async {
+      final api = FakeShopifyApi(collections: {'all': store()});
+      await pumpScreen(tester, const ProductListScreen.deals(), api: api);
+      await tester.pump();
+      await tester.pump();
+
+      // The whole catalogue was searched, in pages of 250.
+      expect(api.calls, [
+        'collectionProducts(all, page 1)',
+        'collectionProducts(all, page 2)',
+      ]);
+      expect(find.text('Deals'), findsOneWidget);
+      expect(find.text('4 products'), findsOneWidget);
+      expect(find.text('Biggest saving'), findsOneWidget);
+      // In stock first, by percentage; the sold-out 80% last.
+      expect(cardTitles(tester), ['Deal 2', 'Deal 3', 'Deal 1', 'Deal 4']);
+      // Every card in view shows its saving: the badge, the orange price
+      // and the struck-through old price.
+      for (final card in tester.widgetList<ProductCard>(
+        find.byType(ProductCard),
+      )) {
+        final cardFinder = find.byWidget(card);
+        expect(
+          find.descendant(of: cardFinder, matching: find.byType(SalePill)),
+          findsOneWidget,
+          reason: card.product.title,
+        );
+        final price = tester.widget<PriceRow>(
+          find.descendant(of: cardFinder, matching: find.byType(PriceRow)),
+        );
+        expect(price.oldPriceCents, greaterThan(price.priceCents));
+        final shown = tester.widget<Text>(
+          find.descendant(
+            of: cardFinder,
+            matching: find.text(formatMoney(price.priceCents)),
+          ),
+        );
+        expect(shown.style!.color, AppColors.saving);
+      }
+      expect(find.text(SalePill.labelFor(46)), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the sort pill switches to price and back', (tester) async {
+      final api = FakeShopifyApi(collections: {'all': store()});
+      await pumpScreen(tester, const ProductListScreen.deals(), api: api);
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('Biggest saving'));
+      await tester.pump();
+      expect(find.text('Price: low to high'), findsOneWidget);
+      expect(cardTitles(tester), ['Deal 4', 'Deal 3', 'Deal 1', 'Deal 2']);
+      await tester.tap(find.text('Price: low to high'));
+      await tester.pump();
+      expect(cardTitles(tester).first, 'Deal 2');
+    });
+
+    testWidgets('nothing on sale: says so, never a made-up saving',
+        (tester) async {
+      final api = FakeShopifyApi(collections: {'all': manyProducts(12)});
+      await pumpScreen(tester, const ProductListScreen.deals(), api: api);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(ProductCard), findsNothing);
+      expect(find.text('No offers right now'), findsOneWidget);
+      expect(find.text('Start shopping'), findsOneWidget);
+    });
+
+    testWidgets('a failed load offers Try again', (tester) async {
+      final api = FakeShopifyApi(collections: {'all': store()})
+        ..error = const NetworkException('offline');
+      await pumpScreen(tester, const ProductListScreen.deals(), api: api);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(ErrorView), findsOneWidget);
+
+      api.error = null;
+      await tester.tap(find.text('Try again'));
+      await tester.pump();
+      await tester.pump();
+      expect(cardTitles(tester).first, 'Deal 2');
+    });
   });
 }

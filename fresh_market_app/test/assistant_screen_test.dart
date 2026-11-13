@@ -161,7 +161,8 @@ void main() {
     expect(find.text('A few products from Berries:'), findsOneWidget);
     // Name, then the size on its own line in the row.
     expect(find.text('Zespri Kiwi Sungold'), findsOneWidget);
-    expect(find.text('500 GM'), findsNWidgets(2));
+    // Sizes written the shop-floor way ("500 g", not the store's "500 GM").
+    expect(find.text('500 g'), findsNWidgets(2));
     expect(find.text('\u20C3 19.95'), findsOneWidget);
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
     // Struck old price of the sale product.
@@ -261,7 +262,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Strawberry'), findsOneWidget);
-    expect(find.text('1 KG'), findsOneWidget);
+    expect(find.text('1 kg'), findsOneWidget);
     expect(find.text('82.95'), findsOneWidget);
 
     await tapVisible(tester, find.text("See all Today's Top Deals"));
@@ -1026,9 +1027,9 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.descendant(of: row, matching: find.text('500 GM')),
+      expect(find.descendant(of: row, matching: find.text('500 g')),
           findsOneWidget);
-      expect(tester.widget<Text>(find.text('500 GM')).style?.color,
+      expect(tester.widget<Text>(find.text('500 g')).style?.color,
           AppColors.secondary);
       expect(find.descendant(of: row, matching: find.byType(AddControl)),
           findsOneWidget);

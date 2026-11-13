@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/data/catalog.dart';
+import 'package:fresh_market_app/data/deals.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
+import 'package:fresh_market_app/models/product.dart';
 import 'package:fresh_market_app/screens/home_screen.dart';
 import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/screens/search_screen.dart';
@@ -11,6 +13,7 @@ import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/app_search_field.dart';
 import 'package:fresh_market_app/widgets/brand_tile.dart';
 import 'package:fresh_market_app/widgets/category_tile.dart';
+import 'package:fresh_market_app/widgets/price_widgets.dart';
 import 'package:fresh_market_app/widgets/product_card.dart';
 import 'package:fresh_market_app/widgets/promo_row.dart';
 import 'package:fresh_market_app/widgets/section_header.dart';
@@ -35,6 +38,36 @@ Future<void> _centre(WidgetTester tester, Finder target) async {
   await _scrollTo(tester, target);
   await Scrollable.ensureVisible(tester.element(target), alignment: 0.5);
   await tester.pump();
+}
+
+/// A marked-down product that is not in "Today's Top Deals".
+Product _platter(int id, int cents, int compareAt) => Product(
+      id: id,
+      title: 'Fruit Platter $id',
+      handle: 'fruit-platter-$id',
+      vendor: 'Ambrosia',
+      productType: 'Platters',
+      variants: [
+        Variant(
+          id: id + 100,
+          title: 'Default Title',
+          priceCents: cents,
+          compareAtCents: compareAt,
+        ),
+      ],
+      images: const [],
+    );
+
+/// The sample store, where the whole catalogue ("all") also holds two
+/// marked-down platters that no rail above "Best Deals" shows.
+FakeShopifyApi _storeWithDeals() {
+  final api = FakeShopifyApi.sample();
+  api.collectionsByHandle[Deals.sourceHandle] = [
+    ...sampleProducts(),
+    _platter(1201, 25000, 28000), // 11%
+    _platter(1202, 15000, 22000), // 32%
+  ];
+  return api;
 }
 
 int _railCalls(FakeShopifyApi api) =>
@@ -86,7 +119,7 @@ void main() {
 
   testWidgets('sections come in the specified order, brands and offers between rails',
       (tester) async {
-    final api = FakeShopifyApi.sample();
+    final api = _storeWithDeals();
     await pumpScreen(tester, const HomeScreen(), api: api);
     await tester.pump();
 
@@ -191,7 +224,7 @@ void main() {
     // No "berries" collection: only that rail fails.
     final api = FakeShopifyApi.sample(handles: const [
       'fresh-meat',
-      'best-deals',
+      'all',
       'best-sellers',
       'ambrosia-flowers',
     ]);
@@ -215,6 +248,55 @@ void main() {
     await tester.pump();
     await _scrollTo(tester, find.text('Best Deals'));
     expect(find.text("Today's Top Deals"), findsNothing);
+  });
+
+  testWidgets('Best Deals shows real savings only, biggest first, never '
+      "repeating Today's Top Deals", (tester) async {
+    final api = _storeWithDeals();
+    await pumpScreen(tester, const HomeScreen(), api: api);
+    await tester.pump();
+    // The whole catalogue is searched for products on sale.
+    expect(api.calls, contains('collectionProducts(all, page 1)'));
+    expect(api.calls, isNot(contains('collectionProducts(best-deals, page 1)')));
+
+    await _centre(tester, find.widgetWithText(SectionHeader, 'Best Deals'));
+    final rail = find.byKey(const PageStorageKey('rail-all'));
+    final cards = tester
+        .widgetList<ProductCard>(
+          find.descendant(of: rail, matching: find.byType(ProductCard)),
+        )
+        .toList();
+    // Beef Cubes and Strawberry are on sale too, but the rail above
+    // already shows them.
+    expect(
+      [for (final c in cards) c.product.title],
+      ['Fruit Platter 1202', 'Fruit Platter 1201'],
+    );
+    for (final card in cards) {
+      expect(
+        find.descendant(
+          of: find.byWidget(card),
+          matching: find.byType(SalePill),
+        ),
+        findsOneWidget,
+      );
+    }
+
+    // "See all" opens every product on sale, biggest saving first.
+    await tester.tap(find.descendant(
+      of: find.widgetWithText(SectionHeader, 'Best Deals'),
+      matching: find.text('See all'),
+    ));
+    await tester.pump();
+    await tester.pump(_settle);
+    final list =
+        tester.widget<ProductListScreen>(find.byType(ProductListScreen));
+    expect(list.handle, Deals.sourceHandle);
+    expect(list.onSaleOnly, isTrue);
+    expect(list.title, 'Best Deals');
+    await tester.pump();
+    expect(find.text('Biggest saving'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pull to refresh reloads all five rails', (tester) async {
@@ -319,7 +401,8 @@ void main() {
         .descendant(of: tile, matching: find.byType(DecoratedBox))
         .first);
     expect((square.decoration as BoxDecoration).color, AppColors.subtle);
-    final label = tester.widget<Text>(find.text('Chiquita'));
+    // A short name: no word needs shrinking to fit the tile.
+    final label = tester.widget<Text>(find.text('Jazz'));
     expect(tester.getRect(find.text('Chiquita')).top,
         greaterThan(image.bottom));
     expect(label.style!.fontSize, 12);
@@ -398,7 +481,8 @@ void main() {
 
   const offerTargets = [
     ('bulk-buy', 'Bulk Buy'),
-    ('best-deals', 'Best Deals'),
+    // "Deals of the day": the products really on sale.
+    (Deals.sourceHandle, 'Best Deals'),
     ('deals-on-essentials', 'Deals on Essentials'),
     ('ambrosia', 'Ambrosia'),
   ];
@@ -425,6 +509,7 @@ void main() {
           find.byType(ProductListScreen));
       expect(list.handle, offerTargets[i].$1);
       expect(list.title, offerTargets[i].$2);
+      expect(list.onSaleOnly, offerTargets[i].$1 == Deals.sourceHandle);
     });
   }
 
@@ -524,7 +609,9 @@ void main() {
   });
 
   testWidgets('sections are 28 apart, grids included', (tester) async {
-    await pumpScreen(tester, const HomeScreen());
+    // Real text metrics: one-line tags, as on a phone.
+    await loadAppFonts(tester);
+    await pumpScreen(tester, const HomeScreen(), api: _storeWithDeals());
     await tester.pump();
     // The ink tag itself (its row is a 44pt touch target around it).
     Rect heading(String title) => tester.getRect(find.descendant(

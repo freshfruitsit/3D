@@ -2,17 +2,29 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
+import '../assistant/assistant_brain.dart';
 import '../delivery/delivery.dart';
 import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
+import 'assistant_screen.dart';
 import 'intro_screen.dart';
 
 /// The Account tab: a sign-in card (sign-in is not available in this
 /// version, said with a "Coming soon" tag rather than a dead button), the
-/// delivery location, the way into the favourites list and a replay of the
-/// intro.
+/// delivery location, the way into the favourites list, a replay of the
+/// intro and the store's customer service ("Help & contact").
 class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key});
+  const AccountScreen({super.key, this.launcher});
+
+  /// Opens the phone, email and contact-page links of "Help & contact";
+  /// [AssistantScreen.launchExternally] when null. Tests pass a stub.
+  final AssistantLinkLauncher? launcher;
+
+  static const String helpLabel = 'Help & contact';
+
+  /// The second line of the "Help & contact" row: the store's toll-free
+  /// number and email, as its website gives them.
+  static const String helpSubtitle = '800 1 627538 \u00B7 care@freshmarket.ae';
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +161,17 @@ class AccountScreen extends StatelessWidget {
                       label: 'Watch the intro again',
                       onTap: () => _watchIntro(context),
                     ),
+                    const Divider(height: 1, indent: 52),
+                    _AccountRow(
+                      key: const ValueKey('account-help'),
+                      icon: Icons.support_agent_outlined,
+                      label: helpLabel,
+                      subtitle: helpSubtitle,
+                      // Read as words, not as a run of digits and a dot.
+                      subtitleSemantics:
+                          'Call 800 1 627538 or email care@freshmarket.ae',
+                      onTap: () => _showHelp(context),
+                    ),
                   ],
                 ),
               ),
@@ -161,6 +184,33 @@ class AccountScreen extends StatelessWidget {
 
   /// The tag on the sign-in card.
   static const String comingSoon = 'Coming soon';
+
+  /// The store's customer service in a sheet over the bottom bar: the
+  /// website's contact text, then Call, Email and the contact page. The
+  /// sheet closes and the chosen link opens in the phone, mail or browser
+  /// app; if nothing can open it, a notice gives the number or address.
+  Future<void> _showHelp(BuildContext context) async {
+    final link = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const _HelpSheet(),
+    );
+    if (link == null || !context.mounted) return;
+    final launch = launcher ?? AssistantScreen.launchExternally;
+    final uri = Uri.tryParse(link);
+    var opened = false;
+    if (uri != null) {
+      try {
+        opened = await launch(uri);
+      } catch (_) {
+        // No app for it, or the platform refused: said below.
+      }
+    }
+    if (opened || !context.mounted) return;
+    AppNav.showNotice(context, linkFailureMessage(link));
+  }
 
   /// Plays the intro over the whole screen (no bottom bar) and comes back
   /// here when it finishes.
@@ -185,6 +235,7 @@ class _AccountRow extends StatelessWidget {
     required this.onTap,
     this.trailing,
     this.subtitle,
+    this.subtitleSemantics,
   });
 
   final IconData icon;
@@ -194,6 +245,9 @@ class _AccountRow extends StatelessWidget {
 
   /// A second line under the label in grey ("Business Bay, Dubai").
   final String? subtitle;
+
+  /// What screen readers say for [subtitle], when it differs.
+  final String? subtitleSemantics;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +273,7 @@ class _AccountRow extends StatelessWidget {
                     if (subtitle != null)
                       Text(
                         subtitle!,
+                        semanticsLabel: subtitleSemantics,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppText.bodySmall.copyWith(
@@ -239,6 +294,74 @@ class _AccountRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Help & contact": the store's customer service text and one row per
+/// contact link (call, email, the website's contact page).
+class _HelpSheet extends StatelessWidget {
+  const _HelpSheet();
+
+  static IconData _iconFor(String link) =>
+      switch (Uri.tryParse(link)?.scheme) {
+        'tel' => Icons.phone_outlined,
+        'mailto' => Icons.mail_outline,
+        _ => Icons.open_in_new,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final links = AssistantBrain.contactActions.whereType<OpenLinkAction>();
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          AppDims.gutter,
+          0,
+          AppDims.gutter,
+          AppDims.gutter,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              header: true,
+              child: const Text(
+                AccountScreen.helpLabel,
+                style: AppText.heading,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AssistantBrain.contactText,
+              style: AppText.body.copyWith(color: AppColors.secondary),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: AppDecor.card,
+              clipBehavior: Clip.antiAlias,
+              child: Material(
+                type: MaterialType.transparency,
+                child: Column(
+                  children: [
+                    for (final (index, link) in links.indexed) ...[
+                      if (index > 0) const Divider(height: 1, indent: 52),
+                      _AccountRow(
+                        key: ValueKey('help-${link.uri}'),
+                        icon: _iconFor(link.uri),
+                        label: link.label,
+                        onTap: () => Navigator.of(context).pop(link.uri),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

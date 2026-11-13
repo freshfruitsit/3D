@@ -14,9 +14,8 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(appOverlayStyle);
-  await SystemChrome.setPreferredOrientations(const [
-    DeviceOrientation.portraitUp,
-  ]);
+  // No orientation lock: every screen also works in landscape (WCAG
+  // 1.3.4), where the Home header scrolls away and the pages scroll.
 
   // If device storage cannot be opened the app still runs; the cart,
   // favourites and delivery area then last only until the app is closed.

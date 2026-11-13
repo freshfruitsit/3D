@@ -144,8 +144,9 @@ class ErrorView extends StatelessWidget {
   }
 }
 
-/// A friendly empty state, with an ink outlined button (back to shopping)
-/// when [actionLabel] and [onAction] are given.
+/// A friendly empty state, with a button (back to shopping) when
+/// [actionLabel] and [onAction] are given: ink outlined, or the green
+/// buying button with [primary].
 class EmptyView extends StatelessWidget {
   const EmptyView({
     super.key,
@@ -154,6 +155,7 @@ class EmptyView extends StatelessWidget {
     this.icon = Icons.shopping_basket_outlined,
     this.actionLabel,
     this.onAction,
+    this.primary = false,
   });
 
   final String title;
@@ -161,6 +163,10 @@ class EmptyView extends StatelessWidget {
   final IconData icon;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// The action is the green buying button ("Start shopping" in the empty
+  /// cart, one of the buying CTAs) instead of an ink outline.
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +176,7 @@ class EmptyView extends StatelessWidget {
       message: message,
       actionLabel: actionLabel,
       onAction: onAction,
+      primary: primary,
     );
   }
 }
@@ -181,6 +188,7 @@ class _Message extends StatelessWidget {
     this.message,
     this.actionLabel,
     this.onAction,
+    this.primary = false,
   });
 
   final IconData icon;
@@ -188,6 +196,7 @@ class _Message extends StatelessWidget {
   final String? message;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +231,10 @@ class _Message extends StatelessWidget {
             ],
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 20),
-              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+              if (primary)
+                FilledButton(onPressed: onAction, child: Text(actionLabel!))
+              else
+                OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

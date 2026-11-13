@@ -478,7 +478,8 @@ abstract final class AppButtons {
       );
 
   /// Ink outline on white (theme default for OutlinedButton): "Start
-  /// shopping" on empty states, "Discover now", destructive confirms.
+  /// shopping" on empty states other than the cart's, "Discover now",
+  /// destructive confirms.
   static ButtonStyle get outline => OutlinedButton.styleFrom(
         foregroundColor: AppColors.ink,
         backgroundColor: AppColors.surface,

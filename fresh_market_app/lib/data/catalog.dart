@@ -1,3 +1,5 @@
+import 'deals.dart';
+
 /// A "Shop By Category" tile.
 class CategoryEntry {
   const CategoryEntry(this.label, this.asset, this.handle);
@@ -15,10 +17,14 @@ class CategoryEntry {
 
 /// A horizontal product rail on Home.
 class HomeRail {
-  const HomeRail(this.title, this.handle);
+  const HomeRail(this.title, this.handle, {this.onSaleOnly = false});
 
   final String title;
   final String handle;
+
+  /// Only the collection's products that are really on sale, biggest
+  /// saving first (see [Deals]).
+  final bool onSaleOnly;
 }
 
 /// A banner of the Home carousel.
@@ -47,7 +53,8 @@ class BrandEntry {
 
 /// A portrait banner of the "Offers" row on Home.
 class PromoEntry {
-  const PromoEntry(this.asset, this.handle, this.title);
+  const PromoEntry(this.asset, this.handle, this.title,
+      {this.onSaleOnly = false});
 
   final String asset;
 
@@ -56,6 +63,9 @@ class PromoEntry {
 
   /// Title of the list the banner opens; also its spoken label.
   final String title;
+
+  /// The list shows only the collection's products that are on sale.
+  final bool onSaleOnly;
 }
 
 abstract final class Catalog {
@@ -96,7 +106,18 @@ abstract final class Catalog {
   ];
 
   static const HomeRail topDeals = HomeRail("Today's Top Deals", 'fresh-meat');
-  static const HomeRail bestDeals = HomeRail('Best Deals', 'best-deals');
+
+  /// The store's "Best Deals" collection. None of its products has a
+  /// compare-at price, so Home's "Best Deals" rail shows [saleRail]
+  /// instead; the assistant still looks here (and in [topDeals]) for
+  /// offers.
+  static const HomeRail bestDeals = HomeRail('Best Deals', bestDealsHandle);
+  static const String bestDealsHandle = 'best-deals';
+
+  /// Home's "Best Deals" rail: the store's products that are really on
+  /// sale, biggest saving first (see [Deals]).
+  static const HomeRail saleRail =
+      HomeRail('Best Deals', Deals.sourceHandle, onSaleOnly: true);
   static const HomeRail freshPick =
       HomeRail('Fresh Pick For You', 'best-sellers');
   static const HomeRail berries = HomeRail('Berries', 'berries');
@@ -104,7 +125,7 @@ abstract final class Catalog {
       HomeRail('Seasonal Blooms', 'ambrosia-flowers');
 
   /// Rails shown above the "Brands We Love" grid.
-  static const List<HomeRail> railsBeforeBrands = [topDeals, bestDeals];
+  static const List<HomeRail> railsBeforeBrands = [topDeals, saleRail];
 
   /// Rails shown between the "Brands We Love" grid and the "Offers" row.
   static const List<HomeRail> railsAfterBrands = [freshPick];
@@ -137,14 +158,16 @@ abstract final class Catalog {
   /// The "Offers" banners on Home, in row order.
   static const List<PromoEntry> promos = [
     PromoEntry('assets/promos/bulk.jpg', 'bulk-buy', 'Bulk Buy'),
-    PromoEntry('assets/promos/deals.jpg', 'best-deals', 'Best Deals'),
+    // "Deals of the day": the products that are really on sale.
+    PromoEntry('assets/promos/deals.jpg', Deals.sourceHandle, 'Best Deals',
+        onSaleOnly: true),
     PromoEntry('assets/promos/essentials.jpg', 'deals-on-essentials',
         'Deals on Essentials'),
     PromoEntry('assets/promos/ambrosia.jpg', 'ambrosia', 'Ambrosia'),
   ];
 
-  /// The Deals tab.
-  static const String dealsHandle = 'best-deals';
+  /// Title of the Deals tab (`ProductListScreen.deals`): the store's
+  /// products that are really on sale.
   static const String dealsTitle = 'Deals';
 
   /// The "Discover our fresh local products" card on Home.

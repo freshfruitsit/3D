@@ -21,15 +21,21 @@ import 'widgets/a11y.dart';
 abstract final class AppNav {
   /// A collection's product list (category tile, banner, "View all",
   /// "Discover now").
+  /// With [onSaleOnly] only its products that are really on sale are
+  /// shown, biggest saving first ("Best Deals").
   static Future<void> openCollection(
     BuildContext context, {
     required String handle,
     required String title,
+    bool onSaleOnly = false,
   }) =>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              ProductListScreen.collection(handle: handle, title: title),
+          builder: (_) => ProductListScreen.collection(
+            handle: handle,
+            title: title,
+            onSaleOnly: onSaleOnly,
+          ),
         ),
       );
 

@@ -7,7 +7,9 @@ import '../intro/intro_player.dart';
 import '../theme/app_theme.dart';
 
 /// The first-launch intro: the store reel playing full screen, muted,
-/// with Skip and "Start shopping" over it.
+/// with Skip and "Start shopping" over it. Once the sound is turned on,
+/// the speaker's words show as captions over the dark bottom of the
+/// picture (when the reel's caption file is bundled).
 ///
 /// [onDone] is called exactly once: on Skip, "Start shopping", the system
 /// back button, or when the video reaches its end. The poster image shows
@@ -44,6 +46,7 @@ class IntroScreen extends StatefulWidget {
   static const Key muteKey = ValueKey('intro-mute');
   static const Key skipKey = ValueKey('intro-skip');
   static const Key startKey = ValueKey('intro-start');
+  static const Key captionKey = ValueKey('intro-caption');
 
   @override
   State<IntroScreen> createState() => _IntroScreenState();
@@ -149,6 +152,13 @@ class _IntroScreenState extends State<IntroScreen> with WidgetsBindingObserver {
       !_player.videoSize.isEmpty &&
       _player.position > Duration.zero;
 
+  /// The caption to show: only while the sound is on, as captions are the
+  /// words of the speech.
+  String get _caption {
+    if (_muted || _failed || !_player.isReady) return '';
+    return _player.caption.trim();
+  }
+
   double get _progress {
     if (_failed || !_player.isReady) return 0;
     final total = _player.duration.inMilliseconds;
@@ -213,7 +223,17 @@ class _IntroScreenState extends State<IntroScreen> with WidgetsBindingObserver {
                       // Kept inside the dark part of the scrim.
                       MediaQuery.withClampedTextScaling(
                         maxScaleFactor: 1.3,
-                        child: const _Welcome(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_caption.isNotEmpty) ...[
+                              _CaptionLine(text: _caption),
+                              const SizedBox(height: 16),
+                            ],
+                            const _Welcome(),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 20),
                       FilledButton(
@@ -300,6 +320,43 @@ class _ProgressLine extends StatelessWidget {
 const List<Shadow> _textShadow = [
   Shadow(color: Color(0x80000000), blurRadius: 6),
 ];
+
+/// One caption of the speech: white 15/600 on a dark plate, readable on
+/// any frame (white on the plate over white is 8:1 or more).
+class _CaptionLine extends StatelessWidget {
+  const _CaptionLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        key: IntroScreen.captionKey,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: const BoxDecoration(
+          color: _captionPlate,
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: AppText.family,
+            fontFamilyFallback: AppText.fallback,
+            fontSize: 15,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The dark plate behind a caption.
+const Color _captionPlate = Color(0xB3000000);
 
 /// "Welcome to Fresh Market", the headline and the store's handle, above
 /// "Start shopping".

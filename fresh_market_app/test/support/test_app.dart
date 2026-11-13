@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
@@ -52,6 +54,27 @@ Future<void> pumpScreen(
     ),
   );
 }
+
+/// Registers the bundled Inter (all five weights) and Dirham fonts, so
+/// text in the test measures as on a phone rather than in the square test
+/// font. Call at the start of a test that checks text layout.
+Future<void> loadAppFonts(WidgetTester tester) async {
+  if (_appFontsLoaded) return;
+  Future<ByteData> bytes(String file) => Future.value(
+    ByteData.sublistView(File('assets/fonts/$file').readAsBytesSync()),
+  );
+  await tester.runAsync(() async {
+    final inter = FontLoader('Inter');
+    for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
+      inter.addFont(bytes('Inter-$weight.otf'));
+    }
+    await inter.load();
+    await (FontLoader('Dirham')..addFont(bytes('Dirham.ttf'))).load();
+  });
+  _appFontsLoaded = true;
+}
+
+bool _appFontsLoaded = false;
 
 /// Reads a JSON fixture from test/fixtures (real store responses).
 dynamic loadFixture(String name) =>

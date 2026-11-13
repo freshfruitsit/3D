@@ -120,6 +120,10 @@ class FocusRingLayerState extends State<FocusRingLayer> {
     if (node == null || node is FocusScopeNode || node.context == null) {
       return null;
     }
+    // A text field shows its own ink border when focused.
+    if (node.context!.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return null;
+    }
     final box = node.context!.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return null;
     final rect = node.rect;

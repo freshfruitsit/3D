@@ -2,7 +2,6 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
-import 'data/catalog.dart';
 import 'delivery/delivery.dart';
 import 'screens/account_screen.dart';
 import 'screens/cart_screen.dart';
@@ -266,10 +265,7 @@ class _AppShellState extends State<AppShell> {
   Widget _rootOf(AppTab tab) => switch (tab) {
         AppTab.home => const HomeScreen(),
         AppTab.categories => const CategoriesScreen(),
-        AppTab.deals => const ProductListScreen.collection(
-            handle: Catalog.dealsHandle,
-            title: Catalog.dealsTitle,
-          ),
+        AppTab.deals => const ProductListScreen.deals(),
         AppTab.cart => const CartScreen(),
         AppTab.account => const AccountScreen(),
       };
