@@ -10,6 +10,7 @@ import 'package:fresh_market_app/screens/search_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
+import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:fresh_market_app/widgets/ask_button.dart';
 import 'package:material_ui/material_ui.dart';
@@ -57,15 +58,13 @@ void main() {
           "today's offers."),
       findsOneWidget,
     );
+    // The default chips, the first ones on screen.
+    expect(find.text(AssistantBrain.defaultSuggestions[0]), findsOneWidget);
+    expect(find.text(AssistantBrain.defaultSuggestions[1]), findsOneWidget);
     expect(find.text('Show me berries'), findsOneWidget);
     expect(find.text('What is on offer?'), findsOneWidget);
-    expect(AssistantBrain.suggestions, [
-      'Show me berries',
-      'What is on offer?',
-      'Add 2 cucumbers',
-      'Find avocado',
-      'Open my cart',
-    ]);
+    expect(find.byTooltip('New chat'), findsOneWidget);
+    expect(find.byTooltip('Show options'), findsOneWidget);
     expect(
       tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
       'Ask for a product or a category',
@@ -78,6 +77,8 @@ void main() {
     final api = FakeShopifyApi.sample();
     await pumpScreen(tester, AssistantScreen(session: newSession()), api: api);
 
+    await tester.ensureVisible(find.text('Show me berries'));
+    await tester.pump();
     await tester.tap(find.text('Show me berries'));
     await tester.pump();
     // The chip and the new user bubble.
@@ -317,4 +318,469 @@ void main() {
     await tapVisible(tester, find.byTooltip('Back'));
     expect(find.byType(AssistantScreen), findsNothing);
   });
+
+  group('options grid', () {
+    testWidgets('the greeting shows the 8 options as tiles across the full '
+        'width; a tile sends its message', (tester) async {
+      final session = newSession();
+      await pumpScreen(tester, AssistantScreen(session: session));
+
+      expect(session.messages.single.reply!.showOptions, isTrue);
+      for (final option in AssistantBrain.quickOptions) {
+        expect(find.text(option.label), findsOneWidget);
+        expect(find.bySemanticsLabel(option.label), findsOneWidget);
+      }
+      expect(AssistantBrain.quickOptions, hasLength(8));
+      for (final icon in [
+        Icons.local_offer_outlined,
+        Icons.grid_view_rounded,
+        Icons.restaurant_menu,
+        Icons.place_outlined,
+        Icons.card_giftcard,
+        Icons.trending_up,
+        Icons.shopping_bag_outlined,
+        Icons.support_agent,
+      ]) {
+        expect(find.byIcon(icon), findsOneWidget);
+      }
+
+      // 4 columns x 2 rows, at least 84 high, wider than the bubble.
+      final first = tileRect(tester, AssistantBrain.quickOptions[0].label);
+      final fourth = tileRect(tester, AssistantBrain.quickOptions[3].label);
+      final fifth = tileRect(tester, AssistantBrain.quickOptions[4].label);
+      expect(first.height, greaterThanOrEqualTo(84));
+      expect(fourth.top, first.top);
+      expect(fifth.left, first.left);
+      expect(fifth.top, greaterThan(first.bottom));
+      expect(fourth.right, closeTo(390 - 12, 0.5));
+      final bubble = tester.getRect(find
+          .ancestor(
+            of: find.text(AssistantBrain.greeting),
+            matching: find.byType(Container),
+          )
+          .first);
+      expect(fourth.right, greaterThan(bubble.right));
+      expect(tester.widget<Material>(tileMaterial(tester, "Today's offers"))
+          .color, AppColors.tile);
+
+      final offers = AssistantBrain.quickOptions.first;
+      await tester.tap(find.text(offers.label));
+      await tester.pump();
+      expect(session.messages[1].fromUser, isTrue);
+      expect(session.messages[1].text, offers.message);
+      expect(session.busy, isTrue);
+
+      // Greyed and not tappable while the reply loads.
+      expect(tester.widget<Material>(tileMaterial(tester, 'Categories')).color,
+          AppColors.disabledFill);
+      await tester.tap(find.text('Categories'));
+      await tester.pump();
+      expect(session.messages, hasLength(2));
+
+      await settleReply(tester);
+      expect(session.busy, isFalse);
+      expect(session.messages, hasLength(3));
+      expect(tester.widget<Material>(tileMaterial(tester, 'Categories')).color,
+          AppColors.tile);
+    });
+  });
+
+  group('suggestion chips', () {
+    testWidgets('follow the latest reply, go back to the start when they '
+        'change and wait while a reply loads', (tester) async {
+      final session = newSession();
+      await pumpScreen(tester, AssistantScreen(session: session));
+
+      expect(find.text(AssistantBrain.defaultSuggestions.first),
+          findsOneWidget);
+      await tester.drag(chipRow, const Offset(-500, 0));
+      await tester.pump();
+      expect(chipPosition(tester).pixels, greaterThan(0));
+
+      const ownChips = [
+        'Chip 1',
+        'Chip 2',
+        'Chip 3',
+        'Chip 4',
+        'Chip 5',
+        'Chip 6',
+        'Chip 7',
+        'Chip 8',
+      ];
+      session.note(const AssistantReply('Pick one', suggestions: ownChips));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(ownChips.first), findsOneWidget);
+      expect(find.text('What is on offer?'), findsNothing);
+      expect(chipPosition(tester).pixels, 0);
+
+      // A reply from the store: its own chips, or the defaults.
+      await tester.tap(find.text(ownChips.first));
+      await tester.pump();
+      expect(session.messages[session.messages.length - 1].text,
+          ownChips.first);
+      // Disabled while busy.
+      await tester.tap(find.text(ownChips[1]));
+      await tester.pump();
+      expect(session.messages.where((m) => m.fromUser), hasLength(1));
+
+      await settleReply(tester);
+      final latest = session.lastReply!;
+      final expected = latest.suggestions.isEmpty
+          ? AssistantBrain.defaultSuggestions
+          : latest.suggestions;
+      expect(find.text(expected.first), findsWidgets);
+      expect(find.text(ownChips[1]), findsNothing);
+    });
+  });
+
+  testWidgets('New chat leaves only the greeting; waits while a reply '
+      'loads', (tester) async {
+    final session = newSession();
+    await pumpScreen(tester, AssistantScreen(session: session));
+
+    await ask(tester, 'Find kiwi');
+    await tester.tap(find.byTooltip('New chat'));
+    await tester.pump();
+    expect(session.messages, hasLength(2));
+    await settleReply(tester);
+    expect(session.messages, hasLength(3));
+
+    await tester.tap(find.byTooltip('New chat'));
+    await tester.pump();
+    expect(session.messages, hasLength(1));
+    expect(find.text('Find kiwi'), findsNothing);
+    expect(find.text(AssistantBrain.greeting), findsOneWidget);
+    expect(find.text("Today's offers"), findsOneWidget);
+    expect(find.text(AssistantBrain.defaultSuggestions.first), findsOneWidget);
+    expect(tester.getSize(find.byTooltip('New chat')).height,
+        greaterThanOrEqualTo(44));
+  });
+
+  testWidgets('the options button shows the grid at the bottom, once',
+      (tester) async {
+    final session = newSession();
+    await pumpScreen(tester, AssistantScreen(session: session));
+    expect(tester.getSize(find.byTooltip('Show options')),
+        const Size(44, 44));
+
+    // The greeting already shows it.
+    await tester.tap(find.byTooltip('Show options'));
+    await tester.pump();
+    expect(session.messages, hasLength(1));
+
+    final products = sampleProducts();
+    session.note(AssistantReply('Many rows', products: products.sublist(0, 4)));
+    session.note(AssistantReply('More rows', products: products.sublist(2)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final list = find.byType(ListView).first;
+    await tester.drag(list, const Offset(0, 400));
+    await tester.pump();
+    final chat = tester.state<ScrollableState>(
+        find.descendant(of: list, matching: find.byType(Scrollable)).first);
+    expect(chat.position.pixels, greaterThan(0));
+
+    await tester.tap(find.byTooltip('Show options'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(session.messages, hasLength(4));
+    expect(session.messages.last.reply, same(AssistantBrain.optionsReply));
+    expect(chat.position.pixels, 0);
+    expect(find.text(AssistantBrain.optionsReply.text), findsOneWidget);
+    expect(find.text('Customer care'), findsWidgets);
+
+    // Again: already at the bottom, nothing added.
+    await tester.tap(find.byTooltip('Show options'));
+    await tester.pump();
+    expect(session.messages, hasLength(4));
+
+    // Waits while a reply loads.
+    await ask(tester, 'Find kiwi');
+    await tester.tap(find.byTooltip('Show options'));
+    await tester.pump();
+    expect(session.messages, hasLength(5));
+    await settleReply(tester);
+  });
+
+  group('actions', () {
+    testWidgets('Add all adds the first variant in stock of each product, '
+        'skips sold-out ones and works once', (tester) async {
+      final cart = CartStore();
+      final session = newSession();
+      final products = sampleProducts();
+      // Kiwi (500 GM in stock), Blueberry (sold out), Strawberry (250 GM
+      // sold out, 1 KG in stock).
+      final picked = [products[0], products[3], products[5]];
+      session.note(AssistantReply(
+        'A fruit salad',
+        products: picked,
+        actions: [AddProductsAction('Add all to cart', products: picked)],
+      ));
+      await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+
+      final pill = pillMaterial(tester, 'Add all to cart');
+      expect(tester.widget<Material>(pill).color, AppColors.brand);
+      expect(find.byIcon(Icons.add_shopping_cart), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Add all to cart'))
+            .style
+            ?.color,
+        Colors.white,
+      );
+
+      await tapVisible(tester, find.text('Add all to cart'));
+      expect(cart.quantityOf(2001), 1);
+      expect(cart.quantityOf(2009), 1);
+      expect(cart.quantityOf(2008), 0);
+      expect(cart.quantityOf(2006), 0);
+      expect(cart.itemCount, 2);
+      expect(
+        find.text('Added 2 products to your cart: Zespri Kiwi Sungold '
+            '(500 GM) and Strawberry (1 KG). Blueberry is sold out.'),
+        findsOneWidget,
+      );
+      expect(find.text('Open cart'), findsOneWidget);
+      expect(find.text('Ideas for a smoothie'), findsOneWidget);
+      expect(find.text('Checkout'), findsOneWidget);
+      expect(session.messages, hasLength(3));
+
+      // A second tap does nothing.
+      await tapVisible(tester, find.text('Add all to cart'));
+      expect(cart.itemCount, 2);
+      expect(session.messages, hasLength(3));
+      expect(tester.widget<Material>(pillMaterial(tester, 'Add all to cart'))
+          .color, AppColors.disabledFill);
+    });
+
+    testWidgets('Add all with only sold-out products adds nothing',
+        (tester) async {
+      final cart = CartStore();
+      final session = newSession();
+      final blueberry = sampleProducts()[3];
+      session.note(AssistantReply(
+        'Berries',
+        actions: [AddProductsAction('Add all to cart', products: [blueberry])],
+      ));
+      await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+
+      await tapVisible(tester, find.text('Add all to cart'));
+      expect(cart.isEmpty, isTrue);
+      expect(find.text('Nothing was added. Blueberry is sold out.'),
+          findsOneWidget);
+    });
+
+    testWidgets('Empty my cart is red, clears the cart once per message and '
+        'says when it is already empty', (tester) async {
+      final kiwi = sampleProducts().first;
+      final cart = CartStore()..add(kiwi, kiwi.variants.first);
+      final session = newSession();
+      // The same reply twice: each message's button is its own.
+      const reply = AssistantReply(
+        'Empty your cart?',
+        actions: [ClearCartAction()],
+      );
+      session
+        ..note(reply)
+        ..note(reply);
+      await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+
+      final buttons = find.text('Yes, empty my cart');
+      expect(buttons, findsNWidgets(2));
+      final shape = tester.widget<Material>(pillMaterial(tester,
+          'Yes, empty my cart')).shape! as StadiumBorder;
+      expect(shape.side.color, AppColors.red);
+      expect(tester.widget<Text>(buttons.first).style?.color, AppColors.red);
+
+      // The newest message comes first in the reversed list.
+      await tapVisible(tester, buttons.first);
+      expect(cart.isEmpty, isTrue);
+      expect(find.text('Done. Your cart is empty now.'), findsOneWidget);
+      expect(session.lastReply!.suggestions, [
+        'What is on offer?',
+        'Show me berries',
+        'Ideas for a fruit salad',
+      ]);
+      expect(find.text('What is on offer?'), findsOneWidget);
+      expect(find.text('Cheapest avocado'), findsNothing);
+      expect(session.messages, hasLength(4));
+
+      cart.add(kiwi, kiwi.variants.first);
+      await tapVisible(tester, buttons.first);
+      expect(cart.itemCount, 1);
+      expect(session.messages, hasLength(4));
+
+      cart.clear();
+      await tapVisible(tester, buttons.last);
+      expect(find.text('Your cart is already empty.'), findsOneWidget);
+      expect(session.messages, hasLength(5));
+    });
+
+    testWidgets('links open outside the app; a failure is said',
+        (tester) async {
+      final launched = <Uri>[];
+      Future<bool> launcher(Uri uri) async {
+        launched.add(uri);
+        if (uri.scheme == 'https') throw StateError('no browser');
+        return uri.scheme == 'mailto';
+      }
+
+      final session = newSession();
+      session.note(const AssistantReply(
+        'Customer care',
+        actions: [
+          OpenLinkAction('Call us', uri: 'tel:+971000000000'),
+          OpenLinkAction('Email us', uri: 'mailto:care@example.com'),
+          OpenLinkAction('Visit the store', uri: 'https://example.com/pages'),
+          OpenLinkAction('Other', uri: 'file:///data/secret.txt'),
+        ],
+      ));
+      await pumpScreen(
+        tester,
+        AssistantScreen(session: session, launcher: launcher),
+      );
+      expect(find.byIcon(Icons.phone), findsOneWidget);
+      expect(find.byIcon(Icons.mail), findsOneWidget);
+      expect(find.byIcon(Icons.open_in_new), findsNWidgets(2));
+
+      await tapVisible(tester, find.text('Call us'));
+      expect(launched.single, Uri.parse('tel:+971000000000'));
+      expect(
+        find.text("Couldn't open the phone app. Call +971000000000 instead."),
+        findsOneWidget,
+      );
+
+      await tapVisible(tester, find.text('Email us'));
+      expect(launched.last.scheme, 'mailto');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining("Couldn't open the email app"), findsNothing);
+
+      await tapVisible(tester, find.text('Visit the store'));
+      expect(launched, hasLength(3));
+      expect(find.text("Couldn't open the store page."), findsOneWidget);
+
+      // Only phone, email and https links are ever launched.
+      await tapVisible(tester, find.text('Other'));
+      expect(launched, hasLength(3));
+      expect(find.text("Couldn't open that link."), findsOneWidget);
+      expect(session.messages, hasLength(2));
+    });
+
+    testWidgets('categories, favourites and a ready-made question',
+        (tester) async {
+      final shell = ShellController();
+      final session = newSession();
+      const reply = AssistantReply(
+        'Where next?',
+        actions: [
+          OpenCategoriesAction(),
+          OpenFavouritesAction(),
+          SendMessageAction('Ask about smoothies',
+              message: 'Ideas for a smoothie'),
+        ],
+      );
+      session.note(reply);
+      await pumpScreen(tester, AssistantScreen(session: session),
+          shell: shell);
+
+      await tapVisible(tester, find.text('Open favourites'));
+      expect(find.byType(ProductListScreen), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(ProductListScreen), findsNothing);
+
+      await tapVisible(tester, find.text('Ask about smoothies'));
+      expect(session.messages.where((m) => m.fromUser).single.text,
+          'Ideas for a smoothie');
+      await settleReply(tester);
+      expect(session.busy, isFalse);
+
+      await tapVisible(tester, find.text('All categories'));
+      expect(shell.tab, AppTab.categories);
+    });
+  });
+
+  testWidgets('nothing overflows on a 360dp phone with text scale 1.3',
+      (tester) async {
+    final products = sampleProducts();
+    final kiwi = products.first;
+    final cart = CartStore()..add(kiwi, kiwi.variants.first, quantity: 12);
+    final session = newSession();
+    session
+      ..note(AssistantReply(
+        'Here are ideas for a fruit salad, with everything you need from '
+        'the store and a sentence long enough to wrap.',
+        products: [products[0], products[2], products[3], products[5]],
+        actions: [
+          AddProductsAction('Add all 4 to cart', products: products),
+          const ClearCartAction(),
+          const OpenLinkAction('Call customer care', uri: 'tel:+971000000000'),
+          const OpenLinkAction('Email customer care',
+              uri: 'mailto:care@example.com'),
+          const OpenLinkAction('Open the store website',
+              uri: 'https://example.com'),
+          const OpenCategoriesAction(),
+          const OpenFavouritesAction(),
+          const SendMessageAction('Ideas for a smoothie',
+              message: 'Ideas for a smoothie'),
+          const OpenSearchAction('kiwi'),
+        ],
+        suggestions: const [
+          'A rather long follow-up question for the chips',
+          'Another one',
+        ],
+      ))
+      ..showOptions();
+    await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    // Through the whole conversation, up to the greeting.
+    final list = find.byType(ListView).first;
+    for (var i = 0; i < 12; i++) {
+      await tester.drag(list, const Offset(0, 250));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.text(AssistantBrain.greeting), findsOneWidget);
+
+    // With a reply loading (greyed grid and buttons, typing dots).
+    await ask(tester, 'Find kiwi');
+    expect(tester.takeException(), isNull);
+    await settleReply(tester);
+    expect(tester.takeException(), isNull);
+    for (final option in AssistantBrain.quickOptions) {
+      expect(find.text(option.label), findsWidgets);
+    }
+  });
 }
+
+/// The horizontal list of suggestion chips.
+final Finder chipRow = find.byWidgetPredicate(
+  (widget) => widget is ListView && widget.scrollDirection == Axis.horizontal,
+);
+
+ScrollPosition chipPosition(WidgetTester tester) => tester
+    .state<ScrollableState>(
+        find.descendant(of: chipRow, matching: find.byType(Scrollable)).first)
+    .position;
+
+/// The options tile labelled [label] (the newest one when several).
+Rect tileRect(WidgetTester tester, String label) => tester.getRect(
+    find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first);
+
+Finder tileMaterial(WidgetTester tester, String label) =>
+    find.ancestor(of: find.text(label), matching: find.byType(Material)).first;
+
+/// The pill button labelled [label] (the newest one when several).
+Finder pillMaterial(WidgetTester tester, String label) => find
+    .ancestor(of: find.text(label).first, matching: find.byType(Material))
+    .first;

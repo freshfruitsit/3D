@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/assistant/assistant_brain.dart';
 import 'package:fresh_market_app/assistant/assistant_intent.dart';
 
 AssistantIntent parse(String text) => AssistantIntentParser.parse(text);
@@ -23,12 +24,54 @@ void expectSearch(String text, String query) {
   expect((intent as SearchIntent).query, query, reason: text);
 }
 
+/// A short, comparable form of [intent] for the tables below.
+String describe(AssistantIntent intent) => switch (intent) {
+  AddIntent(:final quantity, :final query) => 'Add($quantity, $query)',
+  RemoveIntent(:final quantity, :final query) =>
+    'Remove(${quantity ?? 'all'}, $query)',
+  ClearCartIntent() => 'ClearCart',
+  CheckoutIntent() => 'Checkout',
+  CartIntent() => 'Cart',
+  OffersIntent() => 'Offers',
+  CategoryIntent(:final category) => 'Category(${category.handle})',
+  CollectionIntent(:final collection) => 'Collection(${collection.handle})',
+  AllCategoriesIntent() => 'AllCategories',
+  CheapestIntent(:final query, :final maxPriceCents) =>
+    maxPriceCents == null
+        ? 'Cheapest($query)'
+        : 'Cheapest($query, $maxPriceCents)',
+  PriceIntent(:final query) => 'Price($query)',
+  StockIntent(:final query) => 'Stock($query)',
+  RecipeIntent(:final recipe) => 'Recipe(${recipe.name})',
+  RecipeIdeasIntent() => 'RecipeIdeas',
+  FavouritesIntent() => 'Favourites',
+  ContactIntent() => 'Contact',
+  PaymentIntent() => 'Payment',
+  DeliveryIntent() => 'Delivery',
+  BrandsIntent() => 'Brands',
+  HelpIntent(:final greeting) => greeting ? 'Greeting' : 'Help',
+  ThanksIntent(:final farewell) => farewell ? 'Bye' : 'Thanks',
+  SearchIntent(:final query) => 'Search($query)',
+};
+
+void expectTable(List<(String, String)> table) {
+  for (final (text, expected) in table) {
+    expect(describe(parse(text)), expected, reason: text);
+  }
+}
+
 void main() {
   test('words are lower-cased and punctuation is dropped', () {
-    expect(AssistantIntentParser.words("  What's ON offer?! "),
-        ['whats', 'on', 'offer']);
-    expect(AssistantIntentParser.words('Add 2, cucumbers.'),
-        ['add', '2', 'cucumbers']);
+    expect(AssistantIntentParser.words("  What's ON offer?! "), [
+      'whats',
+      'on',
+      'offer',
+    ]);
+    expect(AssistantIntentParser.words('Add 2, cucumbers.'), [
+      'add',
+      '2',
+      'cucumbers',
+    ]);
     expect(AssistantIntentParser.words('...'), isEmpty);
   });
 
@@ -129,15 +172,21 @@ void main() {
     });
   });
 
-  test('remove / empty is its own intent', () {
-    for (final text in [
-      'Remove cucumbers from my cart',
-      'Empty my cart',
-      'clear the basket',
-      'delete kiwi',
-      'take the kiwi out of my cart',
+  // Was one RemoveIntent the assistant refused; now remove names the
+  // product and emptying the cart is its own (confirmed) intent.
+  test('remove names what to remove; empty is its own intent', () {
+    for (final (text, query) in [
+      ('Remove cucumbers from my cart', 'cucumbers'),
+      ('delete kiwi', 'kiwi'),
+      ('take the kiwi out of my cart', 'kiwi'),
     ]) {
-      expect(parse(text), isA<RemoveIntent>(), reason: text);
+      final intent = parse(text);
+      expect(intent, isA<RemoveIntent>(), reason: text);
+      expect((intent as RemoveIntent).query, query, reason: text);
+      expect(intent.quantity, isNull, reason: text);
+    }
+    for (final text in ['Empty my cart', 'clear the basket']) {
+      expect(parse(text), isA<ClearCartIntent>(), reason: text);
     }
   });
 
@@ -236,9 +285,10 @@ void main() {
       expectSearch('I need some lamb chops', 'lamb chops');
     });
 
+    // "Hi!" was an empty search; it is a greeting now.
     test('nothing left to search for', () {
       expectSearch('', '');
-      expectSearch('Hi!', '');
+      expectSearch('please', '');
       expectSearch('show me', '');
     });
   });
@@ -251,5 +301,397 @@ void main() {
     expect(AssistantIntentParser.singular('kiwi'), 'kiwi');
     expect(AssistantIntentParser.singular('citrus'), 'citrus');
     expect(AssistantIntentParser.singular('watercress'), 'watercress');
+  });
+
+  group('shopper phrases', () {
+    test('help and greetings', () {
+      expectTable([
+        ('hi', 'Greeting'),
+        ('Hello there!', 'Greeting'),
+        ('hey', 'Greeting'),
+        ('Good morning', 'Greeting'),
+        ('help', 'Help'),
+        ('I need help', 'Help'),
+        ('What can you do?', 'Help'),
+        ('options', 'Help'),
+        ('Show me the menu', 'Help'),
+        ('how does this work', 'Help'),
+        // Something else named: that wins.
+        ('hi, show me berries', 'Category(berries)'),
+        ('help me find avocado', 'Search(avocado)'),
+      ]);
+    });
+
+    test('thanks and bye', () {
+      expectTable([
+        ('thanks', 'Thanks'),
+        ('Thank you so much!', 'Thanks'),
+        ('thanks for the help', 'Thanks'),
+        ('no thanks', 'Thanks'),
+        ('bye', 'Bye'),
+        ('ok bye, see you later', 'Bye'),
+        ('thanks, add 2 cucumbers', 'Add(2, cucumbers)'),
+      ]);
+    });
+
+    test('all categories', () {
+      expectTable([
+        ('categories', 'AllCategories'),
+        ('Show all categories', 'AllCategories'),
+        ('What do you sell?', 'AllCategories'),
+        ('browse', 'AllCategories'),
+        ('departments', 'AllCategories'),
+        ('what do you have', 'AllCategories'),
+        // A category named is that category.
+        ('fruit categories', 'Category(fruits)'),
+        ('browse fruits', 'Category(fruits)'),
+      ]);
+    });
+
+    test('collection shortcuts', () {
+      expectTable([
+        ('Show local UAE produce', 'Collection(local-uae)'),
+        ('anything made in UAE', 'Collection(local-uae)'),
+        ('emirati products', 'Collection(local-uae)'),
+        ('organic food', 'Collection(organic-food)'),
+        ("What's new?", 'Collection(new-arrivals)'),
+        ('new arrivals', 'Collection(new-arrivals)'),
+        ('latest products', 'Collection(new-arrivals)'),
+        ('What is popular?', 'Collection(best-sellers)'),
+        ('best sellers', 'Collection(best-sellers)'),
+        ('bestsellers', 'Collection(best-sellers)'),
+        ('what do you recommend', 'Collection(best-sellers)'),
+        ('top', 'Collection(best-sellers)'),
+        ('trending', 'Collection(trending)'),
+        ('1hr express products', 'Collection(express)'),
+        ('one hour', 'Collection(express)'),
+        ('1 hour', 'Collection(express)'),
+        ('I need it urgent', 'Collection(express)'),
+        ('bulk', 'Collection(bulk-buy)'),
+        ('buy in bulk', 'Collection(bulk-buy)'),
+        ('wholesale', 'Collection(bulk-buy)'),
+        ('milk', 'Collection(dairy)'),
+        ('dairy products', 'Collection(dairy)'),
+        ('eggs', 'Collection(eggs-cheese)'),
+        ('cheese', 'Collection(eggs-cheese)'),
+        ('dates', 'Collection(dates)'),
+        ('nuts', 'Collection(nuts-dried-fruits)'),
+        ('dried fruits', 'Collection(nuts-dried-fruits)'),
+        ('healthy snacks', 'Collection(healthy-pouches)'),
+        ('pouches', 'Collection(healthy-pouches)'),
+        ('fruit platter', 'Collection(ambrosia-platters)'),
+        ('party platters', 'Collection(ambrosia-platters)'),
+        ('fruit bouquet', 'Collection(ambrosia-bouquets)'),
+        ('birthday gift', 'Collection(ambrosia-occasions)'),
+        ('anniversary', 'Collection(ambrosia-occasions)'),
+        ('wedding flowers', 'Collection(ambrosia-occasions)'),
+        ('celebration', 'Collection(ambrosia-occasions)'),
+        ('Eid gifts', 'Collection(ambrosia-eid)'),
+        ('ramadan', 'Collection(ambrosia-ramadan)'),
+        ('iftar', 'Collection(ambrosia-ramadan)'),
+        ('christmas hamper', 'Collection(ambrosia-christmas)'),
+        ("Valentine's Day", 'Collection(ambrosia-valentines)'),
+        ("mother's day", 'Collection(ambrosia-mothers-day)'),
+        ('something for my mum', 'Collection(ambrosia-mothers-day)'),
+        ("women's day", 'Collection(ambrosia-mothers-day)'),
+        // A flower bouquet is Flowers, not Fruit Bouquets.
+        ('flower bouquet', 'Category(ambrosia-flowers)'),
+        // Gifts stay the Hampers category (the brain adds gift buttons).
+        ('Gift ideas', 'Category(hampers)'),
+        ('gifts', 'Category(hampers)'),
+        // Other product words make it a search.
+        ('new zealand kiwi', 'Search(new zealand kiwi)'),
+        ('low fat milk', 'Search(low fat milk)'),
+        ('milk chocolate', 'Search(milk chocolate)'),
+        // A product, not a collection, after "add".
+        ('add dates', 'Add(1, dates)'),
+      ]);
+    });
+
+    test('every collection shortcut is reachable', () {
+      final reached = {
+        for (final shortcut in AssistantIntentParser.collections)
+          shortcut.handle: AssistantIntentParser.collectionAliases.values.any(
+            (c) => c.handle == shortcut.handle,
+          ),
+      };
+      expect(reached.values, everyElement(isTrue));
+      expect({
+        for (final c in AssistantIntentParser.collections) c.handle,
+      }, hasLength(AssistantIntentParser.collections.length));
+    });
+
+    test('cheapest and budget', () {
+      expectTable([
+        ('Cheapest avocado', 'Cheapest(avocado)'),
+        ('cheap berries', 'Cheapest(berries)'),
+        ('avocado under 20', 'Cheapest(avocado, 2000)'),
+        ('strawberries below 30 dhs', 'Cheapest(strawberries, 3000)'),
+        ('kiwi less than 15 aed', 'Cheapest(kiwi, 1500)'),
+        ('budget mango', 'Cheapest(mango)'),
+        ('blueberries under AED 12.50', 'Cheapest(blueberries, 1250)'),
+        ('lettuce for 10 dhs or less', 'Cheapest(lettuce, 1000)'),
+        ('the least expensive dates', 'Cheapest(dates)'),
+        ('cheapest', 'Cheapest()'),
+        ('something under 20', 'Cheapest(, 2000)'),
+        // An offer word still means offers.
+        ('cheap deals', 'Offers'),
+      ]);
+    });
+
+    test('price', () {
+      expectTable([
+        ('How much is avocado?', 'Price(avocado)'),
+        ('price of kiwi', 'Price(kiwi)'),
+        ('What does a cucumber cost?', 'Price(cucumber)'),
+        ('how much are the strawberries', 'Price(strawberries)'),
+        ('avocado price', 'Price(avocado)'),
+        ('how much is 1 kg avocado', 'Price(avocado)'),
+        ('how much', 'Price()'),
+        // Earlier rules.
+        ('how much is my cart', 'Cart'),
+        ('how much is delivery', 'Delivery'),
+      ]);
+    });
+
+    test('stock', () {
+      expectTable([
+        ('Is avocado available?', 'Stock(avocado)'),
+        ('do you have kiwi in stock', 'Stock(kiwi)'),
+        ('blueberry in stock?', 'Stock(blueberry)'),
+        ('are the blueberries sold out', 'Stock(blueberries)'),
+        ('When will raspberries be back in stock?', 'Stock(raspberries)'),
+        // Without a stock word "do you have" stays a search.
+        ('do you have kiwi', 'Search(kiwi)'),
+      ]);
+    });
+
+    test('recipe ideas', () {
+      expectTable([
+        ('Ideas for a fruit salad', 'Recipe(fruit salad)'),
+        ('smoothie recipe', 'Recipe(smoothie)'),
+        ('salad ideas', 'Recipe(green salad)'),
+        ('green salad recipe', 'Recipe(green salad)'),
+        ('how to make guacamole', 'Recipe(guacamole)'),
+        ('something for a BBQ', 'Recipe(BBQ)'),
+        ('what can I cook on the grill', 'Recipe(BBQ)'),
+        ('What can I make for breakfast?', 'Recipe(breakfast)'),
+        ('what can I make with avocado', 'Recipe(guacamole)'),
+        ('add everything for a smoothie', 'Recipe(smoothie)'),
+        ('recipe ideas', 'RecipeIdeas'),
+        ('ideas', 'RecipeIdeas'),
+        ('what should I cook tonight', 'RecipeIdeas'),
+        // Without a recipe word a dish stays what it was.
+        ('salad', 'Category(lettuce-greens)'),
+        ('cooking oil', 'Search(cooking oil)'),
+        ('ideas for a party', 'Collection(ambrosia-occasions)'),
+      ]);
+    });
+
+    test('every recipe message asks for that recipe', () {
+      for (final recipe in AssistantIntentParser.recipes) {
+        expect(
+          describe(parse(recipe.message)),
+          'Recipe(${recipe.name})',
+          reason: recipe.message,
+        );
+        expect(
+          recipe.ingredients.length,
+          lessThanOrEqualTo(AssistantBrain.maxRecipeProducts),
+        );
+      }
+      expect(AssistantIntentParser.recipes.map((r) => r.message), [
+        'Ideas for a fruit salad',
+        'Ideas for a smoothie',
+        'Ideas for a green salad',
+        'Ideas for guacamole',
+        'Ideas for a BBQ',
+        'Ideas for breakfast',
+      ]);
+      expect(AssistantIntentParser.recipes.first.label, 'Fruit salad ideas');
+    });
+
+    test('remove', () {
+      expectTable([
+        ('remove cucumbers', 'Remove(all, cucumbers)'),
+        ('remove 1 cucumber', 'Remove(1, cucumber)'),
+        ('Delete the bananas from my cart', 'Remove(all, bananas)'),
+        ('take the berries out of my cart', 'Remove(all, berries)'),
+        ('remove two kiwis', 'Remove(2, kiwis)'),
+        ('remove a kiwi', 'Remove(1, kiwi)'),
+        ('get rid of the onions', 'Remove(all, onions)'),
+        ('remove the 1 kg strawberries', 'Remove(all, strawberries)'),
+        ('remove all cucumbers', 'Remove(all, cucumbers)'),
+        ('Remove clear honey', 'Remove(all, clear honey)'),
+        ('remove', 'Remove(all, )'),
+        // Favourites are not the cart.
+        ('remove kiwi from my favourites', 'Favourites'),
+      ]);
+    });
+
+    test('empty the cart', () {
+      expectTable([
+        ('empty my cart', 'ClearCart'),
+        ('Clear my cart', 'ClearCart'),
+        ('remove everything', 'ClearCart'),
+        ('delete all items from my basket', 'ClearCart'),
+        ('take everything out of my cart', 'ClearCart'),
+        ('please empty the basket', 'ClearCart'),
+        // A question is not a command.
+        ('is my cart empty?', 'Cart'),
+      ]);
+    });
+
+    test('favourites', () {
+      expectTable([
+        ('my favourites', 'Favourites'),
+        ('show my favorites', 'Favourites'),
+        ('saved items', 'Favourites'),
+        ('wishlist', 'Favourites'),
+        ('my wish list', 'Favourites'),
+        ('my list', 'Favourites'),
+        ('add kiwi to my favourites', 'Favourites'),
+      ]);
+    });
+
+    test('contact', () {
+      expectTable([
+        ('Contact customer service', 'Contact'),
+        ('what is your phone number', 'Contact'),
+        ('can I call you', 'Contact'),
+        ('email address', 'Contact'),
+        ('customer care', 'Contact'),
+        ('I have a complaint', 'Contact'),
+        ('support', 'Contact'),
+        ('opening hours', 'Contact'),
+        ('where are you located', 'Contact'),
+        ('store address', 'Contact'),
+        ('when do you open', 'Contact'),
+        ('my order is late', 'Contact'),
+        ('track my order', 'Contact'),
+        ("my order hasn't arrived", 'Contact'),
+        ('order status', 'Contact'),
+        // Not about the store.
+        ('where do you have berries', 'Category(berries)'),
+      ]);
+    });
+
+    test('payment', () {
+      expectTable([
+        ('payment methods', 'Payment'),
+        ('How can I pay?', 'Payment'),
+        ('cash on delivery', 'Payment'),
+        ('do you take apple pay', 'Payment'),
+        ('card', 'Payment'),
+        ('pay by card', 'Payment'),
+        ('do you accept credit cards', 'Payment'),
+        // Paying now is still checkout.
+        ('pay', 'Checkout'),
+        ('pay now', 'Checkout'),
+        ('how much do I have to pay', 'Checkout'),
+        // A greeting card is not a payment card.
+        ('gift card', 'Search(gift card)'),
+      ]);
+    });
+
+    test('delivery', () {
+      expectTable([
+        ('delivery', 'Delivery'),
+        ('do you deliver to Abu Dhabi?', 'Delivery'),
+        ('shipping', 'Delivery'),
+        ('when will it arrive', 'Delivery'),
+        ('delivery fee', 'Delivery'),
+        ('delivery time', 'Delivery'),
+        ('Delivery information', 'Delivery'),
+        ('express delivery', 'Delivery'),
+        ('change my address', 'Delivery'),
+      ]);
+    });
+
+    test('brands', () {
+      expectTable([
+        ('brands', 'Brands'),
+        ('brands you have', 'Brands'),
+        ('which brands do you stock', 'Brands'),
+        // One brand is a product search.
+        ('Zespri', 'Search(zespri)'),
+        ('zespri brand', 'Search(zespri)'),
+        ('Find Zespri', 'Search(zespri)'),
+      ]);
+    });
+
+    test('order at the start is a command', () {
+      expectTable([
+        ('order 2 cucumbers', 'Add(2, cucumbers)'),
+        ('please order a kiwi', 'Add(1, kiwi)'),
+      ]);
+    });
+  });
+
+  group('ready-made messages', () {
+    test('every default suggestion parses to what it says', () {
+      const expected = [
+        'Offers',
+        'Category(berries)',
+        'Add(2, cucumbers)',
+        'Recipe(fruit salad)',
+        'Cheapest(avocado)',
+        'Collection(local-uae)',
+        'Category(hampers)',
+        'Collection(new-arrivals)',
+        'Contact',
+        'Cart',
+      ];
+      expect([
+        for (final s in AssistantBrain.defaultSuggestions) describe(parse(s)),
+      ], expected);
+    });
+
+    test('every quick option parses to what its card shows', () {
+      final expected = {
+        QuickOptionKind.offers: 'Offers',
+        QuickOptionKind.categories: 'AllCategories',
+        QuickOptionKind.recipes: 'Recipe(fruit salad)',
+        QuickOptionKind.local: 'Collection(local-uae)',
+        QuickOptionKind.gifts: 'Category(hampers)',
+        QuickOptionKind.popular: 'Collection(best-sellers)',
+        QuickOptionKind.cart: 'Cart',
+        QuickOptionKind.contact: 'Contact',
+      };
+      expect(AssistantBrain.quickOptions, hasLength(8));
+      for (final option in AssistantBrain.quickOptions) {
+        expect(
+          describe(parse(option.message)),
+          expected[option.kind],
+          reason: option.message,
+        );
+      }
+    });
+  });
+
+  test('plain words', () {
+    for (final word in ['kiwi', 'zespri', 'sungold', 'cucumber', 'honey']) {
+      expect(AssistantIntentParser.isPlainWord(word), isTrue, reason: word);
+    }
+    for (final word in [
+      '',
+      '500gm',
+      '7',
+      'kg',
+      'offer',
+      'free',
+      'and',
+      'clear',
+      'remove',
+      'cart',
+      'card',
+      'delivery',
+      'favourite',
+      'price',
+      'stock',
+      'the',
+    ]) {
+      expect(AssistantIntentParser.isPlainWord(word), isFalse, reason: word);
+    }
   });
 }
