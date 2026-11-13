@@ -348,7 +348,7 @@ class DeliveryBarView extends StatelessWidget {
             ),
           if (label != null || expressMode)
             Padding(
-              padding: const EdgeInsets.only(left: 28, top: 8),
+              padding: const EdgeInsets.only(top: 10),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -425,6 +425,7 @@ class _BarButton extends StatelessWidget {
                     child: Text(
                       label,
                       style: AppText.link.copyWith(
+                        fontSize: 13.5,
                         color: AppColors.ink,
                         fontWeight: FontWeight.w800,
                       ),

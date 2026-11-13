@@ -88,6 +88,10 @@ class _LocationScreenState extends State<LocationScreen> {
   final TextEditingController _text = TextEditingController();
   final MapController _map = MapController();
 
+  /// The "What you get" panel, scrolled into view after a pick from the
+  /// list or the phone's location.
+  final GlobalKey _panelKey = GlobalKey();
+
   /// The place the "What you get" panel and the button are for.
   DeliveryPlace? _pick;
 
@@ -134,6 +138,20 @@ class _LocationScreenState extends State<LocationScreen> {
       _resolving = false;
     });
     _moveMap(place.lat, place.lng);
+    _showPanel();
+  }
+
+  void _showPanel() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final panel = _panelKey.currentContext;
+      if (!mounted || panel == null) return;
+      Scrollable.ensureVisible(
+        panel,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
   }
 
   /// A phone fix or a pin: named at once from the website's areas, then
@@ -199,6 +217,7 @@ class _LocationScreenState extends State<LocationScreen> {
     switch (outcome) {
       case LocationFix(:final lat, :final lng):
         unawaited(_pickPoint(lat, lng, moveMap: true));
+        _showPanel();
       case LocationFailure(:final problem):
         setState(() => _gpsNotice = _noticeFor(problem));
     }
@@ -336,16 +355,17 @@ class _LocationScreenState extends State<LocationScreen> {
                       onPick: _pickPlace,
                     ),
                   ),
-                  if (_services.showMap) ...[
-                    const SizedBox(height: 16),
-                    _mapBox(),
-                  ],
                   const SizedBox(height: 16),
                   _WhatYouGet(
+                    key: _panelKey,
                     summary: summary,
                     resolving: _resolving,
                     pickedNothing: _pick == null,
                   ),
+                  if (_services.showMap) ...[
+                    const SizedBox(height: 16),
+                    _mapBox(),
+                  ],
                 ],
               ),
             ),
@@ -732,7 +752,7 @@ class _Suggestions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heading = term.trim().isEmpty ? 'Popular areas' : 'Places found';
+    final heading = term.trim().isEmpty ? 'Suggested areas' : 'Places found';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -942,6 +962,7 @@ class _MapNote extends StatelessWidget {
 /// the website words them, or why nothing can be delivered.
 class _WhatYouGet extends StatelessWidget {
   const _WhatYouGet({
+    super.key,
     required this.summary,
     required this.resolving,
     required this.pickedNothing,
@@ -955,7 +976,6 @@ class _WhatYouGet extends StatelessWidget {
   Widget build(BuildContext context) {
     final place = summary.placeLabel;
     return Container(
-      key: const ValueKey('what-you-get'),
       decoration: AppDecor.card,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
       child: Column(

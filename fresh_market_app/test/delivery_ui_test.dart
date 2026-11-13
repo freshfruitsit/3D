@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/models/product.dart';
@@ -154,6 +156,65 @@ void main() {
       await _searchAndPick(tester, 'business', 'Business Bay');
       expect(find.text('Closed now · runs 8 AM to 10 PM'), findsOneWidget);
       expect(find.text('From 8 AM'), findsOneWidget);
+    });
+
+    testWidgets('addresses from the geocoder join the website areas', (
+      tester,
+    ) async {
+      final asked = <Uri>[];
+      final client = MockClient((request) async {
+        asked.add(request.url);
+        return http.Response(
+          jsonEncode({
+            'type': 'FeatureCollection',
+            'features': [
+              {
+                'type': 'Feature',
+                'geometry': {
+                  'type': 'Point',
+                  'coordinates': [55.2507, 25.1932],
+                },
+                'properties': {
+                  'name': 'Al Wasl Road',
+                  'district': 'Al Wasl',
+                  'city': 'Dubai',
+                  'state': 'Dubai',
+                  'countrycode': 'AE',
+                },
+              },
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+      final store = testDelivery(area: null);
+      await pumpScreen(
+        tester,
+        LocationScreen(firstLaunch: true, onPicked: (_) {}),
+        delivery: store,
+        locationServices: LocationServices(
+          device: FakeDeviceLocation(),
+          search: PlaceSearch(client: client),
+          showMap: false,
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'al wasl');
+      await tester.pump();
+      expect(asked, isEmpty); // the website waits 320 ms after typing
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(asked.single.host, 'photon.komoot.io');
+      expect(find.text('Al Wasl Road'), findsOneWidget);
+      expect(find.text('Al Wasl, Dubai'), findsOneWidget);
+      expect(find.byType(ExpressTag), findsOneWidget);
+
+      await tester.tap(find.text('Al Wasl Road'));
+      await tester.pump();
+      await _tapConfirm(tester);
+      expect(store.area?.label, 'Al Wasl Road, Dubai');
+      expect(store.area?.pin, '25.19320,55.25070');
     });
 
     testWidgets('the phone location names the nearest area', (tester) async {
@@ -316,6 +377,16 @@ void main() {
       );
       await tester.pump();
       final map = find.byType(FlutterMap);
+      await tester.scrollUntilVisible(
+        map,
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('location-list')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(map, findsOneWidget);
       expect(find.text(LocationScreen.attribution), findsOneWidget);
       await tester.ensureVisible(map);
