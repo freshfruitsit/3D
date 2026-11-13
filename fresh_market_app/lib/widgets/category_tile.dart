@@ -114,7 +114,7 @@ class CategoryTile extends StatelessWidget {
 abstract final class TileGrid {
   static const int columns = 4;
   static const double columnGap = 12;
-  static const double rowGap = 16;
+  static const double rowGap = 12;
 
   /// The grid delegate for a grid [maxWidth] wide.
   static SliverGridDelegate delegate(BuildContext context, double maxWidth) {

@@ -121,6 +121,7 @@ class ProductCard extends StatelessWidget {
                             child: ProductImage(
                               url: product.imageUrl,
                               logicalWidth: 160,
+                              wellColor: AppColors.subtle,
                             ),
                           ),
                         ),

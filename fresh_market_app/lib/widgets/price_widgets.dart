@@ -10,7 +10,7 @@ class SalePill extends StatelessWidget {
   final int percent;
 
   /// The text shown: a real minus sign (U+2212), the percent and "%".
-  static String labelFor(int percent) => '−$percent%';
+  static String labelFor(int percent) => '\u2212$percent%';
 
   @override
   Widget build(BuildContext context) {

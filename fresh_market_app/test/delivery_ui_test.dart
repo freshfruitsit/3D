@@ -17,6 +17,8 @@ import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/location_services.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
+import 'package:fresh_market_app/theme/app_theme.dart';
+import 'package:fresh_market_app/widgets/app_search_field.dart';
 import 'package:fresh_market_app/widgets/delivery_widgets.dart';
 import 'package:fresh_market_app/widgets/floating_nav_bar.dart';
 import 'package:fresh_market_app/widgets/product_card.dart';
@@ -498,7 +500,7 @@ void main() {
     });
   });
 
-  group('Home header and delivery bar', () {
+  group('Home header and delivery line', () {
     Future<DeliveryStore> pumpHome(
       WidgetTester tester, {
       String? area = 'Business Bay',
@@ -513,7 +515,53 @@ void main() {
 
     Finder market(String text) => _inKey('mode-market', find.text(text));
     Finder express(String text) => _inKey('mode-express', find.text(text));
-    Finder bar(String text) => _inKey('delivery-bar', find.text(text));
+    Finder line(String text) => _inKey('delivery-line', find.text(text));
+
+    /// The stacked delivery line: [lead] bold (ink, or green for Express)
+    /// above [detail] in grey.
+    void expectLine(
+      WidgetTester tester,
+      String lead,
+      String detail, {
+      Color boldColor = AppColors.ink,
+    }) {
+      expect(line(lead), findsOneWidget);
+      expect(line(detail), findsOneWidget);
+      final leadText = tester.widget<Text>(line(lead));
+      expect(leadText.style!.fontWeight, FontWeight.w700);
+      expect(leadText.style!.color, boldColor);
+      expect(
+        tester.widget<Text>(line(detail)).style!.color,
+        AppColors.secondary,
+      );
+      expect(
+        tester.getRect(line(detail)).top,
+        greaterThanOrEqualTo(tester.getRect(line(lead)).bottom - 0.5),
+      );
+    }
+
+    testWidgets('the header: wordmark left, location chip at the right end, '
+        'then search, mode switch and the delivery line', (tester) async {
+      await pumpHome(tester, at: uaeTime(10));
+
+      final logo = tester.getRect(find.byKey(const ValueKey('home-logo')));
+      final chip = tester.getRect(find.byKey(const ValueKey('location-chip')));
+      expect(logo.left, 16);
+      expect(logo.height, 30);
+      expect(chip.right, moreOrLessEquals(390 - 16));
+      expect(chip.center.dy, moreOrLessEquals(logo.center.dy, epsilon: 8));
+      final search = tester.getRect(find.byType(SearchFieldButton));
+      final modes = tester.getRect(find.byKey(const ValueKey('mode-market')));
+      final deliveryLine = tester.getRect(
+        find.byKey(const ValueKey('delivery-line')),
+      );
+      expect(search.top, greaterThan(chip.bottom));
+      expect(modes.top, greaterThan(search.bottom));
+      expect(deliveryLine.top, greaterThan(modes.bottom));
+      // The compact line replaced the big delivery card.
+      expect(find.byKey(const ValueKey('delivery-bar')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('10:00: same day, Express open', (tester) async {
       final store = await pumpHome(tester, at: uaeTime(10));
@@ -524,25 +572,25 @@ void main() {
       expect(market('Today by 4 PM'), findsOneWidget);
       expect(express('Express'), findsOneWidget);
       expect(express('30–40 min'), findsOneWidget);
-      expect(bar('Order now, get it today by 4 PM'), findsOneWidget);
-      expect(bar('Same-day closes in 8h 0m'), findsOneWidget);
-      expect(bar('Need it sooner? Express in 30–40 min'), findsOneWidget);
-      expect(bar(DeliveryBarView.shopExpress), findsNothing);
+      // Two planned lines: the bold time, then the detail.
+      expectLine(tester, 'Today by 4 PM', 'Order within 8h 0m');
+      expect(line(DeliveryLine.expressLabel('30–40 min')), findsOneWidget);
+      expect(line(DeliveryLine.shopExpress), findsNothing);
 
-      // The bar's button switches to Express.
-      await tester.tap(bar('Need it sooner? Express in 30–40 min'));
+      // The line's button switches to Express.
+      await tester.tap(line(DeliveryLine.expressLabel('30–40 min')));
       await tester.pump();
       expect(store.mode, DeliveryMode.express);
-      expect(
-        bar('Express: items marked 30–40 min reach you in under an hour'),
-        findsOneWidget,
+      expectLine(
+        tester,
+        '30–40 min',
+        'Open until 10 PM',
+        boldColor: AppColors.green,
       );
-      expect(bar('Open until 10 PM'), findsOneWidget);
-      expect(bar('Full range: Today by 4 PM'), findsOneWidget);
-      expect(bar(DeliveryBarView.shopExpress), findsOneWidget);
+      expect(line(DeliveryLine.shopExpress), findsOneWidget);
 
-      // "Shop Express items" opens the Express collection.
-      await tester.tap(bar(DeliveryBarView.shopExpress));
+      // "Shop Express" opens the Express collection.
+      await tester.tap(line(DeliveryLine.shopExpress));
       await tester.pump();
       await tester.pump(_settle);
       final list = tester.widget<ProductListScreen>(
@@ -558,20 +606,19 @@ void main() {
 
       expect(market('Tomorrow by 11 AM'), findsOneWidget);
       expect(express('30–40 min'), findsOneWidget);
-      expect(
-        bar(
-          'Same-day orders closed at 6 PM. Order now, get it tomorrow '
-          'morning before 11 AM',
-        ),
-        findsOneWidget,
-      );
-      expect(bar('Need it sooner? Express in 30–40 min'), findsOneWidget);
+      expectLine(tester, 'Tomorrow by 11 AM', 'Same-day orders closed at 6 PM');
+      expect(line(DeliveryLine.expressLabel('30–40 min')), findsOneWidget);
 
       // The header switch too.
       await tester.tap(express('Express'));
       await tester.pump();
       expect(store.mode, DeliveryMode.express);
-      expect(bar('Full range: Tomorrow by 11 AM'), findsOneWidget);
+      expectLine(
+        tester,
+        '30–40 min',
+        'Open until 10 PM',
+        boldColor: AppColors.green,
+      );
       await tester.tap(market('Fresh Market'));
       await tester.pump();
       expect(store.mode, DeliveryMode.market);
@@ -582,21 +629,27 @@ void main() {
 
       expect(market('Tomorrow by 11 AM'), findsOneWidget);
       expect(express('Opens 8 AM'), findsOneWidget);
-      expect(bar('Express opens 8 AM'), findsOneWidget);
+      // Express cannot deliver now: no Express button on the line.
+      expectLine(tester, 'Tomorrow by 11 AM', 'Same-day orders closed at 6 PM');
+      expect(
+        _inKey('delivery-line', find.textContaining('Express')),
+        findsNothing,
+      );
 
-      // Express can still be chosen; the bar and a notice say it is closed.
+      // Express can still be chosen; the line and a notice say it is
+      // closed.
       await tester.tap(express('Express'));
       await tester.pump();
       expect(store.mode, DeliveryMode.express);
+      expectLine(tester, 'Express is closed right now.', 'Opens 8 AM');
       const closed =
           'Express is closed right now. It runs 8 AM to 10 PM. Fresh Market '
           'delivers tomorrow morning before 11 am.';
-      expect(bar(closed), findsOneWidget);
       expect(
         find.descendant(of: find.byType(SnackBar), matching: find.text(closed)),
         findsOneWidget,
       );
-      await tester.tap(bar('Switch to Fresh Market'));
+      await tester.tap(line(DeliveryLine.backToMarket));
       await tester.pump();
       expect(store.mode, DeliveryMode.market);
     });
@@ -605,9 +658,12 @@ void main() {
       final store = await pumpHome(tester, area: 'Jebel Ali', at: uaeTime(10));
 
       expect(express('Not in your area'), findsOneWidget);
-      // No Express button in the bar.
-      expect(bar('Order now, get it today by 4 PM'), findsOneWidget);
-      expect(find.textContaining('Need it sooner'), findsNothing);
+      // No Express button on the line.
+      expectLine(tester, 'Today by 4 PM', 'Order within 8h 0m');
+      expect(
+        _inKey('delivery-line', find.textContaining('Express')),
+        findsNothing,
+      );
 
       await tester.tap(express('Express'));
       await tester.pump();
@@ -621,19 +677,33 @@ void main() {
       );
     });
 
-    testWidgets('no area: Express asks for the location first', (tester) async {
+    testWidgets('no area: the line and Express ask for the location first', (
+      tester,
+    ) async {
       final store = await pumpHome(tester, area: null, at: uaeTime(10));
 
       expect(_inKey('location-chip', find.text('Choose your area')), findsOne);
       expect(market('Full range · same day'), findsOneWidget);
       expect(express('In about 60 min'), findsOneWidget);
       expect(
-        bar(
+        line(
           'Tell us where you are to see delivery times and Express '
           'availability.',
         ),
         findsOneWidget,
       );
+      expect(line(DeliveryLine.setLocation), findsOneWidget);
+
+      // "Set location" opens the picker; closing it changes nothing.
+      await tester.tap(line(DeliveryLine.setLocation));
+      await tester.pump();
+      await tester.pump(_settle);
+      expect(find.byType(LocationScreen), findsOneWidget);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pump();
+      await tester.pump(_settle);
+      expect(find.byType(LocationScreen), findsNothing);
+      expect(store.hasArea, isFalse);
 
       await tester.tap(express('Express'));
       await tester.pump();
@@ -701,20 +771,24 @@ void main() {
     testWidgets('Fresh Market mode: the promise, and Express time for an '
         'Express item', (tester) async {
       await pumpCards(tester, testDelivery());
-      expect(textOf(tester, kiwi), 'Within 6 hrs · or 35 min');
-      expect(
-        find.descendant(
-          of: lineOf(kiwi),
-          matching: find.text(
-            'Within 6 hrs · or\u00A035\u00A0min',
-            findRichText: true,
-          ),
-        ),
-        findsOneWidget,
+      // An Express item while Express is live: green bolt and its time.
+      expect(textOf(tester, kiwi), '35 min');
+      expect(iconOf(tester, kiwi), Icons.bolt);
+      // Screen readers hear the rules' whole line.
+      final semantics = tester.widget<Semantics>(
+        find
+            .descendant(of: lineOf(kiwi), matching: find.byType(Semantics))
+            .first,
       );
-      expect(iconOf(tester, kiwi), Icons.local_shipping_outlined);
+      expect(semantics.properties.label, 'Within 6 hrs · or 35 min');
       expect(textOf(tester, beef), 'Within 6 hrs');
+      expect(iconOf(tester, beef), Icons.local_shipping_outlined);
       expect(tester.takeException(), isNull);
+
+      // Express closed: no Express time, the Fresh Market line instead.
+      await pumpCards(tester, testDelivery(at: uaeTime(23)));
+      expect(textOf(tester, kiwi), 'Tomorrow by 11 AM');
+      expect(iconOf(tester, kiwi), Icons.local_shipping_outlined);
     });
 
     testWidgets('Express mode: bolt for Express items, Fresh Market for the '

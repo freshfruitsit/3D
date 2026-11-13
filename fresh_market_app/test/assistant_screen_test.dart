@@ -158,10 +158,10 @@ void main() {
     expect(find.bySemanticsLabel('The assistant is typing'), findsNothing);
     expect(find.text('A few products from Berries:'), findsOneWidget);
     expect(find.text('Zespri Kiwi Sungold 500 GM'), findsOneWidget);
-    expect(find.text('Dhs. 19.95'), findsOneWidget);
+    expect(find.text('\u20C3 19.95'), findsOneWidget);
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
     // Struck old price of the sale product.
-    expect(find.text('Dhs. 62.50'), findsOneWidget);
+    expect(find.text('\u20C3 62.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
     expect(find.text('Cucumber 500 GM'), findsOneWidget);
     expect(find.byType(AddControl), findsNWidgets(3));
@@ -189,7 +189,7 @@ void main() {
 
     expect(
         find.text(
-            'Done. I added 2 × Cucumber (500 GM) to your cart at Dhs. 2.50 '
+            'Done. I added 2 × Cucumber (500 GM) to your cart at \u20C3 2.50 '
             'each.'),
         findsOneWidget);
     expect(cart.quantityOf(2004), 2);
@@ -274,7 +274,7 @@ void main() {
 
     await ask(tester, 'Open my cart');
     await settleReply(tester);
-    expect(find.text('Your cart has 1 item, subtotal Dhs. 19.95.'),
+    expect(find.text('Your cart has 1 item, subtotal \u20C3 19.95.'),
         findsOneWidget);
 
     await tapVisible(tester, find.text('Open cart'));
@@ -432,7 +432,7 @@ void main() {
           .first);
       expect(fourth.right, greaterThan(bubble.right));
       expect(tester.widget<Material>(tileMaterial(tester, "Today's offers"))
-          .color, AppColors.tile);
+          .color, AppColors.subtle);
 
       final offers = AssistantBrain.quickOptions.first;
       await tester.tap(find.text(offers.label));
@@ -452,7 +452,7 @@ void main() {
       expect(session.busy, isFalse);
       expect(session.messages, hasLength(3));
       expect(tester.widget<Material>(tileMaterial(tester, 'Categories')).color,
-          AppColors.tile);
+          AppColors.subtle);
     });
   });
 
@@ -592,15 +592,15 @@ void main() {
       await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
 
       final pill = pillMaterial(tester, 'Add all to cart');
-      // Lime with ink text: white on lime would be unreadable.
-      expect(tester.widget<Material>(pill).color, AppColors.lime);
+      // The green buying CTA with white text (5.3:1).
+      expect(tester.widget<Material>(pill).color, AppColors.green);
       expect(find.byIcon(Icons.add_shopping_cart), findsOneWidget);
       expect(
         tester
             .widget<Text>(find.text('Add all to cart'))
             .style
             ?.color,
-        AppColors.ink,
+        AppColors.onDark,
       );
 
       await tapVisible(tester, find.text('Add all to cart'));
@@ -688,7 +688,12 @@ void main() {
 
       cart.clear();
       await tapVisible(tester, buttons.last);
-      expect(find.text('Your cart is already empty.'), findsOneWidget);
+      // The older message's button is higher up the list, so the reply can
+      // land below the viewport (larger 15px body text since the redesign).
+      expect(
+        find.text('Your cart is already empty.', skipOffstage: false),
+        findsOneWidget,
+      );
       expect(session.messages, hasLength(5));
     });
 

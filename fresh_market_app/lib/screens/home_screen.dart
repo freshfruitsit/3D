@@ -17,12 +17,14 @@ import '../widgets/promo_row.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
 
-/// The Home tab: header, search, banners, categories, product rails, the
-/// brands grid, the offers row and the "Made in UAE" card.
+/// The Home tab: the white header (wordmark and location chip, search,
+/// delivery mode switch, delivery line), banners, categories, product
+/// rails, the brands grid, the offers row and the "Made in UAE" card, with
+/// [AppDims.sectionGap] between sections.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  /// How many products a rail shows before "View all".
+  /// How many products a rail shows before "See all".
   static const int railLimit = 10;
 
   @override
@@ -87,82 +89,118 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refresh() => Future.wait(Catalog.rails.map(_loadRail));
 
-  Widget _rail(HomeRail rail) => _ProductRail(
+  /// [afterGrid]: the rail follows a tile grid (see [_Section.afterGrid]).
+  Widget _rail(HomeRail rail, {bool afterGrid = false}) => _ProductRail(
         rail: rail,
         style: _railStyles[rail.handle] ?? _defaultRailStyle,
         data: _rails[rail.handle] ?? const _RailData(loading: true),
         onRetry: () => _loadRail(rail),
+        afterGrid: afterGrid,
       );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        // The white header runs up behind the status bar.
-        top: false,
-        bottom: false,
-        child: RefreshIndicator(
-          color: AppColors.ink,
-          backgroundColor: AppColors.surface,
-          onRefresh: _refresh,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.only(
-              // Extra room so the last card can scroll clear of the Ask
-              // button, which floats above the bottom bar.
-              bottom: AppDims.floatingSpace(context),
-            ),
-            children: [
-              const _Header(),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDims.gutter,
-                  12,
-                  AppDims.gutter,
-                  0,
-                ),
-                child: DeliveryBarView(),
-              ),
-              const SizedBox(height: 16),
-              const _BannerCarousel(),
-              const SizedBox(height: 20),
-              const SectionHeader(
-                title: 'Shop By Category',
-                icon: Icons.grid_view_rounded,
-              ),
-              const SizedBox(height: 4),
-              const Padding(
+      backgroundColor: AppColors.canvas,
+      // The white header runs up behind the status bar, so no SafeArea at
+      // the top; the bottom is cleared by the list's padding.
+      body: RefreshIndicator(
+        color: AppColors.ink,
+        backgroundColor: AppColors.surface,
+        edgeOffset: MediaQuery.paddingOf(context).top,
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.only(
+            // Extra room so the last card can scroll clear of the Ask
+            // button, which floats above the bottom bar.
+            bottom: AppDims.floatingSpace(context),
+          ),
+          children: [
+            const _Header(),
+            const SizedBox(height: 20),
+            const _BannerCarousel(),
+            const _Section(
+              title: 'Shop By Category',
+              icon: Icons.grid_view_rounded,
+              child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
                 child: CategoryGrid(),
               ),
-              for (final rail in Catalog.railsBeforeBrands) _rail(rail),
-              const SizedBox(height: 20),
-              const SectionHeader(
-                title: 'Brands We Love',
-                icon: Icons.favorite,
-              ),
-              const SizedBox(height: 4),
-              const Padding(
+            ),
+            for (final rail in Catalog.railsBeforeBrands)
+              _rail(rail, afterGrid: rail == Catalog.railsBeforeBrands.first),
+            const _Section(
+              title: 'Brands We Love',
+              icon: Icons.favorite,
+              child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
                 child: BrandGrid(),
               ),
-              for (final rail in Catalog.railsAfterBrands) _rail(rail),
-              const SizedBox(height: 20),
-              const SectionHeader(
-                title: 'Offers',
-                icon: Icons.campaign,
-              ),
-              const SizedBox(height: 4),
-              const PromoRow(),
-              for (final rail in Catalog.railsAfterOffers) _rail(rail),
-              const SizedBox(height: 24),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
-                child: _LocalCard(),
-              ),
-            ],
-          ),
+            ),
+            for (final rail in Catalog.railsAfterBrands)
+              _rail(rail, afterGrid: rail == Catalog.railsAfterBrands.first),
+            const _Section(
+              title: 'Offers',
+              icon: Icons.campaign,
+              child: PromoRow(),
+            ),
+            for (final rail in Catalog.railsAfterOffers) _rail(rail),
+            const SizedBox(height: AppDims.sectionGap),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
+              child: _LocalCard(),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// One Home section: [AppDims.sectionGap] above, the ink heading tag (with
+/// "See all" when [onViewAll] is set), [AppDims.headingGap], then [child].
+class _Section extends StatelessWidget {
+  const _Section({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.onViewAll,
+    this.afterGrid = false,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final VoidCallback? onViewAll;
+
+  /// The section follows a category or brand grid. Those keep two label
+  /// lines free under every tile and the last row's names take one, so
+  /// the gap above is shortened by that free line: what the eye sees stays
+  /// [AppDims.sectionGap].
+  final bool afterGrid;
+
+  static double gapAbove(BuildContext context, {bool afterGrid = false}) {
+    if (!afterGrid) return AppDims.sectionGap;
+    final freeLine =
+        SquareTile.labelHeight(context) / SquareTile.labelLines + 2;
+    return (AppDims.sectionGap - freeLine).clamp(8.0, AppDims.sectionGap);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: gapAbove(context, afterGrid: afterGrid),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SectionHeader(title: title, icon: icon, onViewAll: onViewAll),
+          const SizedBox(height: AppDims.headingGap),
+          child,
+        ],
       ),
     );
   }
@@ -180,70 +218,61 @@ const Map<String, ({IconData icon})> _railStyles = {
 
 const ({IconData icon}) _defaultRailStyle = (icon: Icons.eco);
 
-/// The white header that runs up behind the status bar: the logo, the
-/// delivery location chip, the website's Fresh Market / Express switch and
-/// the search field, finished with a hairline.
+/// The white header that runs up behind the status bar, finished with a
+/// hairline (no coloured bar):
+///
+/// 1. the FRESH® MARKET wordmark at the left and the location chip at the
+///    right end;
+/// 2. the search field (opens Search);
+/// 3. the website's Fresh Market / Express switch;
+/// 4. the compact delivery line for the chosen area and mode.
 class _Header extends StatelessWidget {
   const _Header();
+
+  /// Height of the wordmark.
+  static const double logoHeight = 30;
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ColoredBox(
-          color: AppColors.surface,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppDims.gutter,
-              top + 10,
-              AppDims.gutter,
-              14,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.hairline)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppDims.gutter,
+          top + 8,
+          AppDims.gutter,
+          2,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Image.asset(
-                      Catalog.logoWideAsset,
-                      height: 56,
-                      fit: BoxFit.contain,
-                      semanticLabel: 'Fresh Market',
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(child: LocationChip()),
-                  ],
+                Image.asset(
+                  Catalog.logoWideAsset,
+                  key: const ValueKey('home-logo'),
+                  height: logoHeight,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'Fresh Market',
                 ),
-                const SizedBox(height: 10),
-                const DeliveryModeSwitch(),
-                const SizedBox(height: 12),
-                SearchFieldButton(
-                  onTap: () => AppNav.openSearch(context),
-                ),
+                const SizedBox(width: 12),
+                const Spacer(),
+                const LocationChip(),
               ],
             ),
-          ),
+            const SizedBox(height: 12),
+            SearchFieldButton(onTap: () => AppNav.openSearch(context)),
+            const SizedBox(height: 12),
+            const DeliveryModeSwitch(),
+            const SizedBox(height: 6),
+            // Two planned lines: the bold time, then the detail.
+            const DeliveryLine(stacked: true),
+          ],
         ),
-        const LimeBar(),
-      ],
-    );
-  }
-}
-
-/// The hairline divider under the white Home header.
-class LimeBar extends StatelessWidget {
-  const LimeBar({super.key});
-
-  static const double height = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    return const ExcludeSemantics(
-      child: SizedBox(
-        height: height,
-        child: ColoredBox(color: AppColors.hairline),
       ),
     );
   }
@@ -331,7 +360,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                       child: Material(
                         key: ValueKey('banner-$index'),
                         color: AppColors.subtle,
-                        borderRadius: AppDims.cardBorderRadius,
+                        borderRadius: AppDims.bannerBorderRadius,
                         clipBehavior: Clip.antiAlias,
                         child: Ink.image(
                           image: AssetImage(banner.asset),
@@ -352,7 +381,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
             );
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         ExcludeSemantics(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -365,8 +394,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                   width: i == _page ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: i == _page ? AppColors.ink : AppColors.hairline,
-                    borderRadius: BorderRadius.circular(3),
+                    color: i == _page ? AppColors.ink : _dotGrey,
+                    borderRadius: AppDims.pillBorderRadius,
                   ),
                 ),
             ],
@@ -375,23 +404,28 @@ class _BannerCarouselState extends State<_BannerCarousel> {
       ],
     );
   }
+
+  /// Inactive page dots: the tertiary grey, lightened (decoration only).
+  static final Color _dotGrey = AppColors.tertiary.withValues(alpha: 0.4);
 }
 
-/// One horizontal product rail: heading with "View all", then cards, a
+/// One horizontal product rail: heading with "See all", then cards, a
 /// skeleton while loading or a retry row on failure. A collection with no
-/// products shows nothing at all.
+/// products shows nothing at all (not even the space above it).
 class _ProductRail extends StatelessWidget {
   const _ProductRail({
     required this.rail,
     required this.style,
     required this.data,
     required this.onRetry,
+    this.afterGrid = false,
   });
 
   final HomeRail rail;
   final ({IconData icon}) style;
   final _RailData data;
   final VoidCallback onRetry;
+  final bool afterGrid;
 
   @override
   Widget build(BuildContext context) {
@@ -428,25 +462,16 @@ class _ProductRail extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SectionHeader(
-            title: rail.title,
-            icon: style.icon,
-            onViewAll: () => AppNav.openCollection(
-              context,
-              handle: rail.handle,
-              title: rail.title,
-            ),
-          ),
-          const SizedBox(height: 4),
-          content,
-        ],
+    return _Section(
+      title: rail.title,
+      icon: style.icon,
+      afterGrid: afterGrid,
+      onViewAll: () => AppNav.openCollection(
+        context,
+        handle: rail.handle,
+        title: rail.title,
       ),
+      child: content,
     );
   }
 }
@@ -459,15 +484,6 @@ class _RailSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget bar(double width, double height) => Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: AppColors.disabledFill,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
-
     return Semantics(
       label: 'Loading products',
       child: SizedBox(
@@ -478,28 +494,9 @@ class _RailSkeleton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
           itemCount: 3,
           separatorBuilder: (_, _) => const SizedBox(width: ProductCard.gap),
-          itemBuilder: (context, index) => Container(
+          itemBuilder: (context, index) => const SizedBox(
             width: ProductCard.railWidth,
-            decoration: AppDecor.card,
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 116,
-                  decoration: BoxDecoration(
-                    color: AppColors.disabledFill,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                bar(120, 12),
-                const SizedBox(height: 8),
-                bar(72, 10),
-                const SizedBox(height: 12),
-                bar(64, 14),
-              ],
-            ),
+            child: ProductCardSkeleton(wellHeight: ProductCard.wellHeight),
           ),
         ),
       ),
@@ -507,7 +504,9 @@ class _RailSkeleton extends StatelessWidget {
   }
 }
 
-/// The "Discover our fresh local products" card.
+/// The "Made in UAE" card: a white card with the local-produce photo, an
+/// ink heading and an ink outlined "Discover now" (not a buying action, so
+/// not green).
 class _LocalCard extends StatelessWidget {
   const _LocalCard();
 
@@ -527,38 +526,49 @@ class _LocalCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'MADE IN UAE',
-                  style: AppText.caption.copyWith(
+                  style: AppText.tag.copyWith(
                     color: AppColors.secondary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
+                    letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Discover our fresh local products',
-                  style: AppText.cardHeading,
+                const SizedBox(height: 6),
+                Semantics(
+                  header: true,
+                  child: const Text(
+                    'Discover our fresh local products',
+                    style: AppText.heading,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Organic tomatoes, beetroot, marrow, capsicum and more, '
                   'grown in the UAE and picked for you within 24 hours.',
-                  style: AppText.body,
+                  style: AppText.bodySmall.copyWith(
+                    color: AppColors.secondary,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                FilledButton(
+                const SizedBox(height: 16),
+                OutlinedButton(
                   onPressed: () => AppNav.openCollection(
                     context,
                     handle: Catalog.localHandle,
                     title: Catalog.localTitle,
                   ),
-                  child: const Text('Discover now'),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Discover now'),
+                      SizedBox(width: 6),
+                      Icon(Icons.arrow_forward_rounded, size: 18),
+                    ],
+                  ),
                 ),
               ],
             ),

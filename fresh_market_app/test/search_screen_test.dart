@@ -4,6 +4,7 @@ import 'package:fresh_market_app/screens/search_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
+import 'package:fresh_market_app/widgets/product_card.dart';
 import 'package:fresh_market_app/widgets/state_views.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -52,7 +53,7 @@ void main() {
     expect(searches(api), ['search(kiwi)']);
     expect(find.text('Zespri Kiwi Sungold'), findsOneWidget);
     expect(find.text('New Zealand · 500 GM'), findsOneWidget);
-    expect(find.text('Dhs. 19.95'), findsOneWidget);
+    expect(find.text('\u20C3 19.95'), findsOneWidget);
     expect(find.text('1 result'), findsOneWidget);
     expect(find.text('Popular searches'), findsNothing);
   });
@@ -165,7 +166,7 @@ void main() {
 
     await type(tester, 'kiwi');
     await tester.pump(SearchScreen.debounce); // kiwi request leaves
-    expect(find.byType(LoadingView), findsOneWidget);
+    expect(find.byType(ProductCardSkeleton), findsWidgets);
 
     api.delay = Duration.zero;
     await type(tester, 'cucumber');
@@ -182,6 +183,38 @@ void main() {
     await type(tester, 'kiwi');
     await tester.pumpWidget(const SizedBox());
     await tester.pump(SearchScreen.debounce);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('results are product cards in two columns', (tester) async {
+    await pumpScreen(tester, const SearchScreen(initialQuery: 'berry'));
+    await tester.pump();
+
+    final cards = find.byType(ProductCard);
+    expect(cards, findsNWidgets(2));
+    expect(tester.getTopLeft(cards.at(0)).dy, tester.getTopLeft(cards.at(1)).dy);
+    expect(tester.getTopLeft(cards.at(0)).dx, 16);
+    expect(tester.getTopRight(cards.at(1)).dx, 390 - 16);
+  });
+
+  testWidgets('popular searches keep the page gutter', (tester) async {
+    await pumpScreen(tester, const SearchScreen());
+    await tester.pump();
+    expect(tester.getTopLeft(find.text('Popular searches')).dx, 16);
+  });
+
+  testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {
+    await pumpScreen(
+      tester,
+      const SearchScreen(initialQuery: 'berry'),
+      delivery: testDelivery(),
+    );
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(ProductCard), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

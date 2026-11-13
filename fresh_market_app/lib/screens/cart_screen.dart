@@ -64,7 +64,12 @@ class _CartScreenState extends State<CartScreen> {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  const Expanded(child: Text('Cart', style: AppText.title)),
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: const Text('Cart', style: AppText.title),
+                    ),
+                  ),
                   if (count > 0)
                     Text(
                       count == 1 ? '1 item' : '$count items',
@@ -97,9 +102,12 @@ class _CartScreenState extends State<CartScreen> {
                     AppDims.gutter,
                     16,
                   ),
-                  // The delivery card, then the lines.
+                  // The delivery card, then the lines with hairlines
+                  // between them.
                   itemCount: lines.length + 1,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  separatorBuilder: (_, index) => index == 0
+                      ? const SizedBox(height: 8)
+                      : const Divider(height: 1),
                   itemBuilder: (context, index) {
                     if (index == 0) return const CartDeliveryCard();
                     final line = lines[index - 1];
@@ -162,90 +170,90 @@ class _CartRowState extends State<_CartRow> {
   Widget build(BuildContext context) {
     final line = widget.line;
     final cart = context.read<CartStore>();
+    final variant = line.variantTitle;
 
-    return Container(
-      decoration: AppDecor.card,
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: _openProduct,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Opacity(
-                        opacity: _opening ? 0.4 : 1,
-                        child: ProductImage(
-                          url: line.imageUrl,
-                          logicalWidth: 72,
-                        ),
-                      ),
-                      // The product is loading before its page opens.
-                      if (_opening)
-                        const Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2.5),
-                          ),
-                        ),
-                    ],
+    return InkWell(
+      onTap: _openProduct,
+      borderRadius: AppDims.wellBorderRadius,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              padding: const EdgeInsets.all(6),
+              decoration: AppDecor.well,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Opacity(
+                    opacity: _opening ? 0.4 : 1,
+                    child: ProductImage(
+                      url: line.imageUrl,
+                      logicalWidth: 72,
+                      wellColor: AppColors.subtle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Text(
-                          line.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.productName,
-                        ),
+                  // The product is loading before its page opens.
+                  if (_opening)
+                    const Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        line.detailLine,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.caption,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: PriceRow(
-                              priceCents: line.lineTotalCents,
-                              oldPriceCents: line.oldLineTotalCents,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          QuantityStepper(
-                            quantity: line.quantity,
-                            onDecrement: () => cart.decrement(line.variantId),
-                            onIncrement: line.quantity >= CartStore.maxQuantity
-                                ? null
-                                : () => cart.increment(line.variantId),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    line.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.productName,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    line.detailLine,
+                    semanticsLabel: [
+                      ?variant,
+                      '${moneySemantics(line.priceCents)} each',
+                    ].join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.caption,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PriceRow(
+                          priceCents: line.lineTotalCents,
+                          oldPriceCents: line.oldLineTotalCents,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      QuantityStepper(
+                        quantity: line.quantity,
+                        style: QuantityStepperStyle.solid,
+                        onDecrement: () => cart.decrement(line.variantId),
+                        onIncrement: line.quantity >= CartStore.maxQuantity
+                            ? null
+                            : () => cart.increment(line.variantId),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -283,12 +291,14 @@ class _SummaryCardState extends State<_SummaryCard> {
       maxScaleFactor: 1.3,
       child: Container(
         decoration: AppDecor.card.copyWith(boxShadow: AppDecor.floatShadow),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
                 const Text('Subtotal', style: AppText.cardHeading),
                 const SizedBox(width: 16),
@@ -297,9 +307,9 @@ class _SummaryCardState extends State<_SummaryCard> {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
-                    child: Text(
-                      formatMoney(widget.subtotalCents),
-                      style: AppText.heading,
+                    child: MoneyText(
+                      widget.subtotalCents,
+                      style: AppText.price.copyWith(fontSize: 20),
                     ),
                   ),
                 ),
@@ -310,7 +320,7 @@ class _SummaryCardState extends State<_SummaryCard> {
               'Delivery and taxes are calculated at checkout.',
               style: AppText.caption,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             FilledButton(
               onPressed: _checkout,
               child: _checking

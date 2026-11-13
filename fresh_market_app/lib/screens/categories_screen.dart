@@ -6,7 +6,8 @@ import '../widgets/app_search_field.dart';
 import '../widgets/category_tile.dart';
 import '../widgets/section_header.dart';
 
-/// The Categories tab: title, search field (opens Search) and the grid of
+/// The Categories tab on the white canvas: the ink "Categories" heading
+/// tag, the off-white search field (opens Search) and the 4-column grid of
 /// the 12 category tiles. Each tile opens its collection's product list.
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
@@ -14,6 +15,7 @@ class CategoriesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
@@ -35,7 +37,7 @@ class CategoriesScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppDims.gutter,
-                  14,
+                  16,
                   AppDims.gutter,
                   0,
                 ),
@@ -43,7 +45,7 @@ class CategoriesScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SearchFieldButton(onTap: () => AppNav.openSearch(context)),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     const CategoryGrid(),
                   ],
                 ),

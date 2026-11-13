@@ -8,11 +8,9 @@ import '../data/catalog.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../theme/app_theme.dart';
-import '../widgets/add_control.dart';
 import '../widgets/app_search_field.dart';
 import '../widgets/circle_icon_button.dart';
-import '../widgets/price_widgets.dart';
-import '../widgets/product_image.dart';
+import '../widgets/product_card.dart';
 import '../widgets/state_views.dart';
 
 /// Live product search: results appear shortly after typing stops. Opens
@@ -153,6 +151,9 @@ class _SearchScreenState extends State<SearchScreen> {
       body: SafeArea(
         bottom: false,
         child: Column(
+          // Stretch, so short content (the popular chips) keeps the page
+          // gutter instead of being centred.
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -194,11 +195,14 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_query.isEmpty) {
       return SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(AppDims.gutter, 12, AppDims.gutter, bottom),
+        padding: EdgeInsets.fromLTRB(AppDims.gutter, 16, AppDims.gutter, bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Popular searches', style: AppText.cardHeading),
+            Semantics(
+              header: true,
+              child: const Text('Popular searches', style: AppText.cardHeading),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -225,9 +229,22 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     if (_loading && _results.isEmpty) {
-      return Align(
-        alignment: Alignment.topCenter,
-        child: const LoadingView(),
+      // Card-shaped placeholders where the results will appear.
+      return Semantics(
+        label: 'Searching',
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            AppDims.gutter,
+            _captionHeight(context),
+            AppDims.gutter,
+            bottom,
+          ),
+          gridDelegate: ProductCard.gridDelegate(context),
+          itemCount: 4,
+          itemBuilder: (context, index) =>
+              const ExcludeSemantics(child: ProductCardSkeleton()),
+        ),
       );
     }
 
@@ -255,37 +272,68 @@ class _SearchScreenState extends State<SearchScreen> {
             ? '1 result'
             : '$count results';
 
-    return ListView.separated(
+    return CustomScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.fromLTRB(AppDims.gutter, 4, AppDims.gutter, bottom),
-      itemCount: count + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Row(
-            children: [
-              Expanded(
-                child: Text(
-                  caption,
-                  style: AppText.caption.copyWith(color: AppColors.secondary),
-                ),
+      slivers: [
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: _captionHeight(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.caption,
+                    ),
+                  ),
+                  if (_loading)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                ],
               ),
-              if (_loading)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          );
-        }
-        final product = _results[index - 1];
-        return _ResultRow(key: ValueKey(product.id), product: product);
-      },
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+          sliver: SliverGrid.builder(
+            gridDelegate: ProductCard.gridDelegate(context),
+            itemCount: count,
+            itemBuilder: (context, index) {
+              final product = _results[index];
+              return ProductCard(
+                key: ValueKey(product.id),
+                product: product,
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  AppNav.openProduct(context, product);
+                },
+              );
+            },
+          ),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: bottom)),
+      ],
     );
   }
+
+  /// Height of the "N results" line above the grid (also the space the
+  /// loading placeholders leave for it).
+  static double _captionHeight(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(AppText.caption.fontSize!) *
+          AppText.caption.height! +
+      20;
 }
 
+/// A popular search: white pill with a hairline, a small grey trend icon
+/// and the term.
 class _PopularChip extends StatelessWidget {
   const _PopularChip({required this.label, required this.onTap});
 
@@ -298,106 +346,15 @@ class _PopularChip extends StatelessWidget {
       button: true,
       label: 'Search for $label',
       excludeSemantics: true,
-      child: Material(
-        color: AppColors.surface,
-        shape: const StadiumBorder(side: BorderSide(color: AppColors.hairline)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppDims.touch),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Center(
-                widthFactor: 1,
-                child: Text(
-                  label,
-                  style: AppText.body.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
+      child: OutlinedButton.icon(
+        style: AppButtons.chip,
+        onPressed: onTap,
+        icon: const Icon(
+          Icons.trending_up,
+          size: 16,
+          color: AppColors.secondary,
         ),
-      ),
-    );
-  }
-}
-
-/// One result: thumbnail, name, size line, price and the add control.
-/// Tapping the row opens the product.
-class _ResultRow extends StatelessWidget {
-  const _ResultRow({super.key, required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context) {
-    final variant = product.defaultVariant;
-    final sizeLine = product.sizeLine(variant);
-    return Material(
-      color: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppDims.cardBorderRadius,
-        side: BorderSide(color: AppColors.hairline),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
-          AppNav.openProduct(context, product);
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 64,
-                height: 64,
-                child: ProductImage(url: product.imageUrl, logicalWidth: 64),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      product.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.productName,
-                    ),
-                    if (sizeLine.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        sizeLine,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.caption
-                            .copyWith(color: AppColors.secondary),
-                      ),
-                    ],
-                    if (variant != null) ...[
-                      const SizedBox(height: 4),
-                      PriceRow(
-                        priceCents: variant.priceCents,
-                        oldPriceCents: variant.oldPriceCents,
-                        trailing: variant.salePercent == null
-                            ? null
-                            : SalePill(percent: variant.salePercent!),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              AddControl(product: product, variant: variant),
-            ],
-          ),
-        ),
+        label: Text(label),
       ),
     );
   }

@@ -1,12 +1,15 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/app.dart';
+import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/screens/account_screen.dart';
 import 'package:fresh_market_app/screens/cart_screen.dart';
 import 'package:fresh_market_app/screens/checkout_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
+import 'package:fresh_market_app/theme/app_theme.dart';
+import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'support/test_app.dart';
@@ -59,12 +62,12 @@ void main() {
 
       expect(find.text('3 items'), findsOneWidget);
       expect(find.text(kiwi.title), findsOneWidget);
-      expect(find.text('500 GM · Dhs. 19.95 each'), findsOneWidget);
-      expect(find.text('Dhs. 39.90'), findsOneWidget); // kiwi line total
-      expect(find.text('Dhs. 62.50'), findsOneWidget); // beef line total
+      expect(find.text('500 GM · \u20C3 19.95 each'), findsOneWidget);
+      expect(find.text('\u20C3 39.90'), findsOneWidget); // kiwi line total
+      expect(find.text('\u20C3 62.50'), findsOneWidget); // beef line total
       expect(find.text('115.00'), findsOneWidget); // struck old line total
       expect(find.text('Subtotal'), findsOneWidget);
-      expect(find.text('Dhs. 102.40'), findsOneWidget);
+      expect(find.text('\u20C3 102.40'), findsOneWidget);
       expect(
         find.text('Delivery and taxes are calculated at checkout.'),
         findsOneWidget,
@@ -213,6 +216,113 @@ void main() {
       expect(find.text(kiwi.title), findsOneWidget);
       expect(find.text(beef.title), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('design', () {
+    testWidgets('cart lines: green steppers, hairlines between, AED for '
+        'screen readers', (tester) async {
+      final cart = CartStore()
+        ..add(kiwi, kiwi.variants[0], quantity: 2)
+        ..add(beef, beef.variants[0]);
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: cart,
+        delivery: testDelivery(),
+      );
+
+      final steppers = tester.widgetList<QuantityStepper>(
+        find.byType(QuantityStepper),
+      );
+      expect(steppers, hasLength(2));
+      for (final stepper in steppers) {
+        expect(stepper.style, QuantityStepperStyle.solid);
+      }
+      // One hairline between the two lines (none after the last).
+      expect(find.byType(Divider), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('500 GM · \u20C3 19.95 each'))
+            .semanticsLabel,
+        '500 GM, AED 19.95 each',
+      );
+      expect(find.bySemanticsLabel('AED 102.40'), findsOneWidget);
+      expect(find.byKey(const ValueKey('cart-delivery')), findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Checkout'),
+        ).style,
+        isNull, // the theme's green buying button
+      );
+    });
+
+    testWidgets('the empty cart offers an ink outlined Start shopping',
+        (tester) async {
+      await pumpScreen(tester, const CartScreen());
+      expect(
+        find.widgetWithText(OutlinedButton, 'Start shopping'),
+        findsOneWidget,
+      );
+      expect(find.byType(FilledButton), findsNothing);
+    });
+
+    testWidgets('Sign in is ink, not the green buying button',
+        (tester) async {
+      await pumpScreen(tester, const AccountScreen());
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Sign in'),
+      );
+      expect(
+        button.style!.backgroundColor!.resolve(const <WidgetState>{}),
+        AppColors.ink,
+      );
+    });
+
+    testWidgets('checkout: a retry is ink, opening again is green',
+        (tester) async {
+      final url = Uri.parse('https://testtfm.myshopify.com/cart/2001:1');
+      mockLauncher(tester, result: false);
+      await pumpScreen(tester, CheckoutScreen(url: url));
+      await tester.pumpAndSettle();
+      final retry = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Try again'),
+      );
+      expect(
+        retry.style!.backgroundColor!.resolve(const <WidgetState>{}),
+        AppColors.ink,
+      );
+
+      mockLauncher(tester, result: true);
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+      final again = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Open again'),
+      );
+      expect(again.style, isNull);
+    });
+
+    testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {
+      final cart = CartStore();
+      for (final p in products) {
+        for (final v in p.variants) {
+          cart.add(p, v, quantity: 12);
+        }
+      }
+      final favourites = FavouritesStore()..toggle(kiwi);
+      for (final screen in [const CartScreen(), const AccountScreen()]) {
+        await pumpScreen(
+          tester,
+          screen,
+          cart: cart,
+          favourites: favourites,
+          delivery: testDelivery(mode: DeliveryMode.express),
+        );
+        tester.view.physicalSize = const Size(1080, 2340);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: '$screen');
+      }
     });
   });
 }

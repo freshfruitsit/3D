@@ -167,7 +167,6 @@ class AddControl extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Add ${product.title} to cart',
-      excludeSemantics: true,
       child: InkResponse(
         onTap: () => cart.add(product, v),
         radius: 24,

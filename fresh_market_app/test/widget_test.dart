@@ -192,9 +192,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
-    expect(find.text('Dhs. 62.50'), findsOneWidget);
+    expect(find.text('\u20C3 62.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
-    expect(find.text('-46%'), findsOneWidget);
+    expect(find.text('\u221246%'), findsOneWidget);
     expect(find.text('New Zealand · 500 GM'), findsOneWidget);
     expect(find.text('Sold out'), findsOneWidget);
     expect(tester.takeException(), isNull);

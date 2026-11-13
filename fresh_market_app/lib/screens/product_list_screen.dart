@@ -321,12 +321,20 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final List<Widget> content;
     if (showLoading) {
       content = [
-        SliverFillRemaining(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: bottomSpace),
-            child: const LoadingView(),
+        // Card-shaped placeholders in the grid the products will fill.
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+          sliver: SliverSemantics(
+            label: 'Loading products',
+            sliver: SliverGrid.builder(
+              gridDelegate: ProductCard.gridDelegate(context),
+              itemCount: 6,
+              itemBuilder: (context, index) =>
+                  const ExcludeSemantics(child: ProductCardSkeleton()),
+            ),
           ),
         ),
+        SliverToBoxAdapter(child: SizedBox(height: bottomSpace)),
       ];
     } else if (firstError != null) {
       content = [
@@ -449,8 +457,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 }
 
-/// Back arrow (when pushed), 20/800 title, then the "N products" caption
-/// with the sort chip.
+/// Back button (when pushed) and the 24/800 title, then the "N products"
+/// caption with the sort pill.
 class _Header extends StatelessWidget {
   const _Header({
     required this.title,
@@ -469,12 +477,18 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppDims.gutter, 8, AppDims.gutter, 8),
+      padding: EdgeInsets.fromLTRB(
+        AppDims.gutter,
+        showBack ? 8 : 16,
+        AppDims.gutter,
+        12,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppDims.touch),
+            // As tall as the back button when there is one.
+            constraints: BoxConstraints(minHeight: showBack ? AppDims.touch : 0),
             child: Row(
               children: [
                 if (showBack) ...[
@@ -486,9 +500,9 @@ class _Header extends StatelessWidget {
                     header: true,
                     child: Text(
                       title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.heading,
+                      style: AppText.title,
                     ),
                   ),
                 ),
@@ -497,7 +511,7 @@ class _Header extends StatelessWidget {
           ),
           if (countText != null || sort != null)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 8),
               child: Row(
                 children: [
                   Expanded(
@@ -519,7 +533,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// White pill that switches between the two orders.
+/// White pill with a hairline that switches between the two orders.
 class _SortChip extends StatelessWidget {
   const _SortChip({required this.sort, required this.onTap});
 
@@ -532,33 +546,11 @@ class _SortChip extends StatelessWidget {
       button: true,
       label: 'Sort: ${sort.label}. Tap to change',
       excludeSemantics: true,
-      child: Material(
-        color: AppColors.surface,
-        shape: const StadiumBorder(side: BorderSide(color: AppColors.hairline)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppDims.touch),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.swap_vert, size: 18, color: AppColors.ink),
-                  const SizedBox(width: 6),
-                  Text(
-                    sort.label,
-                    style: AppText.caption.copyWith(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      child: OutlinedButton.icon(
+        style: AppButtons.chip,
+        onPressed: onTap,
+        icon: const Icon(Icons.swap_vert, size: 18),
+        label: Text(sort.label),
       ),
     );
   }

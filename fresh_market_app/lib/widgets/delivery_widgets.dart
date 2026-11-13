@@ -65,7 +65,14 @@ class LocationChip extends StatelessWidget {
                     const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Deliver to', style: AppText.caption),
+                        Flexible(
+                          child: Text(
+                            'Deliver to',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.caption,
+                          ),
+                        ),
                         SizedBox(width: 2),
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
@@ -288,10 +295,29 @@ class _ModeSegment extends StatelessWidget {
 ///
 /// Every time and place comes from the delivery rules ([DeliveryStore]).
 class DeliveryLine extends StatelessWidget {
-  const DeliveryLine({super.key, this.noticeBottomMargin});
+  const DeliveryLine({
+    super.key,
+    this.noticeBottomMargin,
+    this.stacked = false,
+  });
 
   /// See [AppNav.showNotice].
   final double? noticeBottomMargin;
+
+  /// Two planned lines instead of one: the bold time (14/700) on top and
+  /// the rest under it without the " · " ("**Today by 4 PM**" / "Order
+  /// within 8h 0m"), so the promise never breaks mid-phrase beside the
+  /// button. The no-area sentence stays one text.
+  final bool stacked;
+
+  /// "order within 8h 0m" -> "Order within 8h 0m" (stacked second line).
+  static String _restLine(Iterable<DeliveryTextPart> rest) {
+    final text = rest
+        .map((p) => p.text)
+        .join()
+        .replaceFirst(RegExp(r'^[\s·]+'), '');
+    return text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
+  }
 
   static const String setLocation = 'Set location';
   static const String shopExpress = 'Shop Express';
@@ -381,57 +407,91 @@ class DeliveryLine extends StatelessWidget {
       }
     }
 
-    final text = Text.rich(
-      TextSpan(
-        children: [
-          for (final p in parts)
-            TextSpan(
-              text: p.text,
-              style: p.bold
-                  ? TextStyle(fontWeight: FontWeight.w700, color: boldColor)
-                  : null,
-            ),
-        ],
-      ),
-      style: AppText.bodySmall.copyWith(
-        fontSize: 13,
-        height: 1.35,
-        fontWeight: FontWeight.w500,
-        color: AppColors.secondary,
-      ),
+    final base = AppText.bodySmall.copyWith(
+      fontSize: 13,
+      height: 1.35,
+      fontWeight: FontWeight.w500,
+      color: AppColors.secondary,
     );
+    final Widget text;
+    if (stacked && area != null && parts.length > 1 && parts.first.bold) {
+      text = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            parts.first.text,
+            style: base.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: boldColor,
+            ),
+          ),
+          Text(_restLine(parts.skip(1)), style: base),
+        ],
+      );
+    } else {
+      text = Text.rich(
+        TextSpan(
+          children: [
+            for (final p in parts)
+              TextSpan(
+                text: p.text,
+                style: p.bold
+                    ? TextStyle(fontWeight: FontWeight.w700, color: boldColor)
+                    : null,
+              ),
+          ],
+        ),
+        style: base,
+      );
+    }
 
     return ConstrainedBox(
       key: const ValueKey('delivery-line'),
       constraints: const BoxConstraints(minHeight: AppDims.touch),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(width: 8),
-          Expanded(child: Semantics(liveRegion: true, child: text)),
-          if (actionLabel != null && action != null) ...[
-            const SizedBox(width: 4),
-            TextButton(
-              onPressed: action,
-              style: TextButton.styleFrom(
-                foregroundColor: actionGreen ? AppColors.green : AppColors.ink,
-                textStyle: AppText.link.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor),
+            const SizedBox(width: 8),
+            Expanded(child: Semantics(liveRegion: true, child: text)),
+            if (actionLabel != null && action != null) ...[
+              const SizedBox(width: 4),
+              // At most half the line; a long label wraps instead.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * 0.5,
                 ),
-                padding: const EdgeInsets.only(left: 8, right: 2),
-                tapTargetSize: MaterialTapTargetSize.padded,
+                child: TextButton(
+                  onPressed: action,
+                  style: TextButton.styleFrom(
+                    foregroundColor:
+                        actionGreen ? AppColors.green : AppColors.ink,
+                    textStyle: AppText.link.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    padding: const EdgeInsets.only(left: 8, right: 2),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          actionLabel,
+                          maxLines: 2,
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, size: 18),
+                    ],
+                  ),
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(actionLabel),
-                  const Icon(Icons.chevron_right, size: 18),
-                ],
-              ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -911,7 +971,7 @@ class CartDeliveryCard extends StatelessWidget {
       // A non-breaking space keeps "7:45 PM" from splitting across lines.
       final by = market.by;
       promise = market.today && by != null
-          ? '${market.line} · by ${by.replaceAll(' ', ' ')}'
+          ? '${market.line} · by ${by.replaceAll(' ', '\u00A0')}'
           : market.line;
     }
     final mismatch = store.isExpress && split.other > 0

@@ -213,7 +213,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Sold out'), findsOneWidget);
-      expect(find.text('Dhs. 15.00'), findsOneWidget);
+      expect(find.text('\u20C3 15.00'), findsOneWidget);
     });
   });
 

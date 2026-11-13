@@ -5,6 +5,7 @@ import 'package:fresh_market_app/screens/product_detail_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
+import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:fresh_market_app/widgets/price_widgets.dart';
 import 'package:material_ui/material_ui.dart';
@@ -35,7 +36,7 @@ void main() {
     expect(find.text('Local UAE'), findsNothing);
     expect(find.textContaining('Golden, juicy and sweet.'), findsOneWidget);
     expect(find.textContaining('<p>'), findsNothing);
-    expect(find.text('Add to cart · Dhs. 19.95'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
     expect(find.byType(SalePill), findsNothing);
     expect(find.text('View cart'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -49,7 +50,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('New Zealand · 1 KG'), findsOneWidget);
-    expect(find.text('Add to cart · Dhs. 39.75'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3 39.75'), findsOneWidget);
   });
 
   testWidgets('quantity stepper multiplies the button price and adds that many',
@@ -66,11 +67,11 @@ void main() {
     await tester.pump();
     await tester.tap(find.bySemanticsLabel('Increase quantity'));
     await tester.pump();
-    expect(find.text('Add to cart · Dhs. 59.85'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3 59.85'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Decrease quantity'));
     await tester.pump();
-    expect(find.text('Add to cart · Dhs. 39.90'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3 39.90'), findsOneWidget);
 
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
@@ -79,7 +80,7 @@ void main() {
     expect(find.text('2 added to cart'), findsOneWidget);
     expect(find.text('View cart'), findsOneWidget);
     // Quantity goes back to 1 and the cart button shows the badge.
-    expect(find.text('Add to cart · Dhs. 19.95'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
   });
 
@@ -120,9 +121,9 @@ void main() {
   testWidgets('a sale shows the old price and the sale pill', (tester) async {
     await pumpScreen(tester, ProductDetailScreen(product: beef));
 
-    expect(find.text('Dhs. 62.50'), findsOneWidget);
+    expect(find.text('\u20C3 62.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
-    expect(find.text('-46%'), findsOneWidget);
+    expect(find.text('\u221246%'), findsOneWidget);
     // One variant called "Default Title": no variant buttons.
     expect(find.text('Weight'), findsNothing);
     expect(find.text('Default Title'), findsNothing);
@@ -214,5 +215,96 @@ void main() {
     await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -600));
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  group('design', () {
+    /// The Material that draws the variant chip around [label].
+    Material chip(WidgetTester tester, String label) => tester.widget<Material>(
+          find
+              .ancestor(of: find.text(label), matching: find.byType(Material))
+              .first,
+        );
+
+    testWidgets('the photo sits on a full-width off-white area',
+        (tester) async {
+      await pumpScreen(tester, ProductDetailScreen(product: kiwi));
+      final area = find.byWidgetPredicate(
+        (w) => w is ColoredBox && w.color == AppColors.subtle,
+      );
+      expect(area, findsOneWidget);
+      expect(tester.getSize(area).width, 390);
+      expect(tester.getTopLeft(area), Offset.zero);
+    });
+
+    testWidgets('variant chips are white; the chosen one has a 2px ink edge',
+        (tester) async {
+      await pumpScreen(tester, ProductDetailScreen(product: kiwi));
+
+      final chosen = chip(tester, '500 GM');
+      final chosenEdge = (chosen.shape! as RoundedRectangleBorder).side;
+      expect(chosen.color, AppColors.surface);
+      expect(chosenEdge.color, AppColors.ink);
+      expect(chosenEdge.width, 2);
+
+      final other = chip(tester, '1 KG');
+      final otherEdge = (other.shape! as RoundedRectangleBorder).side;
+      expect(other.color, AppColors.surface);
+      expect(otherEdge.color, AppColors.hairline);
+      expect(otherEdge.width, 1);
+      expect(find.bySemanticsLabel('1 KG, AED 39.75'), findsOneWidget);
+    });
+
+    testWidgets('the add button is green and reads the price as AED',
+        (tester) async {
+      await pumpScreen(tester, ProductDetailScreen(product: kiwi));
+      final button = addButton(tester);
+      expect(button.style, isNull); // the theme's green buying button
+      expect(
+        find.bySemanticsLabel('Add to cart, AED 19.95'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the added notice is green on green-soft', (tester) async {
+      await pumpScreen(tester, ProductDetailScreen(product: bouquet));
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+
+      final check = tester.widget<Icon>(find.byIcon(Icons.check_circle));
+      expect(check.color, AppColors.green);
+      final notice = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.text('Added to cart'),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        (notice.decoration! as BoxDecoration).color,
+        AppColors.greenSoft,
+      );
+    });
+
+    testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {
+      for (final product in [kiwi, beef, blueberry, strawberry]) {
+        await pumpScreen(
+          tester,
+          ProductDetailScreen(product: product),
+          delivery: testDelivery(),
+        );
+        tester.view.physicalSize = const Size(1080, 2340);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: product.title);
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -800),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: product.title);
+      }
+    });
   });
 }

@@ -8,13 +8,28 @@ import 'support/test_app.dart';
 void main() {
   group('formatMoney', () {
     test('formats minor units the way the store does', () {
-      expect(formatMoney(1250), 'Dhs. 12.50');
-      expect(formatMoney(250), 'Dhs. 2.50');
-      expect(formatMoney(5), 'Dhs. 0.05');
-      expect(formatMoney(0), 'Dhs. 0.00');
-      expect(formatMoney(30000), 'Dhs. 300.00');
-      expect(formatMoney(125000), 'Dhs. 1,250.00');
-      expect(formatMoney(123456789), 'Dhs. 1,234,567.89');
+      expect(formatMoney(1250), '\u20C3 12.50');
+      expect(formatMoney(250), '\u20C3 2.50');
+      expect(formatMoney(5), '\u20C3 0.05');
+      expect(formatMoney(0), '\u20C3 0.00');
+      expect(formatMoney(30000), '\u20C3 300.00');
+      expect(formatMoney(125000), '\u20C3 1,250.00');
+      expect(formatMoney(123456789), '\u20C3 1,234,567.89');
+      expect(formatMoney(-500), '-\u20C3 5.00');
+    });
+
+    test('the Dirham sign is U+20C3, then a space', () {
+      expect(dirhamSign, '\u20C3');
+      expect(dirhamSign.runes.single, 0x20C3);
+      expect(formatMoney(1250).startsWith('$dirhamSign '), isTrue);
+    });
+
+    test('screen readers hear AED; the bare amount has no sign', () {
+      expect(moneySemantics(1250), 'AED 12.50');
+      expect(moneySemantics(125000), 'AED 1,250.00');
+      expect(moneySemantics(-500), '-AED 5.00');
+      expect(formatAmount(1250), '12.50');
+      expect(formatAmount(123456789), '1,234,567.89');
     });
 
     test('parseMoney reads every storefront shape', () {
@@ -46,7 +61,7 @@ void main() {
       expect(kiwi.vendor, 'Vegetable Souk Fruits');
       expect(kiwi.variants.map((v) => v.title), ['500 GM', '1 KG']);
       expect(kiwi.variants.map((v) => v.priceCents), [1995, 3975]);
-      expect(kiwi.variants.first.priceText, 'Dhs. 19.95');
+      expect(kiwi.variants.first.priceText, '\u20C3 19.95');
       expect(kiwi.variants.first.onSale, isFalse);
       expect(kiwi.variants.first.salePercent, isNull);
       expect(kiwi.imageUrl, startsWith('https://cdn.shopify.com/'));

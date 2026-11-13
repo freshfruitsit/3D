@@ -295,7 +295,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       minHeight: 3,
                       backgroundColor: AppColors.subtle,
                     )
-                  : null,
+                  // A hairline under the bar once the page is in.
+                  : const Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Divider(height: 1),
+                    ),
             ),
           ),
         ),
@@ -312,6 +316,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'Your cart is saved.',
                   primaryLabel: 'Try again',
                   onPrimary: _reload,
+                  primaryIsCheckout: false,
                   secondaryLabel: 'Open in browser',
                   onSecondary: () => _launchExternally(widget.url),
                 )
@@ -337,6 +342,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         message: 'Finish your order there. Your cart is saved.',
         primaryLabel: 'Open again',
         onPrimary: _openInBrowser,
+        primaryIsCheckout: true,
         secondaryLabel: 'Back to cart',
         onSecondary: backToCart,
       ),
@@ -348,6 +354,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'Your cart is saved.',
         primaryLabel: 'Try again',
         onPrimary: _openInBrowser,
+        primaryIsCheckout: false,
         secondaryLabel: 'Back to cart',
         onSecondary: backToCart,
       ),
@@ -355,6 +362,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 }
 
+/// A full-page message in checkout: grey icon circle, title, secondary
+/// text, a primary button and an ink text link. The primary button is the
+/// green buying button only when it continues the checkout
+/// ([primaryIsCheckout]); a retry after a failure is ink.
 class _CheckoutMessage extends StatelessWidget {
   const _CheckoutMessage({
     required this.icon,
@@ -362,6 +373,7 @@ class _CheckoutMessage extends StatelessWidget {
     required this.message,
     required this.primaryLabel,
     required this.onPrimary,
+    required this.primaryIsCheckout,
     required this.secondaryLabel,
     required this.onSecondary,
   });
@@ -371,6 +383,7 @@ class _CheckoutMessage extends StatelessWidget {
   final String message;
   final String primaryLabel;
   final VoidCallback onPrimary;
+  final bool primaryIsCheckout;
   final String secondaryLabel;
   final VoidCallback onSecondary;
 
@@ -379,27 +392,48 @@ class _CheckoutMessage extends StatelessWidget {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: AppColors.subtle,
-                shape: BoxShape.circle,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: AppColors.subtle,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 32, color: AppColors.ink),
+                ),
               ),
-              child: Icon(icon, size: 32, color: AppColors.ink),
-            ),
-            const SizedBox(height: 16),
-            Text(title, textAlign: TextAlign.center, style: AppText.heading),
-            const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center, style: AppText.body),
-            const SizedBox(height: 20),
-            FilledButton(onPressed: onPrimary, child: Text(primaryLabel)),
-            const SizedBox(height: 4),
-            TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
-          ],
+              const SizedBox(height: 16),
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: AppText.heading,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppText.body.copyWith(color: AppColors.secondary),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                style: primaryIsCheckout ? null : AppButtons.dark,
+                onPressed: onPrimary,
+                child: Text(primaryLabel),
+              ),
+              const SizedBox(height: 4),
+              TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
+            ],
+          ),
         ),
       ),
     );

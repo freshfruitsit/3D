@@ -318,7 +318,7 @@ class _LocationScreenState extends State<LocationScreen> {
                   AppDims.gutter,
                   4,
                   AppDims.gutter,
-                  20,
+                  24,
                 ),
                 children: [
                   if (reason != null) ...[
@@ -337,13 +337,13 @@ class _LocationScreenState extends State<LocationScreen> {
                       setState(() {});
                     },
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   _GpsButton(locating: _locating, onTap: _useMyLocation),
                   if (_gpsNotice != null) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     _NoticeBox(notice: _gpsNotice!),
                   ],
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 24),
                   ListenableBuilder(
                     listenable: _search,
                     builder: (context, _) => _Suggestions(
@@ -355,7 +355,7 @@ class _LocationScreenState extends State<LocationScreen> {
                       onPick: _pickPlace,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   _WhatYouGet(
                     key: _panelKey,
                     summary: summary,
@@ -363,7 +363,7 @@ class _LocationScreenState extends State<LocationScreen> {
                     pickedNothing: _pick == null,
                   ),
                   if (_services.showMap) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _mapBox(),
                   ],
                 ],
@@ -388,7 +388,7 @@ class _LocationScreenState extends State<LocationScreen> {
         Semantics(
           label: 'Map. ${LocationScreen.mapHint}',
           child: ClipRRect(
-            borderRadius: AppDims.cardBorderRadius,
+            borderRadius: AppDims.bannerBorderRadius,
             child: SizedBox(
               height: 220,
               child: Listener(
@@ -499,12 +499,14 @@ class _LocationScreenState extends State<LocationScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 14,
               height: 14,
+              margin: const EdgeInsets.only(top: 1),
               decoration: BoxDecoration(
                 color: const Color(0x260E7C3A),
                 shape: BoxShape.circle,
@@ -526,7 +528,7 @@ class _LocationScreenState extends State<LocationScreen> {
   }
 }
 
-/// Title, subtitle and (when it may be closed) the close button.
+/// Title (24/800), subtitle and, when it may be closed, the close button.
 class _Header extends StatelessWidget {
   const _Header({required this.title, required this.onClose});
 
@@ -538,9 +540,9 @@ class _Header extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppDims.gutter,
-        12,
+        8,
         onClose == null ? AppDims.gutter : 4,
-        12,
+        16,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,14 +551,19 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // The 48px close button's centre lines up with the
+                // title's.
+                const SizedBox(height: 8),
                 Semantics(
                   header: true,
                   child: Text(title, style: AppText.title),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   LocationScreen.subtitle,
-                  style: AppText.body.copyWith(color: AppColors.secondary),
+                  style: AppText.bodySmall.copyWith(
+                    color: AppColors.secondary,
+                  ),
                 ),
               ],
             ),
@@ -565,7 +572,7 @@ class _Header extends StatelessWidget {
             IconButton(
               onPressed: onClose,
               tooltip: 'Close',
-              icon: const Icon(Icons.close),
+              icon: const Icon(Icons.close, color: AppColors.ink),
             ),
         ],
       ),
@@ -573,7 +580,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Off-white box with an info icon: why the picker opened.
+/// Off-white info card with an info icon: why the picker opened.
 class _Banner extends StatelessWidget {
   const _Banner({required this.text});
 
@@ -583,22 +590,16 @@ class _Banner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: AppColors.subtle,
-        borderRadius: AppDims.controlBorderRadius,
-      ),
+      decoration: AppDecor.info,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.info_outline, size: 20, color: AppColors.ink),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: AppText.body.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppText.bodySmall.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -607,6 +608,7 @@ class _Banner extends StatelessWidget {
   }
 }
 
+/// The off-white, borderless search input (the theme's input style).
 class _SearchField extends StatelessWidget {
   const _SearchField({
     required this.controller,
@@ -624,10 +626,10 @@ class _SearchField extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       textInputAction: TextInputAction.search,
-      style: AppText.body.copyWith(color: AppColors.ink, fontSize: 15),
+      style: AppText.body,
       decoration: InputDecoration(
         hintText: LocationScreen.searchHint,
-        prefixIcon: const Icon(Icons.search, color: AppColors.secondary),
+        prefixIcon: const Icon(Icons.search, color: AppColors.ink, size: 22),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
@@ -640,7 +642,9 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// "Use my current location", with a spinner while it looks.
+/// "Use my current location": a white row with a hairline, the green
+/// target icon and a chevron; a spinner and "Finding your location…"
+/// while it looks.
 class _GpsButton extends StatelessWidget {
   const _GpsButton({required this.locating, required this.onTap});
 
@@ -649,36 +653,78 @@ class _GpsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: locating ? null : onTap,
-      style: OutlinedButton.styleFrom(
-        alignment: Alignment.centerLeft,
-        disabledForegroundColor: AppColors.ink,
-        disabledBackgroundColor: AppColors.surface,
-      ),
-      child: Row(
-        children: [
-          if (locating)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            )
-          else
-            const Icon(Icons.my_location, size: 20, color: AppColors.green),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Text(
-              locating ? LocationScreen.locating : LocationScreen.useMyLocation,
+    final label =
+        locating ? LocationScreen.locating : LocationScreen.useMyLocation;
+    return Semantics(
+      button: true,
+      enabled: !locating,
+      label: label,
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          borderRadius: AppDims.cardBorderRadius,
+          boxShadow: AppShadows.card,
+        ),
+        child: Material(
+          color: AppColors.surface,
+          shape: AppDecor.cardShape,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: locating ? null : onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: locating
+                          ? const Padding(
+                              padding: EdgeInsets.all(2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.my_location,
+                              size: 22,
+                              color: AppColors.green,
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: locating
+                              ? AppColors.secondary
+                              : AppColors.ink,
+                        ),
+                      ),
+                    ),
+                    if (!locating)
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 22,
+                        color: AppColors.tertiary,
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// A problem with the phone's location and the button that helps.
+/// A problem with the phone's location and the button that helps: an
+/// off-white info card in ink (no alarm colours).
 class _NoticeBox extends StatelessWidget {
   const _NoticeBox({required this.notice});
 
@@ -690,17 +736,13 @@ class _NoticeBox extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 4, 4),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppDims.controlBorderRadius,
-          border: Border.all(color: AppColors.ink),
-        ),
+        padding: EdgeInsets.fromLTRB(12, 12, 4, label == null ? 12 : 2),
+        decoration: AppDecor.info,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(right: 8, bottom: 6),
+              padding: const EdgeInsets.only(right: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -709,12 +751,9 @@ class _NoticeBox extends StatelessWidget {
                     size: 20,
                     color: AppColors.ink,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      notice.text,
-                      style: AppText.body.copyWith(color: AppColors.ink),
-                    ),
+                    child: Text(notice.text, style: AppText.bodySmall),
                   ),
                 ],
               ),
@@ -732,7 +771,8 @@ class _NoticeBox extends StatelessWidget {
 }
 
 /// The rows under the search field: the store row, the website's areas
-/// and (with the remote search) addresses; or a status line.
+/// and (with the remote search) addresses, in a white card with hairline
+/// separators; or a status line.
 class _Suggestions extends StatelessWidget {
   const _Suggestions({
     required this.term,
@@ -758,7 +798,12 @@ class _Suggestions extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(heading, style: AppText.cardHeading)),
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(heading, style: AppText.cardHeading),
+              ),
+            ),
             if (searching && rows.isNotEmpty)
               const SizedBox(
                 width: 16,
@@ -767,10 +812,11 @@ class _Suggestions extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         if (rows.isNotEmpty)
-          DecoratedBox(
+          Container(
             decoration: AppDecor.card,
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 for (var i = 0; i < rows.length; i++) ...[
@@ -778,7 +824,7 @@ class _Suggestions extends StatelessWidget {
                     const Divider(
                       height: 1,
                       thickness: 1,
-                      indent: 48,
+                      indent: 50,
                       color: AppColors.hairline,
                     ),
                   _PlaceRow(
@@ -795,7 +841,10 @@ class _Suggestions extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8),
             child: Semantics(
               liveRegion: true,
-              child: Text(status!, style: AppText.body),
+              child: Text(
+                status!,
+                style: AppText.bodySmall.copyWith(color: AppColors.secondary),
+              ),
             ),
           ),
       ],
@@ -806,8 +855,8 @@ class _Suggestions extends StatelessWidget {
       b != null && a.name == b.name && a.lat == b.lat && a.lng == b.lng;
 }
 
-/// One suggestion: pin, name, emirate or address, and an "Express" tag
-/// inside the Express zone.
+/// One suggestion: pin, name, emirate or address, an "Express" tag inside
+/// the Express zone and an ink check when it is the current pick.
 class _PlaceRow extends StatelessWidget {
   const _PlaceRow({
     required this.place,
@@ -836,17 +885,18 @@ class _PlaceRow extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          borderRadius: AppDims.cardBorderRadius,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
+            constraints: const BoxConstraints(minHeight: 60),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
               child: Row(
                 children: [
                   Icon(
-                    place.isStore ? Icons.storefront : Icons.location_on,
+                    place.isStore
+                        ? Icons.storefront_outlined
+                        : Icons.location_on_outlined,
                     size: 22,
-                    color: AppColors.secondary,
+                    color: selected ? AppColors.ink : AppColors.secondary,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -862,13 +912,15 @@ class _PlaceRow extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        if (subtitle.isNotEmpty)
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 1),
                           Text(
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.caption,
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -880,7 +932,7 @@ class _PlaceRow extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Icon(
                       Icons.check_circle,
-                      size: 20,
+                      size: 22,
                       color: AppColors.ink,
                     ),
                   ],
@@ -894,30 +946,26 @@ class _PlaceRow extends StatelessWidget {
   }
 }
 
-/// Small green-soft "Express" tag with a green bolt.
+/// Small green-soft "Express" pill with a green bolt.
 class ExpressTag extends StatelessWidget {
   const ExpressTag({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(4, 2, 7, 2),
+      padding: const EdgeInsets.fromLTRB(5, 3, 8, 3),
       decoration: const BoxDecoration(
         color: AppColors.greenSoft,
-        borderRadius: BorderRadius.all(Radius.circular(10)),
+        borderRadius: AppDims.pillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.bolt, size: 14, color: AppColors.green),
-          const SizedBox(width: 1),
+          const SizedBox(width: 2),
           Text(
             'Express',
-            style: AppText.caption.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: AppColors.green,
-            ),
+            style: AppText.tag.copyWith(color: AppColors.green),
           ),
         ],
       ),
@@ -932,7 +980,11 @@ class _HubMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DecoratedBox(
-      decoration: BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: AppColors.ink,
+        shape: BoxShape.circle,
+        boxShadow: AppShadows.raised,
+      ),
       child: Center(
         child: Icon(Icons.storefront, size: 16, color: AppColors.onDark),
       ),
@@ -952,14 +1004,16 @@ class _MapNote extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.surface,
         borderRadius: AppDims.controlBorderRadius,
+        boxShadow: AppShadows.raised,
       ),
       child: Text(text, style: AppText.caption.copyWith(color: AppColors.ink)),
     );
   }
 }
 
-/// "What you get in …": the Fresh Market and Express rows exactly as
-/// the website words them, or why nothing can be delivered.
+/// "What you get in …" as an off-white card (radius 14): the Fresh Market
+/// and Express rows exactly as the website words them, or why nothing can
+/// be delivered.
 class _WhatYouGet extends StatelessWidget {
   const _WhatYouGet({
     super.key,
@@ -976,8 +1030,11 @@ class _WhatYouGet extends StatelessWidget {
   Widget build(BuildContext context) {
     final place = summary.placeLabel;
     return Container(
-      decoration: AppDecor.card,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      decoration: const BoxDecoration(
+        color: AppColors.subtle,
+        borderRadius: AppDims.cardBorderRadius,
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1004,7 +1061,7 @@ class _WhatYouGet extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(DeliveryCopy.findingSpot, style: AppText.caption),
             ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           for (var i = 0; i < summary.options.length; i++)
             _OptionRow(
               option: summary.options[i],
@@ -1013,6 +1070,7 @@ class _WhatYouGet extends StatelessWidget {
                         ? Icons.place_outlined
                         : Icons.location_off_outlined)
                   : (i == 0 ? Icons.storefront : Icons.bolt),
+              express: summary.canConfirm && i == 1,
               divider: i > 0,
             ),
         ],
@@ -1021,44 +1079,54 @@ class _WhatYouGet extends StatelessWidget {
   }
 }
 
+/// One option: a white disc with its icon (Express: a green bolt), then
+/// the title, the time (Express: in green) and the detail, stacked so
+/// nothing wraps mid-phrase on a narrow phone. Unavailable options are
+/// drawn in grey.
 class _OptionRow extends StatelessWidget {
   const _OptionRow({
     required this.option,
     required this.icon,
+    required this.express,
     required this.divider,
   });
 
   final PickOption option;
   final IconData icon;
+
+  /// The Express row of a place we deliver to.
+  final bool express;
   final bool divider;
 
   @override
   Widget build(BuildContext context) {
     final available = option.available;
+    final Color iconColor = !available
+        ? AppColors.tertiary
+        : (express ? AppColors.green : AppColors.ink);
+    final Color whenColor = !available
+        ? AppColors.secondary
+        : (express ? AppColors.green : AppColors.ink);
     return Container(
       decoration: divider
           ? const BoxDecoration(
               border: Border(top: BorderSide(color: AppColors.hairline)),
             )
           : null,
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: available ? AppColors.greenSoft : AppColors.disabledFill,
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: available ? AppColors.green : AppColors.secondary,
-            ),
+            child: Icon(icon, size: 20, color: iconColor),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1070,38 +1138,34 @@ class _OptionRow extends StatelessWidget {
                     color: available ? AppColors.ink : AppColors.secondary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                if (option.when.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    // Keep a number with its unit ("6 hours", "11 AM") on
+                    // one line.
+                    option.when.replaceAllMapped(
+                      RegExp(r'(\d) (?=\S)'),
+                      (m) => '${m[1]} ',
+                    ),
+                    style: AppText.label.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: whenColor,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 3),
                 Text(option.detail, style: AppText.caption),
               ],
             ),
           ),
-          if (option.when.isNotEmpty) ...[
-            const SizedBox(width: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
-              child: Text(
-                // Keep a number with its unit ("6 hours", "11 AM") when
-                // the narrow column wraps.
-                option.when.replaceAllMapped(
-                  RegExp(r'(\d) (?=\S)'),
-                  (m) => '${m[1]}\u00A0',
-                ),
-                textAlign: TextAlign.right,
-                style: AppText.caption.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: available ? AppColors.ink : AppColors.secondary,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 }
 
-/// The sticky "Deliver to …" button with the website's note under it.
+/// The sticky white bar with the green "Deliver to …" button and the
+/// website's note under it.
 class _ConfirmBar extends StatelessWidget {
   const _ConfirmBar({required this.summary, required this.onConfirm});
 
@@ -1114,13 +1178,14 @@ class _ConfirmBar extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.hairline)),
+        boxShadow: AppShadows.sticky,
       ),
       child: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppDims.gutter,
-            10,
+            12,
             AppDims.gutter,
             10,
           ),
@@ -1135,7 +1200,7 @@ class _ConfirmBar extends StatelessWidget {
                   child: Text(summary.buttonLabel, maxLines: 1),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 summary.note,
                 textAlign: TextAlign.center,

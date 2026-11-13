@@ -36,14 +36,14 @@ void main() {
       expect(line.variantTitle, '500 GM');
       expect(line.lineTotalCents, 3990);
       expect(line.oldLineTotalCents, isNull);
-      expect(line.detailLine, '500 GM · Dhs. 19.95 each');
+      expect(line.detailLine, '500 GM · \u20C3 19.95 each');
       expect(line.origin, 'New Zealand');
 
       final sale = cart.lineOf(beef.variants[0].id)!;
       expect(sale.variantTitle, isNull);
       expect(sale.onSale, isTrue);
       expect(sale.oldLineTotalCents, 3 * 11500);
-      expect(sale.detailLine, 'Dhs. 62.50 each');
+      expect(sale.detailLine, '\u20C3 62.50 each');
     });
 
     test('decrement to zero removes the line', () {

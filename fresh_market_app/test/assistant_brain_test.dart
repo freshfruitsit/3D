@@ -172,7 +172,7 @@ void main() {
 
       expect(
         reply.text,
-        'Done. I added 2 × Cucumber (500 GM) to your cart at Dhs. 2.50 each.',
+        'Done. I added 2 × Cucumber (500 GM) to your cart at \u20C3 2.50 each.',
       );
       expect(reply.products.single.title, 'Cucumber');
       expect(reply.actions.single, isA<OpenCartAction>());
@@ -187,14 +187,14 @@ void main() {
       var reply = await brain.reply('buy strawberry');
       expect(
         reply.text,
-        'Done. I added 1 × Strawberry (1 KG) to your cart at Dhs. 75.00.',
+        'Done. I added 1 × Strawberry (1 KG) to your cart at \u20C3 75.00.',
       );
       expect(cart.quantityOf(2009), 1);
 
       reply = await brain.reply('add three beef');
       expect(
         reply.text,
-        'Done. I added 3 × Australian Beef Cubes to your cart at Dhs. 62.50 '
+        'Done. I added 3 × Australian Beef Cubes to your cart at \u20C3 62.50 '
         'each.',
       );
       expect(cart.quantityOf(2003), 3);
@@ -331,11 +331,11 @@ void main() {
     final kiwi = sampleProducts().first;
     cart.add(kiwi, kiwi.variants.first);
     reply = await brain.reply('basket');
-    expect(reply.text, 'Your cart has 1 item, subtotal Dhs. 19.95.');
+    expect(reply.text, 'Your cart has 1 item, subtotal \u20C3 19.95.');
 
     cart.add(kiwi, kiwi.variants.last, quantity: 2);
     reply = await brain.reply('cart');
-    expect(reply.text, 'Your cart has 3 items, subtotal Dhs. 99.45.');
+    expect(reply.text, 'Your cart has 3 items, subtotal \u20C3 99.45.');
     expect(reply.actions.single, isA<OpenCartAction>());
   });
 
@@ -669,7 +669,7 @@ void main() {
 
     test('a price limit keeps what costs at most that much', () async {
       var reply = await shop.reply('avocado under 10 dhs');
-      expect(reply.text, 'Avocado under Dhs. 10.00:');
+      expect(reply.text, 'Avocado under \u20C3 10.00:');
       expect(reply.products.map((p) => p.title), [
         'Avocado Shepard',
         'Avocado Mini',
@@ -688,8 +688,8 @@ void main() {
       final reply = await shop.reply('avocado under 5');
       expect(
         reply.text,
-        'Nothing for "avocado" is under Dhs. 5.00 right now. The cheapest '
-        'is Avocado Shepard at Dhs. 8.00.',
+        'Nothing for "avocado" is under \u20C3 5.00 right now. The cheapest '
+        'is Avocado Shepard at \u20C3 8.00.',
       );
       expect(reply.products.single.title, 'Avocado Shepard');
       expectGoodChips(reply);
@@ -697,11 +697,11 @@ void main() {
 
     test('the price is the one the row shows (first size in stock)', () async {
       final reply = await shop.reply('cheapest strawberry under 30');
-      // 250 GM (Dhs. 20.50) is sold out; the row shows 1 KG.
+      // 250 GM (AED 20.50) is sold out; the row shows 1 KG.
       expect(
         reply.text,
-        'Nothing for "strawberry" is under Dhs. 30.00 right now. The '
-        'cheapest is Strawberry (1 KG) at Dhs. 75.00.',
+        'Nothing for "strawberry" is under \u20C3 30.00 right now. The '
+        'cheapest is Strawberry (1 KG) at \u20C3 75.00.',
       );
     });
 
@@ -771,7 +771,7 @@ void main() {
         api: related,
         cart: cart,
       ).reply('kiwano under 15');
-      expect(reply.text, 'What I found for "kiwano" under Dhs. 15.00:');
+      expect(reply.text, 'What I found for "kiwano" under \u20C3 15.00:');
       expect(reply.products.map((p) => p.title), ['Guava', 'Red Plums']);
     });
   });
@@ -781,7 +781,7 @@ void main() {
       var reply = await brain.reply('How much is kiwi?');
       expect(
         reply.text,
-        'Zespri Kiwi Sungold (500 GM) is Dhs. 19.95. 1 KG is Dhs. 39.75.',
+        'Zespri Kiwi Sungold (500 GM) is \u20C3 19.95. 1 KG is \u20C3 39.75.',
       );
       expect(reply.products.single.title, 'Zespri Kiwi Sungold');
       expect((reply.actions.single as OpenSearchAction).query, 'kiwi');
@@ -790,17 +790,17 @@ void main() {
       reply = await brain.reply('price of beef');
       expect(
         reply.text,
-        'Australian Beef Cubes is Dhs. 62.50, down from Dhs. 115.00.',
+        'Australian Beef Cubes is \u20C3 62.50, down from \u20C3 115.00.',
       );
 
       reply = await brain.reply('how much is strawberry');
       expect(
         reply.text,
-        'Strawberry (1 KG) is Dhs. 75.00, down from Dhs. 82.95.',
+        'Strawberry (1 KG) is \u20C3 75.00, down from \u20C3 82.95.',
       );
 
       reply = await brain.reply('what does blueberry cost');
-      expect(reply.text, 'Blueberry is Dhs. 31.25. It is sold out right now.');
+      expect(reply.text, 'Blueberry is \u20C3 31.25. It is sold out right now.');
       expectGoodChips(reply);
     });
 
@@ -993,7 +993,7 @@ void main() {
       expect(
         reply.text,
         'Removed 1 × Cucumber (500 GM) from your cart. Your cart has 3 '
-        'items, subtotal Dhs. 24.95.',
+        'items, subtotal \u20C3 24.95.',
       );
       expect(cart.quantityOf(2004), 2);
       expect(reply.actions.single, isA<OpenCartAction>());
@@ -1004,7 +1004,7 @@ void main() {
       expect(
         reply.text,
         'Removed 2 × Cucumber (500 GM) from your cart. Your cart has 1 '
-        'item, subtotal Dhs. 19.95.',
+        'item, subtotal \u20C3 19.95.',
       );
       expect(cart.quantityOf(2004), 0);
       expect(api.calls, isEmpty);
@@ -1018,7 +1018,7 @@ void main() {
       expect(
         reply.text,
         'Removed Cucumber (500 GM) and Cucumber (1 KG) from your cart. '
-        'Your cart has 1 item, subtotal Dhs. 19.95.',
+        'Your cart has 1 item, subtotal \u20C3 19.95.',
       );
       expect(cart.lines.single.title, 'Zespri Kiwi Sungold');
       expectGoodChips(reply);
@@ -1033,7 +1033,7 @@ void main() {
       expect(
         reply.text,
         'Removed Strawberry (1 KG) and Blueberry from your cart. Your cart '
-        'has 1 item, subtotal Dhs. 19.95.',
+        'has 1 item, subtotal \u20C3 19.95.',
       );
     });
 
@@ -1058,7 +1058,7 @@ void main() {
       expect(
         reply.text,
         'I could not find avocado in your cart. Your cart has 3 items, '
-        'subtotal Dhs. 7.50.',
+        'subtotal \u20C3 7.50.',
       );
       expect(cart.quantityOf(2004), 3);
       expect(reply.actions.single, isA<OpenCartAction>());
@@ -1068,7 +1068,7 @@ void main() {
       expect(
         reply.text,
         'Tell me what to remove, for example "Remove Cucumber". Your cart '
-        'has 3 items, subtotal Dhs. 7.50.',
+        'has 3 items, subtotal \u20C3 7.50.',
       );
       expect(reply.suggestions, contains('Remove Cucumber'));
       expect(cart.quantityOf(2004), 3);
@@ -1131,7 +1131,7 @@ void main() {
     test('the latest three, with prices from the store', () async {
       final favourites = FavouritesStore();
       final sample = sampleProducts();
-      // Saved when the cucumber cost Dhs. 9.99; the store says 2.50 now.
+      // Saved when the cucumber cost AED 9.99; the store says 2.50 now.
       const oldCucumber = Product(
         id: 1003,
         title: 'Cucumber',
@@ -1225,7 +1225,14 @@ void main() {
     test('delivery without an area asks for the location', () async {
       final reply = await brain.reply('what is the delivery fee?');
       expect(reply.text, AssistantBrain.setLocationText);
-      for (final claim in ['Dhs', 'AED', 'minute', 'free', 'minimum']) {
+      for (final claim in [
+        'Dhs',
+        '\u20C3',
+        'AED',
+        'minute',
+        'free',
+        'minimum',
+      ]) {
         expect(reply.text, isNot(contains(claim)));
       }
       final action = reply.actions.single as ChangeLocationAction;
@@ -1440,7 +1447,7 @@ void main() {
       var reply = await b.reply('add an avocado');
       expect(
         reply.text,
-        'Done. I added 1 × Avocado Shepard to your cart at Dhs. 8.00.',
+        'Done. I added 1 × Avocado Shepard to your cart at \u20C3 8.00.',
       );
       expect(cart.quantityOf(5006), 1);
       expect(cart.quantityOf(5020), 0);
@@ -1448,7 +1455,7 @@ void main() {
       reply = await b.reply('add 2 avocados');
       expect(
         reply.text,
-        'Done. I added 2 × Avocado Shepard to your cart at Dhs. 8.00 each.',
+        'Done. I added 2 × Avocado Shepard to your cart at \u20C3 8.00 each.',
       );
       expect(cart.quantityOf(5006), 3);
 
@@ -1485,7 +1492,7 @@ void main() {
       var reply = await b.reply('Add 1 Kiwi Green Zespri', previous: found);
       expect(
         reply.text,
-        'Done. I added 1 × Kiwi Green Zespri to your cart at Dhs. 252.00.',
+        'Done. I added 1 × Kiwi Green Zespri to your cart at \u20C3 252.00.',
       );
       expect(cart.quantityOf(5030), 1);
       expect(cart.quantityOf(5031), 0);
@@ -1495,7 +1502,7 @@ void main() {
 
       final stock = await b.reply('is kiwi green in stock');
       reply = await b.reply('How much is Kiwi Green Zespri?', previous: stock);
-      expect(reply.text, 'Kiwi Green Zespri is Dhs. 252.00.');
+      expect(reply.text, 'Kiwi Green Zespri is \u20C3 252.00.');
       expect(reply.products.single.id, 30);
 
       // Typed without a chip, the add searches as before.

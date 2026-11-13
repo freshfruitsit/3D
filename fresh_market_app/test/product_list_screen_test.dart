@@ -4,6 +4,7 @@ import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
+import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/product_card.dart';
 import 'package:fresh_market_app/widgets/state_views.dart';
 import 'package:material_ui/material_ui.dart';
@@ -50,7 +51,8 @@ void main() {
     final api = FakeShopifyApi.sample()..delay = const Duration(seconds: 1);
     await pumpScreen(tester, fruits, api: api);
 
-    expect(find.byType(LoadingView), findsOneWidget);
+    // Card-shaped placeholders while the first page loads.
+    expect(find.byType(ProductCardSkeleton), findsWidgets);
     expect(find.text('Fruits'), findsOneWidget);
     // Nothing was pushed, so there is no back arrow (Deals tab root).
     expect(find.byTooltip('Back'), findsNothing);
@@ -58,7 +60,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pump();
 
-    expect(find.byType(LoadingView), findsNothing);
+    expect(find.byType(ProductCardSkeleton), findsNothing);
     expect(find.text('6 products'), findsOneWidget);
     expect(find.text('Featured'), findsOneWidget);
     expect(find.text('Zespri Kiwi Sungold'), findsOneWidget);
@@ -273,5 +275,43 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.byType(ProductListScreen), findsNothing);
+  });
+
+  testWidgets('24/800 title and a white hairline sort pill', (tester) async {
+    await pumpScreen(tester, fruits);
+    await tester.pump();
+
+    final title = tester.widget<Text>(find.text('Fruits'));
+    expect(title.style, AppText.title);
+    final pill = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('Featured'),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    final style = pill.style!;
+    expect(
+      style.backgroundColor!.resolve(const <WidgetState>{}),
+      AppColors.surface,
+    );
+    expect(
+      style.side!.resolve(const <WidgetState>{})!.color,
+      AppColors.hairline,
+    );
+    expect(
+      tester.getSize(find.byType(OutlinedButton)).height,
+      greaterThanOrEqualTo(44),
+    );
+  });
+
+  testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {
+    await pumpScreen(tester, fruits, delivery: testDelivery());
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(ProductCard), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 }
