@@ -1,4 +1,5 @@
 import '../data/catalog.dart';
+import '../delivery/delivery.dart';
 import '../models/money.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
@@ -92,6 +93,12 @@ final class OpenLinkAction extends AssistantAction {
   final String uri;
 }
 
+/// Opens the delivery location picker. The screen then adds
+/// [AssistantBrain.deliveryReply] for the new area.
+final class ChangeLocationAction extends AssistantAction {
+  const ChangeLocationAction([super.label = 'Change location']);
+}
+
 /// Which icon a [QuickOption] card shows. The screen maps it to an icon.
 enum QuickOptionKind {
   offers,
@@ -154,6 +161,7 @@ class AssistantBrain {
     required this.api,
     required this.cart,
     this.favourites,
+    this.delivery,
     this.retryDelay = const Duration(seconds: 1),
   });
 
@@ -162,6 +170,10 @@ class AssistantBrain {
 
   /// For "show my favourites"; null answers like an empty list.
   final FavouritesStore? favourites;
+
+  /// The shopper's delivery area and mode, for delivery and Express
+  /// answers (the website's rules); null answers as if no area was set.
+  final DeliveryStore? delivery;
 
   /// Wait before the one retry after the store answers 429 (too many
   /// requests).
@@ -239,11 +251,27 @@ class AssistantBrain {
       'The website lists Visa, Mastercard, Apple Pay and cash on delivery. '
       'You choose how to pay at checkout.';
 
-  /// No fees, times or minimums: checkout shows those.
-  static const String deliveryText =
-      'Fresh Market delivers within the UAE. Many products are in the 1Hr '
-      'Express range. You choose the address and delivery time at '
-      'checkout, where any fees are shown.';
+  /// The delivery answer before a delivery area is set.
+  static const String setLocationText =
+      'Fresh Market delivers across the seven emirates of the UAE. Tell me '
+      'where to deliver and I will show when your order arrives and '
+      'whether Express reaches you.';
+
+  /// The Express answer before a delivery area is set (the website's
+  /// Express zone and hours).
+  static const String expressSetLocationText =
+      'Express brings items marked Express in under an hour, within '
+      '20 km of our Ras Al Khor hub, from 8 AM to 10 PM. Set your location '
+      'to check Express.';
+
+  /// Fees are not known here: checkout shows them.
+  static const String feesText = 'Any delivery fee is shown at checkout.';
+
+  static const OpenCollectionAction shopExpressAction = OpenCollectionAction(
+    'Shop Express items',
+    handle: 'express',
+    title: '1Hr Express',
+  );
 
   static const List<AssistantAction> contactActions = [
     OpenLinkAction('Call 800 1 627538', uri: 'tel:8001627538'),
@@ -290,6 +318,7 @@ class AssistantBrain {
   static const String _paymentChip = 'Payment methods';
   static const String _contactChip = 'Contact customer service';
   static const String _expressChip = 'Show 1Hr Express';
+  static const String _expressQuestionChip = 'Is Express open?';
   static final String _fruitSaladChip =
       AssistantIntentParser.recipes.first.message;
 
@@ -365,18 +394,8 @@ class AssistantBrain {
           suggestions: [_deliveryChip, _paymentChip, _offersChip],
         ),
         PaymentIntent() => _payment(),
-        DeliveryIntent() => const AssistantReply(
-          deliveryText,
-          actions: [
-            OpenCollectionAction(
-              'Open 1Hr Express',
-              handle: 'express',
-              title: '1Hr Express',
-            ),
-            SendMessageAction(_contactChip, message: _contactChip),
-          ],
-          suggestions: [_paymentChip, _expressChip, _cartChip],
-        ),
+        DeliveryIntent() => deliveryReply(),
+        ExpressIntent() => expressReply(),
         BrandsIntent() => _brands(),
         HelpIntent(:final greeting) =>
           greeting
@@ -806,6 +825,94 @@ class AssistantBrain {
     );
   }
 
+  // ---- delivery (the website's rules) --------------------------------------
+
+  /// Where the order goes and when it arrives, by Fresh Market and by
+  /// Express, for the shopper's area; without an area, asks for one.
+  AssistantReply deliveryReply() {
+    final store = delivery;
+    final area = store?.area;
+    if (store == null || area == null) {
+      return const AssistantReply(
+        setLocationText,
+        actions: [ChangeLocationAction('Set location')],
+        suggestions: [_expressQuestionChip, _paymentChip, _contactChip],
+      );
+    }
+    final now = store.now();
+    final mk = DeliveryRules.market(area, now);
+    final ex = DeliveryRules.express(area, now);
+    final market = mk.today ? '${mk.line}, by ${mk.by}' : mk.line;
+    final String express;
+    if (!ex.covered) {
+      express = 'not available in your area';
+    } else if (ex.open) {
+      express = '${ex.range} for items marked Express';
+    } else {
+      express =
+          'closed right now (it runs '
+          '${DeliveryRules.formatHour(DeliveryConfig.expressOpen)} to '
+          '${DeliveryRules.formatHour(DeliveryConfig.expressClose)})';
+    }
+    return AssistantReply(
+      'Delivering to ${area.label}: $market. Express: $express. $feesText',
+      actions: [
+        const ChangeLocationAction(),
+        if (ex.covered) shopExpressAction,
+      ],
+      suggestions: const [_expressQuestionChip, _paymentChip, _cartChip],
+    );
+  }
+
+  /// Whether Express reaches the shopper's area and is open now.
+  AssistantReply expressReply() {
+    final store = delivery;
+    final area = store?.area;
+    if (store == null || area == null) {
+      return const AssistantReply(
+        expressSetLocationText,
+        actions: [ChangeLocationAction('Set location'), shopExpressAction],
+        suggestions: [_deliveryChip, _expressChip, _cartChip],
+      );
+    }
+    final now = store.now();
+    final ex = DeliveryRules.express(area, now);
+    if (!ex.covered) {
+      return AssistantReply(
+        DeliveryRules.expressNotCovered(area, now),
+        actions: const [ChangeLocationAction()],
+        suggestions: const [_deliveryChip, _offersChip, _cartChip],
+      );
+    }
+    final text = ex.open
+        ? 'Express reaches ${area.label} in ${ex.range} for items marked '
+              'Express. It is open until '
+              '${DeliveryRules.formatHour(DeliveryConfig.expressClose)}.'
+        : DeliveryRules.expressClosed(area, now);
+    return AssistantReply(
+      text,
+      actions: const [shopExpressAction, ChangeLocationAction()],
+      suggestions: const [_deliveryChip, _expressChip, _cartChip],
+    );
+  }
+
+  /// One sentence about Express for the shopper's area, put before the
+  /// Express products; null without an area.
+  String? _expressNote() {
+    final store = delivery;
+    final area = store?.area;
+    if (store == null || area == null) return null;
+    final now = store.now();
+    final ex = DeliveryRules.express(area, now);
+    if (!ex.covered) return "Express isn't available in ${area.name} yet.";
+    if (!ex.open) {
+      return 'Express is closed right now. It runs '
+          '${DeliveryRules.formatHour(DeliveryConfig.expressOpen)} to '
+          '${DeliveryRules.formatHour(DeliveryConfig.expressClose)}.';
+    }
+    return 'Express to ${area.name}: ${ex.range}.';
+  }
+
   AssistantReply _payment() => cart.isEmpty
       ? const AssistantReply(
           paymentText,
@@ -962,11 +1069,12 @@ class AssistantBrain {
       _offersChip,
       _categoriesChip,
     ]);
+    final note = handle == 'express' ? _expressNote() : null;
     return AssistantReply(
       handle == 'hampers'
           ? 'A few gift ideas from Hampers. You can also open Flowers, '
                 'Fruit Bouquets or Special Occasions below.'
-          : 'A few products from $title:',
+          : '${note == null ? '' : '$note '}A few products from $title:',
       products: shown,
       actions: [action, ...extra],
       suggestions: suggestions,

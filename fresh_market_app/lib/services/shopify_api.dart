@@ -98,8 +98,7 @@ class HttpShopifyApi implements ShopifyApi {
   ///
   /// Entries older than [productCacheTtl] are loaded again, so prices and
   /// stock do not go stale while the app stays open. Oldest entry first.
-  final Map<String, ({Product product, DateTime loadedAt})> _productCache =
-      {};
+  final Map<String, ({Product product, DateTime loadedAt})> _productCache = {};
 
   /// How long a cached product is trusted.
   static const Duration productCacheTtl = Duration(minutes: 5);
@@ -140,10 +139,12 @@ class HttpShopifyApi implements ShopifyApi {
   @override
   Future<List<Collection>> collections() async {
     final json = await _getJson('/collections.json', {'limit': '250'});
-    return _parse(() => [
-          for (final c in (_asMap(json)['collections'] as List? ?? const []))
-            if (c is Map<String, dynamic>) Collection.fromJson(c),
-        ]);
+    return _parse(
+      () => [
+        for (final c in (_asMap(json)['collections'] as List? ?? const []))
+          if (c is Map<String, dynamic>) Collection.fromJson(c),
+      ],
+    );
   }
 
   @override
@@ -169,14 +170,16 @@ class HttpShopifyApi implements ShopifyApi {
     // Suggest results carry no variants, so load each one in full. A result
     // that fails to load is dropped; if every one fails, report the error.
     ApiException? lastError;
-    final loaded = await Future.wait(handles.map((handle) async {
-      try {
-        return await product(handle);
-      } on ApiException catch (e) {
-        lastError = e;
-        return null;
-      }
-    }));
+    final loaded = await Future.wait(
+      handles.map((handle) async {
+        try {
+          return await product(handle);
+        } on ApiException catch (e) {
+          lastError = e;
+          return null;
+        }
+      }),
+    );
     final found = loaded.whereType<Product>().toList();
     if (found.isEmpty && lastError != null) throw lastError!;
     return found;

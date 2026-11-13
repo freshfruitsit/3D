@@ -60,7 +60,8 @@ class LocationScreen extends StatefulWidget {
       "We couldn't read your location. Search for your area instead.";
 
   /// OpenStreetMap tiles, as the website's map uses.
-  static const String tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  static const String tileUrl =
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   static const String userAgentPackageName = 'ae.freshmarket.fresh_market_app';
   static const String attribution = '© OpenStreetMap contributors';
   static const String mapHint = 'Tap the map or drag it to move the pin.';
@@ -137,7 +138,11 @@ class _LocationScreenState extends State<LocationScreen> {
 
   /// A phone fix or a pin: named at once from the website's areas, then
   /// (with the remote search) by the geocoder, like the website.
-  Future<void> _pickPoint(double lat, double lng, {bool moveMap = false}) async {
+  Future<void> _pickPoint(
+    double lat,
+    double lng, {
+    bool moveMap = false,
+  }) async {
     final seq = ++_pickSeq;
     final search = _services.search;
     setState(() {
@@ -157,7 +162,10 @@ class _LocationScreenState extends State<LocationScreen> {
   void _moveMap(double lat, double lng) {
     if (!_mapReady) return;
     try {
-      _map.move(LatLng(lat, lng), _map.camera.zoom < 12 ? 13 : _map.camera.zoom);
+      _map.move(
+        LatLng(lat, lng),
+        _map.camera.zoom < 12 ? 13 : _map.camera.zoom,
+      );
     } catch (_) {
       // The map is not laid out yet; the pick still counts.
     }
@@ -379,8 +387,8 @@ class _LocationScreenState extends State<LocationScreen> {
                           maxZoom: 18,
                           backgroundColor: AppColors.tile,
                           interactionOptions: const InteractionOptions(
-                            flags: InteractiveFlag.all &
-                                ~InteractiveFlag.rotate,
+                            flags:
+                                InteractiveFlag.all & ~InteractiveFlag.rotate,
                           ),
                           onMapReady: () => _mapReady = true,
                           onTap: (_, point) => _onMapTap(point),

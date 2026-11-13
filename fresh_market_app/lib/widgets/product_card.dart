@@ -4,11 +4,13 @@ import '../app_nav.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
 import 'add_control.dart';
+import 'delivery_widgets.dart';
 import 'price_widgets.dart';
 import 'product_image.dart';
 
 /// The product card of rails and grids: photo, sale pill, name, size line,
-/// price and the add control. Tapping it opens product detail.
+/// price, the delivery line (once a delivery area is set) and the add
+/// control. Tapping it opens product detail.
 ///
 /// Rails: wrap in `SizedBox(width: ProductCard.railWidth)` inside a
 /// horizontal list of height `ProductCard.heightOf(context)`.
@@ -39,11 +41,16 @@ class ProductCard extends StatelessWidget {
         scaler.scale(AppText.caption.fontSize!) * AppText.caption.height!;
     final price =
         scaler.scale(AppText.price.fontSize!) * AppText.price.height!;
-    // border 2 + photo + top pad 8 + gaps 2 + 4 + control 44 + bottom 6.
-    return (2 + _photoHeight + 8 + 2 + 4 + AppDims.touch + 6) +
+    // Room for the delivery line; without an area the name gets it.
+    final delivery = scaler.scale(DeliveryPromiseLine.fontSize) *
+        DeliveryPromiseLine.lineHeight *
+        DeliveryPromiseLine.maxLines;
+    // border 2 + photo + top pad 8 + gaps 2 + 4 + 3 + control 44 + bottom 6.
+    return (2 + _photoHeight + 8 + 2 + 4 + 3 + AppDims.touch + 6) +
         name +
         size +
         price +
+        delivery +
         1;
   }
 
@@ -127,6 +134,8 @@ class ProductCard extends StatelessWidget {
                           priceCents: variant.priceCents,
                           oldPriceCents: variant.oldPriceCents,
                         ),
+                      const SizedBox(height: 3),
+                      DeliveryPromiseLine(product: product),
                     ],
                   ),
                 ),

@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_search_field.dart';
 import '../widgets/brand_tile.dart';
 import '../widgets/category_tile.dart';
+import '../widgets/delivery_widgets.dart';
 import '../widgets/product_card.dart';
 import '../widgets/promo_row.dart';
 import '../widgets/section_header.dart';
@@ -113,6 +114,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             children: [
               const _Header(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppDims.gutter,
+                  12,
+                  AppDims.gutter,
+                  0,
+                ),
+                child: DeliveryBarView(),
+              ),
               const SizedBox(height: 16),
               const _BannerCarousel(),
               const SizedBox(height: 20),
@@ -178,8 +188,8 @@ const ({SectionTone tone, IconData icon}) _defaultRailStyle =
     (tone: SectionTone.lime, icon: Icons.eco);
 
 /// The white header that runs up behind the status bar: the logo, the
-/// (static) delivery area, the "1Hr Express" button and the search field,
-/// finished with a thin lime bar.
+/// delivery location chip, the website's Fresh Market / Express switch and
+/// the search field, finished with a thin lime bar.
 class _Header extends StatelessWidget {
   const _Header();
 
@@ -210,11 +220,11 @@ class _Header extends StatelessWidget {
                       semanticLabel: 'Fresh Market',
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(child: _DeliverTo()),
-                    const SizedBox(width: 8),
-                    const _ExpressButton(),
+                    const Expanded(child: LocationChip()),
                   ],
                 ),
+                const SizedBox(height: 10),
+                const DeliveryModeSwitch(),
                 const SizedBox(height: 12),
                 SearchFieldButton(
                   onTap: () => AppNav.openSearch(context),
@@ -225,85 +235,6 @@ class _Header extends StatelessWidget {
         ),
         const LimeBar(),
       ],
-    );
-  }
-}
-
-/// "Deliver to / Choose your area". Static in this version.
-class _DeliverTo extends StatelessWidget {
-  const _DeliverTo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('Deliver to', style: AppText.caption),
-        const SizedBox(height: 1),
-        Row(
-          children: [
-            const Icon(Icons.location_on, size: 17, color: AppColors.olive),
-            const SizedBox(width: 2),
-            Flexible(
-              child: Text(
-                'Choose your area',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.cardHeading.copyWith(fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Lime "1Hr Express" button with ink text and bolt; opens that
-/// collection.
-class _ExpressButton extends StatelessWidget {
-  const _ExpressButton();
-
-  static const String _handle = 'express';
-  static const String _title = '1Hr Express';
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Open $_title',
-      excludeSemantics: true,
-      child: Material(
-        color: AppColors.lime,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () =>
-              AppNav.openCollection(context, handle: _handle, title: _title),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppDims.touch),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.bolt, size: 18, color: AppColors.ink),
-                  const SizedBox(width: 3),
-                  Text(
-                    _title,
-                    style: AppText.caption.copyWith(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

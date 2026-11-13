@@ -10,12 +10,14 @@ import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_control.dart';
 import '../widgets/circle_icon_button.dart';
+import '../widgets/delivery_widgets.dart';
 import '../widgets/price_widgets.dart';
 import '../widgets/product_image.dart';
 
 /// One product, full screen (no bottom bar): photo panel with back,
-/// favourite and cart buttons, facts, variant choice, description and a
-/// sticky bar with the quantity and "Add to cart".
+/// favourite and cart buttons, variant choice, when it can be delivered,
+/// facts, description and a sticky bar with the quantity and "Add to
+/// cart".
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
 
@@ -149,6 +151,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ],
                             ),
                           ],
+                          const SizedBox(height: 16),
+                          ProductDeliveryInfo(product: product),
                           if (facts.isNotEmpty) ...[
                             const SizedBox(height: 16),
                             Wrap(

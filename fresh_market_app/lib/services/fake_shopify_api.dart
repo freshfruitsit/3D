@@ -30,10 +30,9 @@ class FakeShopifyApi implements ShopifyApi {
       'vegetables',
       'local-uae',
     ],
-  }) =>
-      FakeShopifyApi(
-        collections: {for (final h in handles) h: sampleProducts()},
-      );
+  }) => FakeShopifyApi(
+    collections: {for (final h in handles) h: sampleProducts()},
+  );
 
   /// Products by collection handle. A handle that is missing answers 404.
   final Map<String, List<Product>> collectionsByHandle;
@@ -102,9 +101,11 @@ class FakeShopifyApi implements ShopifyApi {
     final term = query.trim().toLowerCase();
     if (term.isEmpty) return const [];
     return _allProducts
-        .where((p) =>
-            p.title.toLowerCase().contains(term) ||
-            p.vendor.toLowerCase().contains(term))
+        .where(
+          (p) =>
+              p.title.toLowerCase().contains(term) ||
+              p.vendor.toLowerCase().contains(term),
+        )
         .take(limit)
         .toList();
   }
@@ -123,115 +124,104 @@ class FakeShopifyApi implements ShopifyApi {
 /// sale, a local product, a sold-out product, a bouquet without tags and a
 /// product with one sold-out weight. Values mirror real store data.
 List<Product> sampleProducts() => const [
-      Product(
-        id: 1001,
-        title: 'Zespri Kiwi Sungold',
-        handle: 'zespri-kiwi-sungold',
-        descriptionHtml: '<p>Golden, juicy and sweet.</p>'
-            '<ul><li>Wash before cutting</li></ul>',
-        vendor: 'Zespri',
-        productType: 'Fruits',
-        tags: ['1hr-delivery', 'AIR', 'By air', 'origin:New Zealand'],
-        variants: [
-          Variant(id: 2001, title: '500 GM', priceCents: 1995),
-          Variant(id: 2002, title: '1 KG', priceCents: 3975),
-        ],
-        images: ['https://cdn.shopify.com/s/files/sample/kiwi.jpg?v=1'],
-        options: [
-          ProductOption(name: 'Weight', values: ['500 GM', '1 KG']),
-        ],
+  Product(
+    id: 1001,
+    title: 'Zespri Kiwi Sungold',
+    handle: 'zespri-kiwi-sungold',
+    descriptionHtml:
+        '<p>Golden, juicy and sweet.</p>'
+        '<ul><li>Wash before cutting</li></ul>',
+    vendor: 'Zespri',
+    productType: 'Fruits',
+    tags: ['1hr-delivery', 'AIR', 'By air', 'origin:New Zealand'],
+    variants: [
+      Variant(id: 2001, title: '500 GM', priceCents: 1995),
+      Variant(id: 2002, title: '1 KG', priceCents: 3975),
+    ],
+    images: ['https://cdn.shopify.com/s/files/sample/kiwi.jpg?v=1'],
+    options: [
+      ProductOption(name: 'Weight', values: ['500 GM', '1 KG']),
+    ],
+  ),
+  Product(
+    id: 1002,
+    title: 'Australian Beef Cubes',
+    handle: 'australian-beef-cubes',
+    descriptionHtml: '<p>Tender beef cubes.</p>',
+    vendor: 'Rokn Al Lhom',
+    productType: 'Meat',
+    tags: ['origin:Australia'],
+    variants: [
+      Variant(
+        id: 2003,
+        title: 'Default Title',
+        priceCents: 6250,
+        compareAtCents: 11500,
       ),
-      Product(
-        id: 1002,
-        title: 'Australian Beef Cubes',
-        handle: 'australian-beef-cubes',
-        descriptionHtml: '<p>Tender beef cubes.</p>',
-        vendor: 'Rokn Al Lhom',
-        productType: 'Meat',
-        tags: ['origin:Australia'],
-        variants: [
-          Variant(
-            id: 2003,
-            title: 'Default Title',
-            priceCents: 6250,
-            compareAtCents: 11500,
-          ),
-        ],
-        images: ['https://cdn.shopify.com/s/files/sample/beef.jpg?v=1'],
-        options: [
-          ProductOption(name: 'Title', values: ['Default Title']),
-        ],
+    ],
+    images: ['https://cdn.shopify.com/s/files/sample/beef.jpg?v=1'],
+    options: [
+      ProductOption(name: 'Title', values: ['Default Title']),
+    ],
+  ),
+  Product(
+    id: 1003,
+    title: 'Cucumber',
+    handle: 'cucumber',
+    descriptionHtml: '<p>Crisp local cucumbers.</p>',
+    vendor: 'Fresh Market',
+    productType: 'Vegetables',
+    tags: ['1hr-delivery', 'Local', 'UAE', 'origin:UAE'],
+    variants: [
+      Variant(id: 2004, title: '500 GM', priceCents: 250),
+      Variant(id: 2005, title: '1 KG', priceCents: 475),
+    ],
+    images: ['https://cdn.shopify.com/s/files/sample/cucumber.jpg?v=1'],
+    options: [
+      ProductOption(name: 'Weight', values: ['500 GM', '1 KG']),
+    ],
+  ),
+  Product(
+    id: 1004,
+    title: 'Blueberry',
+    handle: 'blueberry',
+    vendor: 'Fresh Market',
+    productType: 'Fruits',
+    tags: ['origin:Peru'],
+    variants: [
+      Variant(
+        id: 2006,
+        title: 'Default Title',
+        priceCents: 3125,
+        available: false,
       ),
-      Product(
-        id: 1003,
-        title: 'Cucumber',
-        handle: 'cucumber',
-        descriptionHtml: '<p>Crisp local cucumbers.</p>',
-        vendor: 'Fresh Market',
-        productType: 'Vegetables',
-        tags: ['1hr-delivery', 'Local', 'UAE', 'origin:UAE'],
-        variants: [
-          Variant(id: 2004, title: '500 GM', priceCents: 250),
-          Variant(id: 2005, title: '1 KG', priceCents: 475),
-        ],
-        images: ['https://cdn.shopify.com/s/files/sample/cucumber.jpg?v=1'],
-        options: [
-          ProductOption(name: 'Weight', values: ['500 GM', '1 KG']),
-        ],
-      ),
-      Product(
-        id: 1004,
-        title: 'Blueberry',
-        handle: 'blueberry',
-        vendor: 'Fresh Market',
-        productType: 'Fruits',
-        tags: ['origin:Peru'],
-        variants: [
-          Variant(
-            id: 2006,
-            title: 'Default Title',
-            priceCents: 3125,
-            available: false,
-          ),
-        ],
-        images: ['https://cdn.shopify.com/s/files/sample/blueberry.jpg?v=1'],
-      ),
-      Product(
-        id: 1005,
-        title: 'Pink Passion Flower Bouquet',
-        handle: 'pink-passion-flower-bouquet',
-        descriptionHtml: '<p>A hand-tied bouquet.</p>',
-        vendor: 'Ambrosia',
-        productType: 'Flowers',
-        variants: [
-          Variant(id: 2007, title: 'Default Title', priceCents: 30000),
-        ],
-        images: ['https://cdn.shopify.com/s/files/sample/bouquet.jpg?v=1'],
-      ),
-      Product(
-        id: 1006,
-        title: 'Strawberry',
-        handle: 'strawberry',
-        vendor: "Driscoll's",
-        productType: 'Fruits',
-        tags: ['1hr-delivery', 'AIR', 'origin:South Africa'],
-        variants: [
-          Variant(
-            id: 2008,
-            title: '250 GM',
-            priceCents: 2050,
-            available: false,
-          ),
-          Variant(
-            id: 2009,
-            title: '1 KG',
-            priceCents: 7500,
-            compareAtCents: 8295,
-          ),
-        ],
-        images: ['https://cdn.shopify.com/s/files/sample/strawberry.jpg?v=1'],
-        options: [
-          ProductOption(name: 'Weight', values: ['250 GM', '1 KG']),
-        ],
-      ),
-    ];
+    ],
+    images: ['https://cdn.shopify.com/s/files/sample/blueberry.jpg?v=1'],
+  ),
+  Product(
+    id: 1005,
+    title: 'Pink Passion Flower Bouquet',
+    handle: 'pink-passion-flower-bouquet',
+    descriptionHtml: '<p>A hand-tied bouquet.</p>',
+    vendor: 'Ambrosia',
+    productType: 'Flowers',
+    variants: [Variant(id: 2007, title: 'Default Title', priceCents: 30000)],
+    images: ['https://cdn.shopify.com/s/files/sample/bouquet.jpg?v=1'],
+  ),
+  Product(
+    id: 1006,
+    title: 'Strawberry',
+    handle: 'strawberry',
+    vendor: "Driscoll's",
+    productType: 'Fruits',
+    tags: ['1hr-delivery', 'AIR', 'origin:South Africa'],
+    variants: [
+      Variant(id: 2008, title: '250 GM', priceCents: 2050, available: false),
+      Variant(id: 2009, title: '1 KG', priceCents: 7500, compareAtCents: 8295),
+    ],
+    images: ['https://cdn.shopify.com/s/files/sample/strawberry.jpg?v=1'],
+    options: [
+      ProductOption(name: 'Weight', values: ['250 GM', '1 KG']),
+    ],
+  ),
+];

@@ -8,6 +8,7 @@ import '../app.dart';
 import '../app_nav.dart';
 import '../assistant/assistant_brain.dart';
 import '../assistant/assistant_session.dart';
+import '../delivery/delivery.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
@@ -149,6 +150,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       api: context.read<ShopifyApi>(),
       cart: context.read<CartStore>(),
       favourites: context.read<FavouritesStore>(),
+      delivery: context.read<DeliveryStore?>(),
     );
   }
 
@@ -206,7 +208,25 @@ class _AssistantScreenState extends State<AssistantScreen> {
         _clearCart(source, action);
       case OpenLinkAction(:final uri):
         _openLink(uri);
+      case ChangeLocationAction():
+        _changeLocation();
     }
+  }
+
+  /// The location picker; once a place is chosen, the delivery answer for
+  /// it follows in the conversation.
+  Future<void> _changeLocation() async {
+    final picked = await AppNav.openLocationPicker(
+      context,
+      noticeBottomMargin: 12,
+    );
+    if (!picked || !mounted) return;
+    final reply = AssistantBrain(
+      api: context.read<ShopifyApi>(),
+      cart: context.read<CartStore>(),
+      delivery: context.read<DeliveryStore?>(),
+    ).deliveryReply();
+    _session.note(reply);
   }
 
   /// One unit of the first variant in stock of each product; sold-out
@@ -595,7 +615,10 @@ class _AssistantBlock extends StatelessWidget {
   Widget _button(AssistantAction action) {
     final done = isDone(action);
     final talks = switch (action) {
-      SendMessageAction() || AddProductsAction() || ClearCartAction() => true,
+      SendMessageAction() ||
+      AddProductsAction() ||
+      ClearCartAction() ||
+      ChangeLocationAction() => true,
       _ => false,
     };
     final VoidCallback? onTap =
@@ -619,6 +642,11 @@ class _AssistantBlock extends StatelessWidget {
           label: action.label,
           onTap: onTap,
           icon: _linkIcon(uri),
+        ),
+      ChangeLocationAction() => _ActionButton(
+          label: action.label,
+          onTap: onTap,
+          icon: Icons.location_on_outlined,
         ),
       _ => _ActionButton(label: action.label, onTap: onTap),
     };

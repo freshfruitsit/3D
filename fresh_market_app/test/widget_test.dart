@@ -28,6 +28,8 @@ void main() {
       api: FakeShopifyApi.sample(),
       cart: cart,
       favourites: FavouritesStore(),
+      deliveryStore: testDelivery(),
+      locationServices: testLocationServices(),
       shell: shell,
       showIntro: false,
     ));
@@ -61,6 +63,8 @@ void main() {
           api: FakeShopifyApi.sample(),
           cart: CartStore(),
           favourites: FavouritesStore(),
+          deliveryStore: testDelivery(),
+          locationServices: testLocationServices(),
         );
 
     for (var launch = 0; launch < 2; launch++) {
@@ -89,6 +93,8 @@ void main() {
       api: FakeShopifyApi.sample(),
       cart: CartStore(),
       favourites: FavouritesStore(),
+      deliveryStore: testDelivery(),
+      locationServices: testLocationServices(),
       shell: shell,
       showIntro: false,
     ));
@@ -137,6 +143,8 @@ void main() {
       api: FakeShopifyApi.sample(),
       cart: CartStore(),
       favourites: FavouritesStore(),
+      deliveryStore: testDelivery(),
+      locationServices: testLocationServices(),
       shell: shell,
       showIntro: false,
     ));

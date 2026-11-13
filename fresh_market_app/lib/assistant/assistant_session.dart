@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../delivery/delivery_store.dart';
 import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
 import '../state/favourites_store.dart';
@@ -62,6 +63,7 @@ class AssistantSession extends ChangeNotifier {
     required ShopifyApi api,
     required CartStore cart,
     FavouritesStore? favourites,
+    DeliveryStore? delivery,
   }) async {
     final message = text.trim();
     if (message.isEmpty || _busy) return;
@@ -71,7 +73,12 @@ class AssistantSession extends ChangeNotifier {
     _busy = true;
     notifyListeners();
 
-    final brain = AssistantBrain(api: api, cart: cart, favourites: favourites);
+    final brain = AssistantBrain(
+      api: api,
+      cart: cart,
+      favourites: favourites,
+      delivery: delivery,
+    );
     AssistantReply reply;
     try {
       final results = await Future.wait<Object?>([

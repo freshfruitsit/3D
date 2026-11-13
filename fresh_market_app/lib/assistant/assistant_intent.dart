@@ -168,6 +168,12 @@ final class DeliveryIntent extends AssistantIntent {
   const DeliveryIntent();
 }
 
+/// A question about Express: "Is Express open?", "can I get it in 1
+/// hour?", "express delivery". ("Show 1Hr Express" opens the collection.)
+final class ExpressIntent extends AssistantIntent {
+  const ExpressIntent();
+}
+
 /// "Brands", "which brands do you have".
 final class BrandsIntent extends AssistantIntent {
   const BrandsIntent();
@@ -263,6 +269,9 @@ class Recipe {
 ///     "where is my order" -> [ContactIntent]
 ///  5. payment methods, card, cash on delivery, Apple Pay, "how can I
 ///     pay" -> [PaymentIntent]
+///     then Express or "1 hour" with a delivery word, a status word (open,
+///     closed, available, area, time, ...) or as a question ("is", "can",
+///     "when", ...) -> [ExpressIntent]
 ///  6. delivery / shipping / "when will it arrive" / "minimum order" ->
 ///     [DeliveryIntent]
 ///  7. `checkout` / `pay` -> [CheckoutIntent]
@@ -1774,6 +1783,9 @@ abstract final class AssistantIntentParser {
     // 5. payment methods
     if (_isPayment(tokens)) return const PaymentIntent();
 
+    // 5b. Express questions ("is express open?", "1 hour delivery")
+    if (_asksExpress(tokens)) return const ExpressIntent();
+
     // 6. delivery ("is there a minimum order?": checkout shows any fees)
     if (tokens.any(_deliveryWords.contains) ||
         _hasPhrase(tokens, 'same day') ||
@@ -2067,6 +2079,66 @@ abstract final class AssistantIntentParser {
       return true;
     }
     return tokens.any(_notYet.contains) && tokens.any(_arrived.contains);
+  }
+
+  /// Words that make "express" a question about the service, not a
+  /// request for the Express products.
+  static const Set<String> _expressStatusWords = {
+    'open',
+    'opens',
+    'opening',
+    'close',
+    'closes',
+    'closed',
+    'closing',
+    'available',
+    'availability',
+    'area',
+    'zone',
+    'hours',
+    'time',
+    'times',
+    'now',
+    'today',
+    'tonight',
+    'running',
+    'cover',
+    'covers',
+    'reach',
+    'eta',
+    'long',
+    'until',
+    'till',
+  };
+  static const Set<String> _expressQuestionStarts = {
+    'is',
+    'are',
+    'can',
+    'could',
+    'do',
+    'does',
+    'will',
+    'when',
+    'how',
+  };
+
+  static bool _asksExpress(List<String> tokens) {
+    final named =
+        tokens.contains('express') ||
+        tokens.contains('1hr') ||
+        const [
+          '1 hour',
+          'one hour',
+          '1 hr',
+          'an hour',
+          '60 min',
+          '60 mins',
+          '60 minutes',
+        ].any((p) => _hasPhrase(tokens, p));
+    if (!named) return false;
+    return tokens.any(_deliveryWords.contains) ||
+        tokens.any(_expressStatusWords.contains) ||
+        (tokens.isNotEmpty && _expressQuestionStarts.contains(tokens.first));
   }
 
   static bool _isPayment(List<String> tokens) {

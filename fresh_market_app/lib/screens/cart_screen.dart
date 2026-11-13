@@ -8,12 +8,14 @@ import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_control.dart';
+import '../widgets/delivery_widgets.dart';
 import '../widgets/price_widgets.dart';
 import '../widgets/product_image.dart';
 import '../widgets/state_views.dart';
 
-/// The Cart tab: the lines of the cart with steppers and a summary card
-/// with the Checkout button resting above the floating bottom bar.
+/// The Cart tab: where and how the order is delivered, the lines of the
+/// cart with steppers and a summary card with the Checkout button resting
+/// above the floating bottom bar.
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
@@ -95,10 +97,12 @@ class _CartScreenState extends State<CartScreen> {
                     AppDims.gutter,
                     16,
                   ),
-                  itemCount: lines.length,
+                  // The delivery card, then the lines.
+                  itemCount: lines.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final line = lines[index];
+                    if (index == 0) return const CartDeliveryCard();
+                    final line = lines[index - 1];
                     return _CartRow(
                       key: ValueKey<int>(line.variantId),
                       line: line,

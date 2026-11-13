@@ -48,6 +48,7 @@ String describe(AssistantIntent intent) => switch (intent) {
   ContactIntent() => 'Contact',
   PaymentIntent() => 'Payment',
   DeliveryIntent() => 'Delivery',
+  ExpressIntent() => 'Express',
   BrandsIntent() => 'Brands',
   HelpIntent(:final greeting) => greeting ? 'Greeting' : 'Help',
   ThanksIntent(:final farewell) => farewell ? 'Bye' : 'Thanks',
@@ -603,8 +604,25 @@ void main() {
         ('delivery fee', 'Delivery'),
         ('delivery time', 'Delivery'),
         ('Delivery information', 'Delivery'),
-        ('express delivery', 'Delivery'),
+        ('express delivery', 'Express'),
         ('change my address', 'Delivery'),
+      ]);
+    });
+
+    test('questions about Express ask for its status', () {
+      expectTable([
+        ('Is Express open?', 'Express'),
+        ('is express available in my area', 'Express'),
+        ('can I get it in 1 hour', 'Express'),
+        ('Do you deliver in one hour?', 'Express'),
+        ('1 hour delivery', 'Express'),
+        ('what time does express close', 'Express'),
+        // Naming Express alone still opens its products.
+        ('express', 'Collection(express)'),
+        ('Show 1Hr Express', 'Collection(express)'),
+        ('1 hour', 'Collection(express)'),
+        // Delivery without Express stays a delivery question.
+        ('how fast is delivery', 'Delivery'),
       ]);
     });
 
