@@ -302,6 +302,30 @@ abstract final class DeliveryCopy {
               '${DeliveryRules.formatHour(DeliveryConfig.expressOpen)}';
   }
 
+  /// [productExpressLine] as the second row of the product page in Fresh
+  /// Market mode: labelled "Express: Get it in 25–35 min to Mirdif" while
+  /// Express can deliver; otherwise the website's own text as is ("Express
+  /// opens 8 AM", "Express isn't available in Jebel Ali yet"), which
+  /// already names Express.
+  static String productExpressLabelled(DeliveryArea area, DateTime now) {
+    final line = productExpressLine(area, now);
+    return DeliveryRules.express(area, now).available ? 'Express: $line' : line;
+  }
+
+  /// The Fresh Market part of the assistant's delivery answer, with the
+  /// same-day cut-off in the delivery bar's words: "Today within 6 hours,
+  /// by 4 PM. Same-day closes in 8h 0m (cut-off 6 PM)" before it,
+  /// "Tomorrow morning before 11 AM. Same-day orders closed at 6 PM"
+  /// after it.
+  static String marketAnswer(DeliveryArea area, DateTime now) {
+    final mk = DeliveryRules.market(area, now);
+    final cut = DeliveryRules.formatHour(mk.cutHour);
+    return mk.today
+        ? '${mk.line}, by ${mk.by}. Same-day closes in ${mk.left} '
+              '(cut-off $cut)'
+        : '${mk.line}. Same-day orders closed at $cut';
+  }
+
   /// The product page's Fresh Market line
   /// ("Today within 6 hours to Mirdif · by 4 PM").
   static String productMarketLine(DeliveryArea area, DateTime now) {

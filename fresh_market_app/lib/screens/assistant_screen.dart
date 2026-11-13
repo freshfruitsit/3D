@@ -9,12 +9,14 @@ import '../app_nav.dart';
 import '../assistant/assistant_brain.dart';
 import '../assistant/assistant_session.dart';
 import '../delivery/delivery.dart';
+import '../models/money.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
 import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_control.dart';
+import '../widgets/circle_icon_button.dart';
 import '../widgets/price_widgets.dart';
 import '../widgets/product_image.dart';
 
@@ -105,10 +107,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final last = messages.last;
     if (!grew || last.fromUser) return;
     final rows = last.reply!.products.length;
+    final said = spokenMoney(last.text);
     final text = switch (rows) {
-      0 => last.text,
-      1 => '${last.text} 1 product below.',
-      _ => '${last.text} $rows products below.',
+      0 => said,
+      1 => '$said 1 product below.',
+      _ => '$said $rows products below.',
     };
     SemanticsService.sendAnnouncement(
       View.of(context),
@@ -366,9 +369,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
                   reverse: true,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppDims.gutter,
+                    16,
+                    AppDims.gutter,
+                    16,
+                  ),
                   itemCount: count,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: _messageGap),
                   itemBuilder: (context, index) {
                     if (busy && index == 0) return const _TypingBubble();
                     final message = messages[
@@ -403,6 +412,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 }
+
+/// Space between two messages.
+const double _messageGap = 16;
+
+/// [text] as a screen reader should say it: the Dirham sign (which voices
+/// do not know) read as "AED", the way [moneySemantics] says a price.
+String spokenMoney(String text) => text.contains(dirhamSign)
+    ? text.replaceAll('$dirhamSign ', 'AED ').replaceAll(dirhamSign, 'AED ')
+    : text;
 
 /// "a", "a and b", "a, b and c".
 String _joinNames(List<String> names) => names.length < 2
@@ -455,63 +473,32 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 6, 6, 8),
+      padding: const EdgeInsets.fromLTRB(AppDims.gutter, 8, AppDims.gutter, 12),
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Back',
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          const ExcludeSemantics(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.subtle,
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Icon(Icons.auto_awesome, size: 20, color: AppColors.ink),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
+          CircleIconButton.back(context),
+          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Semantics(
-                  header: true,
-                  // Shrinks instead of being cut off with a large font.
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      AssistantScreen.title,
-                      maxLines: 1,
-                      style: AppText.cardHeading.copyWith(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
+            child: Semantics(
+              header: true,
+              // Shrinks instead of being cut off with a large font.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  AssistantScreen.title,
+                  maxLines: 1,
+                  style: AppText.heading,
                 ),
-                // Never cut off: the label must stay readable at any font
-                // size, so it wraps to as many lines as it needs.
-                const Text(
-                  AssistantScreen.caption,
-                  style: AppText.caption,
-                ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(width: 4),
-          IconButton(
+          const SizedBox(width: 12),
+          CircleIconButton(
+            icon: Icons.add_comment_outlined,
             tooltip: 'New chat',
-            color: AppColors.ink,
-            icon: const Icon(Icons.add_comment_outlined, size: 22),
+            iconColor:
+                onNewChat == null ? AppColors.disabledText : AppColors.ink,
             onPressed: onNewChat,
           ),
         ],
@@ -520,8 +507,12 @@ class _Header extends StatelessWidget {
   }
 }
 
-const BorderRadius _bubbleRadius = BorderRadius.all(Radius.circular(16));
+/// Bubbles are rounded, with a tighter corner on the speaker's side at the
+/// top, where the message starts.
+const Radius _bubbleCorner = Radius.circular(18);
+const Radius _bubbleTail = Radius.circular(6);
 
+/// The shopper's message: ink with white text, on the right.
 class _UserBubble extends StatelessWidget {
   const _UserBubble({required this.text});
 
@@ -542,15 +533,17 @@ class _UserBubble extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: const BoxDecoration(
                 color: AppColors.ink,
-                borderRadius: _bubbleRadius,
+                borderRadius: BorderRadius.only(
+                  topLeft: _bubbleCorner,
+                  topRight: _bubbleTail,
+                  bottomLeft: _bubbleCorner,
+                  bottomRight: _bubbleCorner,
+                ),
               ),
               child: Text(
                 text,
-                style: AppText.body.copyWith(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.onDark,
-                ),
+                semanticsLabel: spokenMoney(text),
+                style: AppText.body.copyWith(color: AppColors.onDark),
               ),
             ),
           ),
@@ -560,8 +553,8 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-/// A white bubble with the app's border, hugging its content up to 85% of
-/// the width.
+/// The assistant's words: an off-white bubble on the left, hugging its
+/// content up to 85% of the width.
 class _AssistantBubble extends StatelessWidget {
   const _AssistantBubble({required this.child});
 
@@ -577,9 +570,13 @@ class _AssistantBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: _bubbleRadius,
-            border: Border.fromBorderSide(BorderSide(color: AppColors.hairline)),
+            color: AppColors.subtle,
+            borderRadius: BorderRadius.only(
+              topLeft: _bubbleTail,
+              topRight: _bubbleCorner,
+              bottomLeft: _bubbleCorner,
+              bottomRight: _bubbleCorner,
+            ),
           ),
           child: child,
         ),
@@ -661,27 +658,21 @@ class _AssistantBlock extends StatelessWidget {
         _AssistantBubble(
           child: Text(
             reply.text,
-            style: AppText.body.copyWith(fontSize: 15, color: AppColors.ink),
+            // Prices are heard as "AED 12.50", like everywhere else.
+            semanticsLabel: spokenMoney(reply.text),
+            style: AppText.body,
           ),
         ),
-        if (reply.products.isNotEmpty)
-          FractionallySizedBox(
-            widthFactor: 0.9,
-            alignment: Alignment.centerLeft,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final product in reply.products)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: _ProductRow(product: product),
-                  ),
-              ],
-            ),
+        // Product rows use the full width, like the options grid: room
+        // for the name next to the add control.
+        for (final product in reply.products)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _ProductRow(product: product),
           ),
         if (reply.actions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 12),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -690,7 +681,7 @@ class _AssistantBlock extends StatelessWidget {
           ),
         if (reply.showOptions)
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 12),
             child: _OptionsGrid(onSelected: busy ? null : onOption),
           ),
       ],
@@ -839,11 +830,10 @@ class _OptionTile extends StatelessWidget {
       onTap: onTap,
       excludeSemantics: true,
       child: Material(
+        // Off-white squares like the category tiles, no border.
         color: enabled ? AppColors.subtle : AppColors.disabledFill,
         shape: const RoundedRectangleBorder(
           borderRadius: AppDims.cardBorderRadius,
-          // Subtle inner edge, as on the category tiles.
-          side: BorderSide(color: AppColors.hairline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -862,10 +852,10 @@ class _OptionTile extends StatelessWidget {
                 children: [
                   Icon(
                     iconFor(option.kind),
-                    size: 26,
+                    size: 24,
                     color: enabled ? AppColors.ink : AppColors.disabledText,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     option.label,
                     maxLines: 2,
@@ -883,63 +873,87 @@ class _OptionTile extends StatelessWidget {
   }
 }
 
-/// Thumbnail, name with size, price and the add control. Opens the
-/// product when tapped.
+/// A white card with a hairline: the photo in an off-white well, name,
+/// size, price and the green add control. Opens the product when tapped.
 class _ProductRow extends StatelessWidget {
   const _ProductRow({required this.product});
 
   final Product product;
 
+  static const double thumbSize = 60;
+
   @override
   Widget build(BuildContext context) {
     final variant = product.defaultVariant;
     final size = variant?.label;
-    return Material(
-      color: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppDims.cardBorderRadius,
-        side: BorderSide(color: AppColors.hairline),
+    return DecoratedBox(
+      decoration: const ShapeDecoration(
+        shape: AppDecor.cardShape,
+        shadows: AppShadows.card,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
-          AppNav.openProduct(context, product);
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 52,
-                height: 52,
-                child: ProductImage(url: product.imageUrl, logicalWidth: 52),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      size == null ? product.title : '${product.title} $size',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.productName,
-                    ),
-                    if (variant != null) ...[
-                      const SizedBox(height: 2),
-                      PriceRow(
-                        priceCents: variant.priceCents,
-                        oldPriceCents: variant.oldPriceCents,
+      child: Material(
+        color: AppColors.surface,
+        shape: AppDecor.cardShape,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            AppNav.openProduct(context, product);
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: AppDecor.well,
+                  child: SizedBox(
+                    width: thumbSize,
+                    height: thumbSize,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: ProductImage(
+                        url: product.imageUrl,
+                        logicalWidth: thumbSize,
+                        wellColor: AppColors.subtle,
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              AddControl(product: product, variant: variant),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        product.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.productName,
+                      ),
+                      if (size != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          size,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.caption,
+                        ),
+                      ],
+                      if (variant != null) ...[
+                        const SizedBox(height: 4),
+                        PriceRow(
+                          priceCents: variant.priceCents,
+                          oldPriceCents: variant.oldPriceCents,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AddControl(product: product, variant: variant),
+              ],
+            ),
           ),
         ),
       ),
@@ -994,6 +1008,8 @@ class _ActionButton extends StatelessWidget {
               (AppColors.surface, AppColors.ink, AppColors.ink),
           };
     final chevron = look == _ActionLook.outlined;
+    // The ink outline is 1.5px, like the app's outlined buttons.
+    final edgeWidth = enabled && look != _ActionLook.filled ? 1.5 : 1.0;
     return Semantics(
       // Its own node even when disabled, so it is not read together with
       // the reply above it.
@@ -1005,7 +1021,7 @@ class _ActionButton extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: fill,
-        shape: StadiumBorder(side: BorderSide(color: edge)),
+        shape: StadiumBorder(side: BorderSide(color: edge, width: edgeWidth)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -1013,7 +1029,7 @@ class _ActionButton extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: AppDims.touch),
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                icon == null ? 16 : 12,
+                icon == null ? 16 : 14,
                 6,
                 chevron ? 10 : 16,
                 6,
@@ -1028,7 +1044,7 @@ class _ActionButton extends StatelessWidget {
                   Flexible(
                     child: Text(
                       label,
-                      style: AppText.link.copyWith(color: ink),
+                      style: AppText.buttonSmall.copyWith(color: ink),
                     ),
                   ),
                   if (chevron) ...[
@@ -1149,7 +1165,12 @@ class _SuggestionRowState extends State<_SuggestionRow> {
       child: ListView.separated(
         controller: _scroll,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        padding: const EdgeInsets.fromLTRB(
+          AppDims.gutter,
+          4,
+          AppDims.gutter,
+          8,
+        ),
         itemCount: suggestions.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -1170,17 +1191,16 @@ class _SuggestionRowState extends State<_SuggestionRow> {
               child: InkWell(
                 onTap: tap,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Center(
                     widthFactor: 1,
                     child: Text(
                       label,
                       maxLines: 1,
-                      style: AppText.body.copyWith(
+                      style: AppText.buttonSmall.copyWith(
                         color: tap == null
                             ? AppColors.disabledText
                             : AppColors.ink,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -1203,6 +1223,7 @@ class _RoundButton extends StatelessWidget {
     required this.fill,
     required this.iconColor,
     required this.onTap,
+    this.disabledFill = AppColors.disabledFill,
   });
 
   final String label;
@@ -1210,6 +1231,9 @@ class _RoundButton extends StatelessWidget {
   final double size;
   final Color fill;
   final Color iconColor;
+
+  /// The fill while [onTap] is null.
+  final Color disabledFill;
 
   /// Null: greyed and not tappable.
   final VoidCallback? onTap;
@@ -1226,7 +1250,7 @@ class _RoundButton extends StatelessWidget {
       child: Tooltip(
         message: label,
         child: Material(
-          color: enabled ? fill : AppColors.disabledFill,
+          color: enabled ? fill : disabledFill,
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -1247,6 +1271,8 @@ class _RoundButton extends StatelessWidget {
   }
 }
 
+/// The composer: an off-white pill holding the options button and the
+/// text field, the ink Send button, and the demo label under them.
 class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
@@ -1267,64 +1293,78 @@ class _InputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const fieldBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(24)),
-      borderSide: BorderSide.none,
-    );
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.hairline)),
-      ),
+      decoration: AppDecor.stickyBar,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _RoundButton(
-              label: 'Show options',
-              icon: Icons.apps,
-              size: AppDims.touch,
-              fill: AppColors.subtle,
-              iconColor: AppColors.ink,
-              onTap: enabled ? onOptions : null,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                textInputAction: TextInputAction.send,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: onSend,
-                // Keeps the keyboard up after sending, for a follow-up
-                // question.
-                onEditingComplete: () {},
-                style: AppText.body.copyWith(
-                  fontSize: 15,
-                  color: AppColors.ink,
-                ),
-                decoration: const InputDecoration(
-                  hintText: AssistantScreen.inputHint,
-                  hintMaxLines: 2,
-                  fillColor: AppColors.canvas,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 13,
+            Row(
+              children: [
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: const ShapeDecoration(
+                      color: AppColors.subtle,
+                      shape: StadiumBorder(),
+                    ),
+                    child: Row(
+                      children: [
+                        _RoundButton(
+                          label: 'Show options',
+                          icon: Icons.apps,
+                          size: AppDims.touch,
+                          fill: Colors.transparent,
+                          disabledFill: Colors.transparent,
+                          iconColor: AppColors.ink,
+                          onTap: enabled ? onOptions : null,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: controller,
+                            textInputAction: TextInputAction.send,
+                            textCapitalization: TextCapitalization.sentences,
+                            onSubmitted: onSend,
+                            // Keeps the keyboard up after sending, for a
+                            // follow-up question.
+                            onEditingComplete: () {},
+                            style: AppText.body,
+                            decoration: const InputDecoration(
+                              hintText: AssistantScreen.inputHint,
+                              hintMaxLines: 2,
+                              // The pill around it is the field.
+                              filled: false,
+                              isDense: true,
+                              contentPadding:
+                                  EdgeInsets.fromLTRB(2, 13, 16, 13),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  border: fieldBorder,
-                  enabledBorder: fieldBorder,
-                  focusedBorder: fieldBorder,
                 ),
-              ),
+                const SizedBox(width: 8),
+                _RoundButton(
+                  label: 'Send',
+                  icon: Icons.arrow_upward,
+                  size: AppDims.touch,
+                  fill: AppColors.ink,
+                  iconColor: AppColors.onDark,
+                  onTap: enabled ? () => onSend(controller.text) : null,
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _RoundButton(
-              label: 'Send',
-              icon: Icons.arrow_upward,
-              size: 46,
-              fill: AppColors.ink,
-              iconColor: AppColors.onDark,
-              onTap: enabled ? () => onSend(controller.text) : null,
+            const SizedBox(height: 6),
+            // Never cut off: the label must stay readable at any font size,
+            // so it wraps to as many lines as it needs.
+            const Text(
+              AssistantScreen.caption,
+              textAlign: TextAlign.center,
+              style: AppText.caption,
             ),
           ],
         ),

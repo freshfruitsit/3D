@@ -878,7 +878,11 @@ class ProductDeliveryInfo extends StatelessWidget {
         rows = [
           row(Icons.local_shipping_outlined, marketLine, strong: true),
           if (eligible)
-            row(Icons.bolt, 'Express: $expressLine', green: expressLive),
+            row(
+              Icons.bolt,
+              DeliveryCopy.productExpressLabelled(area, now),
+              green: expressLive,
+            ),
         ];
       }
     }

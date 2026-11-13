@@ -1624,6 +1624,7 @@ void main() {
       expect(
         reply.text,
         'Delivering to Business Bay, Dubai: Today within 6 hours, by 4 PM. '
+        'Same-day closes in 8h 0m (cut-off 6 PM). '
         'Express: 30–40 min for items marked Express. '
         'Any delivery fee is shown at checkout.',
       );
@@ -1646,6 +1647,7 @@ void main() {
       expect(
         reply.text,
         'Delivering to Business Bay, Dubai: Tomorrow morning before 11 AM. '
+        'Same-day orders closed at 6 PM. '
         'Express: closed right now (it runs 8 AM to 10 PM). '
         'Any delivery fee is shown at checkout.',
       );
@@ -1661,6 +1663,7 @@ void main() {
       expect(
         reply.text,
         'Delivering to Jebel Ali, Dubai: Today within 6 hours, by 4 PM. '
+        'Same-day closes in 8h 0m (cut-off 6 PM). '
         'Express: not available in your area. '
         'Any delivery fee is shown at checkout.',
       );

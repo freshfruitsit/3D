@@ -28,7 +28,10 @@ class IntroScreen extends StatefulWidget {
   static IntroPlayerFactory? debugDefaultPlayerFactory;
 
   static const String posterAsset = 'assets/video/intro_poster.jpg';
-  static const String logoAsset = 'assets/images/logo.png';
+
+  /// The black FRESH® MARKET wordmark (transparent background), shown on
+  /// a white rounded rectangle over the video.
+  static const String logoAsset = 'assets/images/logo_wide.png';
 
   static const String handle = '@freshmarket.ae';
   static const String welcome = 'Welcome to Fresh Market';
@@ -197,24 +200,12 @@ class _IntroScreenState extends State<IntroScreen> with WidgetsBindingObserver {
                         onSkip: _finish,
                       ),
                       const Spacer(),
-                      Text(
-                        IntroScreen.headline,
-                        // Kept inside the dark part of the scrim.
-                        textScaler: MediaQuery.textScalerOf(context)
-                            .clamp(maxScaleFactor: 1.3),
-                        style: const TextStyle(
-                          fontFamily: AppText.family,
-                          fontSize: 24,
-                          height: 1.2,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.3,
-                          shadows: [
-                            Shadow(color: Color(0x99000000), blurRadius: 8),
-                          ],
-                        ),
+                      // Kept inside the dark part of the scrim.
+                      MediaQuery.withClampedTextScaling(
+                        maxScaleFactor: 1.3,
+                        child: const _Welcome(),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       FilledButton(
                         key: IntroScreen.startKey,
                         onPressed: _finish,
@@ -263,7 +254,9 @@ class _Scrims extends StatelessWidget {
             Color(0x99000000),
             Color(0xE6000000),
           ],
-          stops: [0, 0.22, 0.55, 0.8, 1],
+          // The bottom one starts a little higher: it holds the welcome
+          // line, the headline and the handle.
+          stops: [0, 0.22, 0.5, 0.76, 1],
         ),
       ),
     );
@@ -293,6 +286,67 @@ class _ProgressLine extends StatelessWidget {
   }
 }
 
+/// Soft shadow that keeps white text readable on bright frames.
+const List<Shadow> _textShadow = [
+  Shadow(color: Color(0x80000000), blurRadius: 6),
+];
+
+/// "Welcome to Fresh Market", the headline and the store's handle, above
+/// "Start shopping".
+class _Welcome extends StatelessWidget {
+  const _Welcome();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          IntroScreen.welcome,
+          style: TextStyle(
+            fontFamily: AppText.family,
+            fontFamilyFallback: AppText.fallback,
+            fontSize: 14,
+            height: 1.3,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            shadows: _textShadow,
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          IntroScreen.headline,
+          style: TextStyle(
+            fontFamily: AppText.family,
+            fontFamilyFallback: AppText.fallback,
+            fontSize: 28,
+            height: 1.15,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: -0.5,
+            shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+          ),
+        ),
+        SizedBox(height: 10),
+        Text(
+          IntroScreen.handle,
+          style: TextStyle(
+            fontFamily: AppText.family,
+            fontFamilyFallback: AppText.fallback,
+            fontSize: 13,
+            height: 1.3,
+            fontWeight: FontWeight.w600,
+            color: Color(0xE6FFFFFF),
+            shadows: _textShadow,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The wordmark on a white rounded rectangle (left), then Mute and Skip.
 class _Header extends StatelessWidget {
   const _Header({
     required this.muted,
@@ -304,73 +358,35 @@ class _Header extends StatelessWidget {
   final VoidCallback onToggleMute;
   final VoidCallback onSkip;
 
-  static const List<Shadow> _textShadow = [
-    Shadow(color: Color(0x80000000), blurRadius: 4),
-  ];
+  /// Height of the wordmark inside its white rectangle.
+  static const double logoHeight = 22;
 
   @override
   Widget build(BuildContext context) {
     final muteLabel = muted ? 'Unmute' : 'Mute';
     return Row(
       children: [
-        // The square logo (white background) inside a white disc; the
-        // padding keeps the logo's corners inside the circle.
-        Container(
-          width: 44,
-          height: 44,
-          padding: const EdgeInsets.all(7),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: Image.asset(
-            IntroScreen.logoAsset,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-          ),
-        ),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  IntroScreen.handle,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontFamily: AppText.family,
-                    fontSize: 14,
-                    height: 1.25,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    shadows: _textShadow,
-                  ),
-                ),
-              ),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  IntroScreen.welcome,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontFamily: AppText.family,
-                    fontSize: 12,
-                    height: 1.3,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                    shadows: _textShadow,
-                  ),
-                ),
-              ),
-            ],
+        // Brand only: the welcome line below says the name to screen
+        // readers.
+        ExcludeSemantics(
+          child: Container(
+            height: AppDims.touch,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: AppDims.buttonBorderRadius,
+              boxShadow: AppShadows.raised,
+            ),
+            child: Image.asset(
+              IntroScreen.logoAsset,
+              height: logoHeight,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
           ),
         ),
-        const SizedBox(width: 8),
+        const Spacer(),
         Semantics(
           button: true,
           label: muteLabel,
@@ -408,25 +424,33 @@ class _Header extends StatelessWidget {
             child: InkWell(
               key: IntroScreen.skipKey,
               onTap: onSkip,
-              child: const SizedBox(
+              child: SizedBox(
                 height: AppDims.touch,
                 child: Padding(
-                  padding: EdgeInsets.only(left: 16, right: 10),
+                  padding: const EdgeInsets.only(left: 16, right: 10),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Skip',
-                        style: TextStyle(
+                        // The pill keeps its 44px height at any text size.
+                        textScaler: MediaQuery.textScalerOf(context)
+                            .clamp(maxScaleFactor: 1.3),
+                        style: const TextStyle(
                           fontFamily: AppText.family,
+                          fontFamilyFallback: AppText.fallback,
                           fontSize: 14,
                           height: 1.3,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                         ),
                       ),
-                      SizedBox(width: 2),
-                      Icon(Icons.chevron_right, size: 20, color: Colors.white),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: Colors.white,
+                      ),
                     ],
                   ),
                 ),

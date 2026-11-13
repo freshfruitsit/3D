@@ -60,8 +60,9 @@ void main() {
       await settleReply(tester);
       expect(
         find.text('Delivering to Business Bay, Dubai: Today within 6 hours, '
-            'by 4 PM. Express: 30–40 min for items marked Express. Any '
-            'delivery fee is shown at checkout.'),
+            'by 4 PM. Same-day closes in 8h 0m (cut-off 6 PM). Express: '
+            '30–40 min for items marked Express. Any delivery fee is shown '
+            'at checkout.'),
         findsOneWidget,
       );
       expect(find.text('Shop Express items'), findsOneWidget);
@@ -90,8 +91,8 @@ void main() {
       expect(store.area?.name, 'Jebel Ali');
       expect(
         find.text('Delivering to Jebel Ali, Dubai: Today within 6 hours, by '
-            '4 PM. Express: not available in your area. Any delivery fee is '
-            'shown at checkout.'),
+            '4 PM. Same-day closes in 8h 0m (cut-off 6 PM). Express: not '
+            'available in your area. Any delivery fee is shown at checkout.'),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -157,13 +158,15 @@ void main() {
     await settleReply(tester);
     expect(find.bySemanticsLabel('The assistant is typing'), findsNothing);
     expect(find.text('A few products from Berries:'), findsOneWidget);
-    expect(find.text('Zespri Kiwi Sungold 500 GM'), findsOneWidget);
+    // Name, then the size on its own line in the row.
+    expect(find.text('Zespri Kiwi Sungold'), findsOneWidget);
+    expect(find.text('500 GM'), findsNWidgets(2));
     expect(find.text('\u20C3 19.95'), findsOneWidget);
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
     // Struck old price of the sale product.
     expect(find.text('\u20C3 62.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
-    expect(find.text('Cucumber 500 GM'), findsOneWidget);
+    expect(find.text('Cucumber'), findsOneWidget);
     expect(find.byType(AddControl), findsNWidgets(3));
     expect(find.text('Open Berries'), findsOneWidget);
 
@@ -239,7 +242,7 @@ void main() {
 
     await ask(tester, 'Find kiwi');
     await settleReply(tester);
-    await tapVisible(tester, find.text('Zespri Kiwi Sungold 500 GM'));
+    await tapVisible(tester, find.text('Zespri Kiwi Sungold'));
 
     expect(find.byType(ProductDetailScreen), findsOneWidget);
   });
@@ -255,7 +258,8 @@ void main() {
           'Australian Beef Cubes.'),
       findsOneWidget,
     );
-    expect(find.text('Strawberry 1 KG'), findsOneWidget);
+    expect(find.text('Strawberry'), findsOneWidget);
+    expect(find.text('1 KG'), findsOneWidget);
     expect(find.text('82.95'), findsOneWidget);
 
     await tapVisible(tester, find.text("See all Today's Top Deals"));
@@ -419,11 +423,12 @@ void main() {
       final first = tileRect(tester, AssistantBrain.quickOptions[0].label);
       final fourth = tileRect(tester, AssistantBrain.quickOptions[3].label);
       final fifth = tileRect(tester, AssistantBrain.quickOptions[4].label);
-      expect(first.height, greaterThanOrEqualTo(84));
+      // (Less a rounding error of the rect's edges.)
+      expect(first.height, greaterThanOrEqualTo(84 - 1e-6));
       expect(fourth.top, first.top);
       expect(fifth.left, first.left);
       expect(fifth.top, greaterThan(first.bottom));
-      expect(fourth.right, closeTo(390 - 12, 0.5));
+      expect(fourth.right, closeTo(390 - 16, 0.5));
       final bubble = tester.getRect(find
           .ancestor(
             of: find.text(AssistantBrain.greeting),
@@ -1012,8 +1017,10 @@ void main() {
     expect(tester.takeException(), isNull);
     await settleReply(tester);
     expect(tester.takeException(), isNull);
+    // The grid is built (it may sit above the viewport now: the kiwi
+    // reply below it is tall at this text size).
     for (final option in AssistantBrain.quickOptions) {
-      expect(find.text(option.label), findsWidgets);
+      expect(find.text(option.label, skipOffstage: false), findsWidgets);
     }
   });
 }

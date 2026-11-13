@@ -184,6 +184,59 @@ void main() {
       );
     });
 
+    test('Express row in Fresh Market mode never repeats "Express"', () {
+      // Open: labelled; uncovered and closed: the website's own text,
+      // which already starts with "Express".
+      expect(
+        DeliveryCopy.productExpressLabelled(mirdif, uae(12)),
+        'Express: Get it in 25–35 min to Mirdif',
+      );
+      expect(
+        DeliveryCopy.productExpressLabelled(mirdif, uae(23)),
+        'Express opens 8 AM',
+      );
+      expect(
+        DeliveryCopy.productExpressLabelled(mirdif, uae(7, 59)),
+        'Express opens 8 AM',
+      );
+      expect(
+        DeliveryCopy.productExpressLabelled(jebelAli, uae(10)),
+        "Express isn't available in Jebel Ali yet",
+      );
+      expect(
+        DeliveryCopy.productExpressLabelled(jebelAli, uae(23)),
+        "Express isn't available in Jebel Ali yet",
+      );
+      for (var minute = 0; minute < 24 * 60; minute += 15) {
+        for (final a in [mirdif, jebelAli]) {
+          final text = DeliveryCopy.productExpressLabelled(a, uae(0, minute));
+          expect(text, isNot(startsWith('Express: Express')), reason: text);
+          expect(text, startsWith('Express'), reason: text);
+        }
+      }
+    });
+
+    test('assistant answer gives the same-day cut-off', () {
+      expect(
+        DeliveryCopy.marketAnswer(mirdif, uae(10)),
+        'Today within 6 hours, by 4 PM. Same-day closes in 8h 0m '
+        '(cut-off 6 PM)',
+      );
+      expect(
+        DeliveryCopy.marketAnswer(mirdif, uae(17, 30)),
+        'Today within 6 hours, by 11:30 PM. Same-day closes in 30m '
+        '(cut-off 6 PM)',
+      );
+      expect(
+        DeliveryCopy.marketAnswer(mirdif, uae(18)),
+        'Tomorrow morning before 11 AM. Same-day orders closed at 6 PM',
+      );
+      expect(
+        DeliveryCopy.marketAnswer(jebelAli, uae(23)),
+        'Tomorrow morning before 11 AM. Same-day orders closed at 6 PM',
+      );
+    });
+
     test('Fresh Market line', () {
       expect(
         DeliveryCopy.productMarketLine(mirdif, uae(10)),

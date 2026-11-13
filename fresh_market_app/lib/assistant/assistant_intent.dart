@@ -1795,9 +1795,12 @@ abstract final class AssistantIntentParser {
     if (_asksExpress(tokens)) return const ExpressIntent();
 
     // 6. delivery ("is there a minimum order?": checkout shows any fees;
-    // "when will my order come?": the times for the chosen area)
+    // "when will my order come?": the times for the chosen area; "what is
+    // the cut off time?": the same-day cut-off)
     if (tokens.any(_deliveryWords.contains) ||
         _hasPhrase(tokens, 'same day') ||
+        tokens.contains('cutoff') ||
+        _hasPhrase(tokens, 'cut off') ||
         (tokens.contains('when') && tokens.any(_parcelWords.contains)) ||
         (tokens.contains('minimum') &&
             tokens.any(

@@ -840,9 +840,8 @@ class AssistantBrain {
       );
     }
     final now = store.now();
-    final mk = DeliveryRules.market(area, now);
     final ex = DeliveryRules.express(area, now);
-    final market = mk.today ? '${mk.line}, by ${mk.by}' : mk.line;
+    final market = DeliveryCopy.marketAnswer(area, now);
     final String express;
     if (!ex.covered) {
       express = 'not available in your area';

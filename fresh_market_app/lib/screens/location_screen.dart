@@ -1098,6 +1098,11 @@ class _OptionRow extends StatelessWidget {
   final bool express;
   final bool divider;
 
+  /// Keeps a number with its unit ("6 hours", "10 PM", "7 km") on one
+  /// line when the text wraps.
+  static String _keepUnits(String text) =>
+      text.replaceAllMapped(RegExp(r'(\d) (?=\S)'), (m) => '${m[1]}\u00A0');
+
   @override
   Widget build(BuildContext context) {
     final available = option.available;
@@ -1141,12 +1146,7 @@ class _OptionRow extends StatelessWidget {
                 if (option.when.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    // Keep a number with its unit ("6 hours", "11 AM") on
-                    // one line.
-                    option.when.replaceAllMapped(
-                      RegExp(r'(\d) (?=\S)'),
-                      (m) => '${m[1]} ',
-                    ),
+                    _keepUnits(option.when),
                     style: AppText.label.copyWith(
                       fontWeight: FontWeight.w800,
                       color: whenColor,
@@ -1154,7 +1154,7 @@ class _OptionRow extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 3),
-                Text(option.detail, style: AppText.caption),
+                Text(_keepUnits(option.detail), style: AppText.caption),
               ],
             ),
           ),
