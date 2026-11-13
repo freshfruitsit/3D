@@ -119,7 +119,10 @@ void main() {
         isEmpty);
     await settleReply(tester);
 
-    expect(find.text('Done. I added 2 × Cucumber (500 GM) to your cart.'),
+    expect(
+        find.text(
+            'Done. I added 2 × Cucumber (500 GM) to your cart at Dhs. 2.50 '
+            'each.'),
         findsOneWidget);
     expect(cart.quantityOf(2004), 2);
     expect(find.byType(QuantityStepper), findsOneWidget);

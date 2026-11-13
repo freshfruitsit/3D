@@ -149,7 +149,10 @@ void main() {
     test('adds the first available variant with the quantity', () async {
       final reply = await brain.reply('Add 2 cucumbers');
 
-      expect(reply.text, 'Done. I added 2 × Cucumber (500 GM) to your cart.');
+      expect(
+        reply.text,
+        'Done. I added 2 × Cucumber (500 GM) to your cart at Dhs. 2.50 each.',
+      );
       expect(reply.products.single.title, 'Cucumber');
       expect(reply.actions.single, isA<OpenCartAction>());
       expect(reply.actions.single.label, 'Open cart');
@@ -161,13 +164,17 @@ void main() {
     test('skips a sold-out weight and a product without options has no '
         'brackets', () async {
       var reply = await brain.reply('buy strawberry');
-      expect(reply.text, 'Done. I added 1 × Strawberry (1 KG) to your cart.');
+      expect(
+        reply.text,
+        'Done. I added 1 × Strawberry (1 KG) to your cart at Dhs. 75.00.',
+      );
       expect(cart.quantityOf(2009), 1);
 
       reply = await brain.reply('add three beef');
       expect(
         reply.text,
-        'Done. I added 3 × Australian Beef Cubes to your cart.',
+        'Done. I added 3 × Australian Beef Cubes to your cart at Dhs. 62.50 '
+        'each.',
       );
       expect(cart.quantityOf(2003), 3);
     });
@@ -253,7 +260,8 @@ void main() {
       final b = AssistantBrain(api: limits, cart: cart);
       await b.reply('Find kiwi');
       await b.reply('add kiwi');
-      expect(limits.limits, [AssistantBrain.maxProducts, 4]);
+      // An add looks wider, to find the right size among boxes.
+      expect(limits.limits, [AssistantBrain.maxProducts, 10]);
     });
 
     test('a 429 is retried once', () async {
@@ -879,8 +887,9 @@ void main() {
         'For guacamole, you could use these. I could not find lime in '
         'stock right now.',
       );
+      // The cheapest avocado in stock, not the first the store lists.
       expect(reply.products.map((p) => p.title), [
-        'Avocado Hass',
+        'Avocado Shepard',
         'Tomatoes Cherry',
         'Red Onions',
       ]);
@@ -909,7 +918,7 @@ void main() {
       ).reply('smoothie recipe');
       expect(slow.maxInFlight, AssistantBrain.recipeSearchWidth);
       expect(AssistantBrain.recipeSearchWidth, 2);
-      expect(slow.limits.toSet(), {4});
+      expect(slow.limits.toSet(), {10});
       expect(
         reply.products.length,
         lessThanOrEqualTo(AssistantBrain.maxRecipeProducts),
@@ -1051,7 +1060,10 @@ void main() {
       final cucumber = sampleProducts()[2];
       cart.add(cucumber, cucumber.variants.first, quantity: 3);
       final reply = await brain.reply('empty my cart');
-      expect(reply.text, 'This will remove all 3 items. Are you sure?');
+      expect(
+        reply.text,
+        'This will remove all 3 items from your cart. Are you sure?',
+      );
       expect(reply.actions, hasLength(2));
       expect(reply.actions.first, isA<ClearCartAction>());
       expect(reply.actions.first.label, 'Yes, empty my cart');

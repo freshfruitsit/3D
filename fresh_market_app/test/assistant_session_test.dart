@@ -31,7 +31,7 @@ void main() {
       expect(session.messages[1].text, 'Add 2 cucumbers');
       expect(
         session.lastReply!.text,
-        'Done. I added 2 × Cucumber (500 GM) to your cart.',
+        'Done. I added 2 × Cucumber (500 GM) to your cart at Dhs. 2.50 each.',
       );
       expect(session.lastReply!.suggestions, contains('Open my cart'));
       expect(cart.itemCount, 2);
