@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 
-/// Centred spinner for a first load.
+/// Centred ink spinner for a first load.
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key, this.padding = const EdgeInsets.all(32)});
 
@@ -16,7 +16,69 @@ class LoadingView extends StatelessWidget {
         child: const SizedBox(
           width: 28,
           height: 28,
-          child: CircularProgressIndicator(strokeWidth: 3),
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            color: AppColors.ink,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An off-white placeholder block for loading skeletons.
+class SkeletonBox extends StatelessWidget {
+  const SkeletonBox({
+    super.key,
+    this.width,
+    this.height,
+    this.radius = 6,
+  });
+
+  /// Null fills the available width.
+  final double? width;
+  final double? height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.skeleton,
+        borderRadius: BorderRadius.all(Radius.circular(radius)),
+      ),
+    );
+  }
+}
+
+/// A product-card-shaped placeholder: white card with an off-white image
+/// well and three text bars. Size it like a card ([ProductCard.railWidth]
+/// wide and [ProductCard.heightOf] high in rails, a grid cell in grids).
+class ProductCardSkeleton extends StatelessWidget {
+  const ProductCardSkeleton({super.key, this.wellHeight = 128});
+
+  /// Matches the card's image well.
+  final double wellHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: AppDecor.card,
+      padding: const EdgeInsets.all(8),
+      child: ClipRect(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(height: wellHeight, decoration: AppDecor.well),
+            const SizedBox(height: 12),
+            const SkeletonBox(width: 112, height: 12),
+            const SizedBox(height: 8),
+            const SkeletonBox(width: 72, height: 10),
+            const SizedBox(height: 12),
+            const SkeletonBox(width: 64, height: 14),
+          ],
         ),
       ),
     );
@@ -47,14 +109,28 @@ class ErrorView extends StatelessWidget {
           horizontal: AppDims.gutter,
           vertical: 8,
         ),
-        child: Row(
-          children: [
-            const Icon(Icons.wifi_off_rounded,
-                size: 20, color: AppColors.secondary),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message, style: AppText.body)),
-            TextButton(onPressed: onRetry, child: const Text('Try again')),
-          ],
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+          decoration: AppDecor.info,
+          child: Row(
+            children: [
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 20,
+                color: AppColors.secondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: AppText.bodySmall.copyWith(
+                    color: AppColors.secondary,
+                  ),
+                ),
+              ),
+              TextButton(onPressed: onRetry, child: const Text('Try again')),
+            ],
+          ),
         ),
       );
     }
@@ -68,8 +144,8 @@ class ErrorView extends StatelessWidget {
   }
 }
 
-/// A friendly empty state, with a button back to shopping when
-/// [actionLabel] and [onAction] are given.
+/// A friendly empty state, with an ink outlined button (back to shopping)
+/// when [actionLabel] and [onAction] are given.
 class EmptyView extends StatelessWidget {
   const EmptyView({
     super.key,
@@ -125,10 +201,10 @@ class _Message extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: const BoxDecoration(
-                color: AppColors.tile,
+                color: AppColors.subtle,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 32, color: AppColors.tileLabel),
+              child: Icon(icon, size: 32, color: AppColors.ink),
             ),
             const SizedBox(height: 16),
             Text(
@@ -141,12 +217,12 @@ class _Message extends StatelessWidget {
               Text(
                 message!,
                 textAlign: TextAlign.center,
-                style: AppText.body,
+                style: AppText.body.copyWith(color: AppColors.secondary),
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 20),
-              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

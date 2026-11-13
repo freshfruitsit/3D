@@ -102,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
         top: false,
         bottom: false,
         child: RefreshIndicator(
-          color: AppColors.olive,
+          color: AppColors.ink,
           backgroundColor: AppColors.surface,
           onRefresh: _refresh,
           child: ListView(
@@ -128,7 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               const SectionHeader(
                 title: 'Shop By Category',
-                tone: SectionTone.lime,
                 icon: Icons.grid_view_rounded,
               ),
               const SizedBox(height: 4),
@@ -140,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               const SectionHeader(
                 title: 'Brands We Love',
-                tone: SectionTone.ink,
                 icon: Icons.favorite,
               ),
               const SizedBox(height: 4),
@@ -152,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               const SectionHeader(
                 title: 'Offers',
-                tone: SectionTone.ink,
                 icon: Icons.campaign,
               ),
               const SizedBox(height: 4),
@@ -171,21 +168,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Heading tag colour and icon of each Home rail, by collection handle.
-/// Together with the fixed headings, the tones alternate lime and ink down
-/// the page: Shop By Category lime, Today's Top Deals ink, Best Deals
-/// lime, Brands We Love ink, Fresh Pick lime, Offers ink, Berries lime,
-/// Seasonal Blooms ink.
-const Map<String, ({SectionTone tone, IconData icon})> _railStyles = {
-  'fresh-meat': (tone: SectionTone.ink, icon: Icons.local_fire_department),
-  'best-deals': (tone: SectionTone.lime, icon: Icons.sell),
-  'best-sellers': (tone: SectionTone.lime, icon: Icons.eco),
-  'berries': (tone: SectionTone.lime, icon: Icons.spa),
-  'ambrosia-flowers': (tone: SectionTone.ink, icon: Icons.local_florist),
+/// Heading tag icon of each Home rail, by collection handle (every tag is
+/// ink with a green stripe).
+const Map<String, ({IconData icon})> _railStyles = {
+  'fresh-meat': (icon: Icons.local_fire_department),
+  'best-deals': (icon: Icons.sell),
+  'best-sellers': (icon: Icons.eco),
+  'berries': (icon: Icons.spa),
+  'ambrosia-flowers': (icon: Icons.local_florist),
 };
 
-const ({SectionTone tone, IconData icon}) _defaultRailStyle =
-    (tone: SectionTone.lime, icon: Icons.eco);
+const ({IconData icon}) _defaultRailStyle = (icon: Icons.eco);
 
 /// The white header that runs up behind the status bar: the logo, the
 /// delivery location chip, the website's Fresh Market / Express switch and
@@ -239,18 +232,18 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// The thin bar in the logo's lime under the white Home header.
+/// The hairline divider under the white Home header.
 class LimeBar extends StatelessWidget {
   const LimeBar({super.key});
 
-  static const double height = 4;
+  static const double height = 1;
 
   @override
   Widget build(BuildContext context) {
     return const ExcludeSemantics(
       child: SizedBox(
         height: height,
-        child: ColoredBox(color: AppColors.lime),
+        child: ColoredBox(color: AppColors.hairline),
       ),
     );
   }
@@ -337,7 +330,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                       label: 'Shop ${banner.title}',
                       child: Material(
                         key: ValueKey('banner-$index'),
-                        color: AppColors.tile,
+                        color: AppColors.subtle,
                         borderRadius: AppDims.cardBorderRadius,
                         clipBehavior: Clip.antiAlias,
                         child: Ink.image(
@@ -372,7 +365,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                   width: i == _page ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: i == _page ? AppColors.ink : AppColors.border,
+                    color: i == _page ? AppColors.ink : AppColors.hairline,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -396,7 +389,7 @@ class _ProductRail extends StatelessWidget {
   });
 
   final HomeRail rail;
-  final ({SectionTone tone, IconData icon}) style;
+  final ({IconData icon}) style;
   final _RailData data;
   final VoidCallback onRetry;
 
@@ -443,7 +436,6 @@ class _ProductRail extends StatelessWidget {
         children: [
           SectionHeader(
             title: rail.title,
-            tone: style.tone,
             icon: style.icon,
             onViewAll: () => AppNav.openCollection(
               context,
@@ -543,7 +535,7 @@ class _LocalCard extends StatelessWidget {
                 Text(
                   'MADE IN UAE',
                   style: AppText.caption.copyWith(
-                    color: AppColors.olive,
+                    color: AppColors.secondary,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
                   ),

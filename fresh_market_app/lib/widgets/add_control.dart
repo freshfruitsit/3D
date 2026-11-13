@@ -6,14 +6,17 @@ import '../state/cart_store.dart';
 import '../theme/app_theme.dart';
 
 enum QuantityStepperStyle {
-  /// Lime fill, ink icons: the in-cart state of the add control.
+  /// Green fill, white icons and count: the in-cart state of the add
+  /// control and the cart lines.
   solid,
 
-  /// Soft lime-tint fill, ink icons: cart rows and product detail.
+  /// Off-white (subtle) fill, ink icons and count: product detail's bottom
+  /// bar.
   soft,
 }
 
-/// Minus, quantity, plus. Each button is a 44px touch target.
+/// Minus, quantity, plus. Each button is a 44px touch target; the visible
+/// pill is 36px high.
 ///
 /// With [binAtOne] the minus shows a bin at quantity 1 (use it where going
 /// below 1 removes the item). A null callback disables that button.
@@ -37,11 +40,13 @@ class QuantityStepper extends StatelessWidget {
   /// Fill the available width instead of hugging the content.
   final bool expand;
 
+  /// Height of the visible pill inside the 44px touch height.
+  static const double pillHeight = 36;
+
   @override
   Widget build(BuildContext context) {
     final solid = style == QuantityStepperStyle.solid;
-    // Ink on both fills: white on lime would be unreadable.
-    const foreground = AppColors.ink;
+    final foreground = solid ? AppColors.onDark : AppColors.ink;
     final showBin = binAtOne && quantity <= 1;
 
     Widget button(IconData icon, String label, VoidCallback? onTap) {
@@ -52,6 +57,7 @@ class QuantityStepper extends StatelessWidget {
         child: InkResponse(
           onTap: onTap,
           radius: 22,
+          highlightColor: Colors.transparent,
           child: SizedBox(
             width: AppDims.touch,
             height: AppDims.touch,
@@ -59,7 +65,7 @@ class QuantityStepper extends StatelessWidget {
               icon,
               size: 20,
               color: onTap == null
-                  ? foreground.withValues(alpha: 0.35)
+                  ? foreground.withValues(alpha: 0.4)
                   : foreground,
             ),
           ),
@@ -73,8 +79,7 @@ class QuantityStepper extends StatelessWidget {
         '$quantity',
         textAlign: TextAlign.center,
         semanticsLabel: 'Quantity $quantity',
-        style: TextStyle(
-          fontFamily: AppText.family,
+        style: AppText.price.copyWith(
           fontSize: 15,
           height: 1.2,
           fontWeight: FontWeight.w700,
@@ -88,14 +93,13 @@ class QuantityStepper extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The visible pill is 36px high inside the 44px touch height.
           Positioned.fill(
-            top: 4,
-            bottom: 4,
+            top: (AppDims.touch - pillHeight) / 2,
+            bottom: (AppDims.touch - pillHeight) / 2,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: solid ? AppColors.lime : AppColors.tile,
-                borderRadius: const BorderRadius.all(Radius.circular(18)),
+                color: solid ? AppColors.green : AppColors.subtle,
+                borderRadius: AppDims.pillBorderRadius,
               ),
             ),
           ),
@@ -126,9 +130,9 @@ class QuantityStepper extends StatelessWidget {
 
 /// The add-to-cart control of cards and rows, wired to the [CartStore].
 ///
-/// Not in the cart: a 36px lime circle with an ink plus in a 44px touch
-/// target. In the cart: a compact lime stepper (bin at quantity 1).
-/// Sold out: a grey "Sold out" label.
+/// Not in the cart: a 36px green circle with a white plus in a 44px touch
+/// target. In the cart: a green stepper pill (bin at quantity 1).
+/// Sold out: grey "Sold out" text.
 ///
 /// [variant] defaults to the product's first available variant.
 class AddControl extends StatelessWidget {
@@ -136,6 +140,9 @@ class AddControl extends StatelessWidget {
 
   final Product product;
   final Variant? variant;
+
+  /// Diameter of the visible green circle.
+  static const double circleSize = 36;
 
   @override
   Widget build(BuildContext context) {
@@ -160,6 +167,7 @@ class AddControl extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Add ${product.title} to cart',
+      excludeSemantics: true,
       child: InkResponse(
         onTap: () => cart.add(product, v),
         radius: 24,
@@ -169,13 +177,13 @@ class AddControl extends StatelessWidget {
           child: Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.lime,
+                color: AppColors.green,
                 shape: BoxShape.circle,
               ),
               child: SizedBox(
-                width: 36,
-                height: 36,
-                child: Icon(Icons.add, size: 22, color: AppColors.ink),
+                width: circleSize,
+                height: circleSize,
+                child: Icon(Icons.add, size: 22, color: AppColors.onDark),
               ),
             ),
           ),
@@ -185,7 +193,8 @@ class AddControl extends StatelessWidget {
   }
 }
 
-/// Disabled grey "Sold out" label shown in place of the add control.
+/// Grey "Sold out" text shown in place of the add control (44px high, so
+/// rows keep their height).
 class SoldOutLabel extends StatelessWidget {
   const SoldOutLabel({super.key});
 
@@ -195,18 +204,11 @@ class SoldOutLabel extends StatelessWidget {
       height: AppDims.touch,
       child: Center(
         widthFactor: 1,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: const BoxDecoration(
-            color: AppColors.disabledFill,
-            borderRadius: BorderRadius.all(Radius.circular(18)),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Text(
             'Sold out',
-            style: AppText.caption.copyWith(
-              color: AppColors.disabledText,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
       ),

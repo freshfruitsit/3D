@@ -346,17 +346,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
         : AssistantBrain.defaultSuggestions;
 
     return Scaffold(
-      backgroundColor: AppColors.page,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         child: Column(
           children: [
             _Header(onNewChat: busy ? null : _newChat),
-            const Divider(height: 1, thickness: 1, color: AppColors.border),
+            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
             if (_openingCheckout)
               const LinearProgressIndicator(
                 minHeight: 2,
-                color: AppColors.olive,
-                backgroundColor: AppColors.border,
+                color: AppColors.ink,
+                backgroundColor: AppColors.hairline,
               ),
             Expanded(
               child: AbsorbPointer(
@@ -466,7 +466,7 @@ class _Header extends StatelessWidget {
           const ExcludeSemantics(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.lime,
+                color: AppColors.subtle,
                 shape: BoxShape.circle,
               ),
               child: SizedBox(
@@ -510,7 +510,7 @@ class _Header extends StatelessWidget {
           const SizedBox(width: 4),
           IconButton(
             tooltip: 'New chat',
-            color: AppColors.olive,
+            color: AppColors.ink,
             icon: const Icon(Icons.add_comment_outlined, size: 22),
             onPressed: onNewChat,
           ),
@@ -541,7 +541,7 @@ class _UserBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: const BoxDecoration(
-                color: AppColors.lime,
+                color: AppColors.ink,
                 borderRadius: _bubbleRadius,
               ),
               child: Text(
@@ -549,7 +549,7 @@ class _UserBubble extends StatelessWidget {
                 style: AppText.body.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.ink,
+                  color: AppColors.onDark,
                 ),
               ),
             ),
@@ -579,7 +579,7 @@ class _AssistantBubble extends StatelessWidget {
           decoration: const BoxDecoration(
             color: AppColors.surface,
             borderRadius: _bubbleRadius,
-            border: Border.fromBorderSide(BorderSide(color: AppColors.border)),
+            border: Border.fromBorderSide(BorderSide(color: AppColors.hairline)),
           ),
           child: child,
         ),
@@ -824,7 +824,7 @@ class _OptionTile extends StatelessWidget {
     final enabled = onTap != null;
     final style = AppText.tileLabel.copyWith(
       letterSpacing: 0,
-      color: enabled ? AppColors.tileLabel : AppColors.disabledText,
+      color: enabled ? AppColors.ink : AppColors.disabledText,
     );
     final fontSize = fittingFontSize(
       option.label,
@@ -839,11 +839,11 @@ class _OptionTile extends StatelessWidget {
       onTap: onTap,
       excludeSemantics: true,
       child: Material(
-        color: enabled ? AppColors.tile : AppColors.disabledFill,
+        color: enabled ? AppColors.subtle : AppColors.disabledFill,
         shape: const RoundedRectangleBorder(
           borderRadius: AppDims.cardBorderRadius,
           // Subtle inner edge, as on the category tiles.
-          side: BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.hairline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -863,7 +863,7 @@ class _OptionTile extends StatelessWidget {
                   Icon(
                     iconFor(option.kind),
                     size: 26,
-                    color: enabled ? AppColors.olive : AppColors.disabledText,
+                    color: enabled ? AppColors.ink : AppColors.disabledText,
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -898,7 +898,7 @@ class _ProductRow extends StatelessWidget {
       color: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: AppDims.cardBorderRadius,
-        side: BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.hairline),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -984,12 +984,12 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onTap != null;
     final (Color fill, Color edge, Color ink) = !enabled
-        ? (AppColors.disabledFill, AppColors.border, AppColors.disabledText)
+        ? (AppColors.disabledFill, AppColors.hairline, AppColors.disabledText)
         : switch (look) {
             _ActionLook.outlined =>
-              (AppColors.surface, AppColors.olive, AppColors.olive),
+              (AppColors.surface, AppColors.ink, AppColors.ink),
             _ActionLook.filled =>
-              (AppColors.lime, AppColors.lime, AppColors.ink),
+              (AppColors.green, AppColors.green, AppColors.onDark),
             _ActionLook.danger =>
               (AppColors.surface, AppColors.ink, AppColors.ink),
           };
@@ -1164,7 +1164,7 @@ class _SuggestionRowState extends State<_SuggestionRow> {
             child: Material(
               color: AppColors.surface,
               shape: const StadiumBorder(
-                side: BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.hairline),
               ),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -1274,7 +1274,7 @@ class _InputBar extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.hairline)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -1284,8 +1284,8 @@ class _InputBar extends StatelessWidget {
               label: 'Show options',
               icon: Icons.apps,
               size: AppDims.touch,
-              fill: AppColors.tile,
-              iconColor: AppColors.olive,
+              fill: AppColors.subtle,
+              iconColor: AppColors.ink,
               onTap: enabled ? onOptions : null,
             ),
             const SizedBox(width: 8),
@@ -1305,7 +1305,7 @@ class _InputBar extends StatelessWidget {
                 decoration: const InputDecoration(
                   hintText: AssistantScreen.inputHint,
                   hintMaxLines: 2,
-                  fillColor: AppColors.page,
+                  fillColor: AppColors.canvas,
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 18,
@@ -1322,8 +1322,8 @@ class _InputBar extends StatelessWidget {
               label: 'Send',
               icon: Icons.arrow_upward,
               size: 46,
-              fill: AppColors.lime,
-              iconColor: AppColors.ink,
+              fill: AppColors.ink,
+              iconColor: AppColors.onDark,
               onTap: enabled ? () => onSend(controller.text) : null,
             ),
           ],

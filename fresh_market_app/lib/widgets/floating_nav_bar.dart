@@ -17,8 +17,9 @@ enum AppTab {
   final IconData activeIcon;
 }
 
-/// The floating white bottom bar. The shell places it; screens never build
-/// it themselves.
+/// The floating bottom bar: an ink pill with a soft shadow. Inactive tabs
+/// are grey; the active tab is white with a small green dot under its
+/// icon. The shell places it; screens never build it themselves.
 class FloatingNavBar extends StatelessWidget {
   const FloatingNavBar({
     super.key,
@@ -38,15 +39,21 @@ class FloatingNavBar extends StatelessWidget {
   static const double sideInset = 14;
   static const double bottomInset = 12;
 
+  /// The bar's fill.
+  static const Color background = AppColors.ink;
+
+  /// Size of the green dot under the active icon.
+  static const double dotSize = 4;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       height: height,
       margin: const EdgeInsets.symmetric(horizontal: sideInset),
       decoration: const ShapeDecoration(
-        color: AppColors.surface,
-        shape: StadiumBorder(side: BorderSide(color: AppColors.border)),
-        shadows: AppDecor.floatShadow,
+        color: background,
+        shape: StadiumBorder(),
+        shadows: AppShadows.float,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -91,6 +98,7 @@ class _NavItem extends StatelessWidget {
     final label = badge > 0
         ? '${tab.label}, $badge ${badge == 1 ? 'item' : 'items'}'
         : tab.label;
+    final color = active ? AppColors.onDark : AppColors.navInactive;
     return Semantics(
       button: true,
       selected: active,
@@ -98,36 +106,43 @@ class _NavItem extends StatelessWidget {
       excludeSemantics: true,
       child: InkResponse(
         onTap: onTap,
-        radius: 36,
+        radius: 32,
+        highlightColor: Colors.transparent,
+        splashColor: const Color(0x1FFFFFFF),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               clipBehavior: Clip.none,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  width: 52,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    // Lime when active; fades from transparent lime.
-                    color: active ? AppColors.lime : const Color(0x00B8D432),
-                    borderRadius: const BorderRadius.all(Radius.circular(15)),
-                  ),
-                  child: Icon(
-                    active ? tab.activeIcon : tab.icon,
-                    size: 21,
-                    color: active ? AppColors.ink : AppColors.secondary,
-                  ),
+                Icon(
+                  active ? tab.activeIcon : tab.icon,
+                  size: 23,
+                  color: color,
                 ),
                 if (badge > 0)
                   Positioned(
-                    top: -5,
-                    right: 2,
-                    child: _Badge(count: badge),
+                    top: -6,
+                    left: 14,
+                    child: CountBadge(
+                      count: badge,
+                      borderColor: FloatingNavBar.background,
+                    ),
                   ),
               ],
+            ),
+            const SizedBox(height: 3),
+            // The active-tab indicator: a small green dot under the icon.
+            AnimatedContainer(
+              key: active ? const ValueKey('nav-active-dot') : null,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              width: FloatingNavBar.dotSize,
+              height: FloatingNavBar.dotSize,
+              decoration: BoxDecoration(
+                color: active ? AppColors.green : const Color(0x000E7C3A),
+                shape: BoxShape.circle,
+              ),
             ),
             const SizedBox(height: 3),
             // Shrinks to the tab width when the system font is enlarged,
@@ -140,12 +155,9 @@ class _NavItem extends StatelessWidget {
                 softWrap: false,
                 textScaler: MediaQuery.textScalerOf(context)
                     .clamp(maxScaleFactor: 1.2),
-                style: TextStyle(
-                  fontFamily: AppText.family,
-                  fontSize: 11,
-                  height: 1.2,
+                style: AppText.navLabel.copyWith(
+                  color: color,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? AppColors.ink : AppColors.secondary,
                 ),
               ),
             ),
@@ -156,42 +168,39 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// Lime count badge with ink text (cart). Shows "99+" above 99.
+/// Green count badge with white text (cart). Shows "99+" above 99.
+/// [borderColor] is the ring that separates it from what it sits on: the
+/// bar's ink in the bottom bar, white on light surfaces.
 class CountBadge extends StatelessWidget {
-  const CountBadge({super.key, required this.count});
+  const CountBadge({
+    super.key,
+    required this.count,
+    this.borderColor = AppColors.surface,
+  });
 
   final int count;
-
-  @override
-  Widget build(BuildContext context) => _Badge(count: count);
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.count});
-
-  final int count;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: const ShapeDecoration(
-        color: AppColors.lime,
+      decoration: ShapeDecoration(
+        color: AppColors.green,
         shape: StadiumBorder(
-          side: BorderSide(color: AppColors.surface, width: 1.5),
+          side: BorderSide(color: borderColor, width: 1.5),
         ),
       ),
       alignment: Alignment.center,
       child: Text(
         count > 99 ? '99+' : '$count',
         textScaler: TextScaler.noScaling,
-        style: const TextStyle(
-          fontFamily: AppText.family,
+        style: AppText.tag.copyWith(
           fontSize: 10,
           height: 1.1,
           fontWeight: FontWeight.w800,
-          color: AppColors.ink,
+          color: AppColors.onDark,
         ),
       ),
     );

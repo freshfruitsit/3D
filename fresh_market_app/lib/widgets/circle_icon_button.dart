@@ -3,9 +3,9 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/app_theme.dart';
 import 'floating_nav_bar.dart';
 
-/// A 44px white round button with a border: back arrows, the favourite
-/// heart and the cart button on product detail. [badgeCount] above 0 adds
-/// the lime count badge.
+/// A 44px round white button with a hairline and a soft shadow: back
+/// arrows, the favourite heart and the cart button on product detail.
+/// [badgeCount] above 0 adds the green count badge.
 class CircleIconButton extends StatelessWidget {
   const CircleIconButton({
     super.key,
@@ -31,18 +31,26 @@ class CircleIconButton extends StatelessWidget {
   final Color iconColor;
   final int badgeCount;
 
+  static const double size = AppDims.touch;
+
   @override
   Widget build(BuildContext context) {
-    final button = Material(
-      color: AppColors.surface,
-      shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: SizedBox(
-          width: AppDims.touch,
-          height: AppDims.touch,
-          child: Icon(icon, size: 22, color: iconColor),
+    final button = DecoratedBox(
+      decoration: const ShapeDecoration(
+        shape: CircleBorder(),
+        shadows: AppShadows.raised,
+      ),
+      child: Material(
+        color: AppColors.surface,
+        shape: const CircleBorder(side: BorderSide(color: AppColors.hairline)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, size: 22, color: iconColor),
+          ),
         ),
       ),
     );

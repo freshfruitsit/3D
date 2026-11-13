@@ -4,15 +4,18 @@ import 'package:provider/provider.dart';
 import '../app_nav.dart';
 import '../delivery/delivery_store.dart';
 import '../models/product.dart';
+import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
 import 'add_control.dart';
 import 'delivery_widgets.dart';
 import 'price_widgets.dart';
 import 'product_image.dart';
 
-/// The product card of rails and grids: photo, sale pill, name, size line,
-/// price, the delivery line (once a delivery area is set) and the add
-/// control. Tapping it opens product detail.
+/// The product card of rails and grids: a white card (radius 14, hairline)
+/// with the photo in an off-white well, the discount badge and the
+/// favourite heart on the well, the name, size line, price, the one-line
+/// delivery promise (once a delivery area is set) and the add control at
+/// the bottom right. Tapping it opens product detail.
 ///
 /// Rails: wrap in `SizedBox(width: ProductCard.railWidth)` inside a
 /// horizontal list of height `ProductCard.heightOf(context)`.
@@ -26,41 +29,45 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// Card width in horizontal rails: two cards and a peek on a phone.
-  static const double railWidth = 156;
+  static const double railWidth = 152;
 
   /// Gap between cards in rails and grids.
   static const double gap = 12;
 
-  static const double _photoHeight = 132;
+  /// Inner padding of the card around the well and the text.
+  static const double padding = 8;
+
+  /// Height of the image well.
+  static const double wellHeight = 128;
 
   /// The fixed height of a card at the current text size. Call it from a
   /// build method: once a delivery area is set the cards grow to make room
   /// for the delivery line, and the caller is rebuilt.
   static double heightOf(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
-    final name = scaler.scale(AppText.productName.fontSize!) *
-        AppText.productName.height! *
-        2;
-    final size =
-        scaler.scale(AppText.caption.fontSize!) * AppText.caption.height!;
-    final price =
-        scaler.scale(AppText.price.fontSize!) * AppText.price.height!;
-    // Room for the delivery line (two lines at most), shown once an area
-    // is set.
+    double line(TextStyle style, [int lines = 1]) =>
+        scaler.scale(style.fontSize!) * style.height! * lines;
     final hasArea =
         context.select<DeliveryStore?, bool>((s) => s?.hasArea ?? false);
     final delivery = hasArea
-        ? 3 +
+        ? DeliveryPromiseLine.topGap +
             scaler.scale(DeliveryPromiseLine.fontSize) *
-                DeliveryPromiseLine.lineHeight *
-                DeliveryPromiseLine.maxLines
+                DeliveryPromiseLine.lineHeight
         : 0.0;
-    // border 2 + photo + top pad 8 + gaps 2 + 4 + control 44 + bottom 6.
-    return (2 + _photoHeight + 8 + 2 + 4 + AppDims.touch + 6) +
-        name +
-        size +
-        price +
+    // Border 2, padding 8 + well + gap 8, name, gap 2, size, gap 4,
+    // price, delivery, control 44, bottom 4, +1 for rounding.
+    return 2 +
+        padding +
+        wellHeight +
+        8 +
+        line(AppText.productName, 2) +
+        2 +
+        line(AppText.caption) +
+        4 +
+        line(AppText.price) +
         delivery +
+        AppDims.touch +
+        4 +
         1;
   }
 
@@ -79,47 +86,61 @@ class ProductCard extends StatelessWidget {
     final sizeLine = product.sizeLine(variant);
     final percent = variant?.salePercent;
 
-    return Material(
-      color: AppColors.surface,
-      shape: const RoundedRectangleBorder(
+    return DecoratedBox(
+      decoration: const BoxDecoration(
         borderRadius: AppDims.cardBorderRadius,
-        side: BorderSide(color: AppColors.border),
+        boxShadow: AppShadows.card,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap ?? () => AppNav.openProduct(context, product),
-        child: Padding(
-          padding: const EdgeInsets.all(1),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: _photoHeight,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Opacity(
-                        opacity: product.available ? 1 : 0.5,
-                        child: ProductImage(
-                          url: product.imageUrl,
-                          logicalWidth: 170,
+      child: Material(
+        color: AppColors.surface,
+        shape: AppDecor.cardShape,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap ?? () => AppNav.openProduct(context, product),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              padding + 1,
+              padding + 1,
+              padding + 1,
+              5,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: wellHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      DecoratedBox(
+                        decoration: AppDecor.well,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Opacity(
+                            opacity: product.available ? 1 : 0.5,
+                            child: ProductImage(
+                              url: product.imageUrl,
+                              logicalWidth: 160,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    if (percent != null)
+                      if (percent != null)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: SalePill(percent: percent),
+                        ),
                       Positioned(
-                        top: 8,
-                        left: 8,
-                        child: SalePill(percent: percent),
+                        top: 0,
+                        right: 0,
+                        child: FavouriteHeart(product: product),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+                const SizedBox(height: 8),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -148,15 +169,67 @@ class ProductCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-                child: Align(
+                Align(
                   alignment: Alignment.centerRight,
                   child: AddControl(product: product, variant: variant),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The favourite heart on a product photo: an outline ink heart in a 32px
+/// white circle (filled ink heart when saved), in a 44px touch target.
+/// Wired to the [FavouritesStore]; draws nothing when there is none.
+class FavouriteHeart extends StatelessWidget {
+  const FavouriteHeart({super.key, required this.product});
+
+  final Product product;
+
+  /// Diameter of the white circle.
+  static const double circleSize = 32;
+
+  @override
+  Widget build(BuildContext context) {
+    final saved = context.select<FavouritesStore?, bool?>(
+      (s) => s?.contains(product.id),
+    );
+    if (saved == null) return const SizedBox.shrink();
+    return Semantics(
+      button: true,
+      toggled: saved,
+      label: saved
+          ? 'Remove ${product.title} from favourites'
+          : 'Add ${product.title} to favourites',
+      excludeSemantics: true,
+      child: InkResponse(
+        key: ValueKey('favourite-${product.id}'),
+        onTap: () => context.read<FavouritesStore>().toggle(product),
+        radius: 22,
+        child: SizedBox(
+          width: AppDims.touch,
+          height: AppDims.touch,
+          child: Center(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+                boxShadow: AppShadows.card,
               ),
-            ],
+              child: SizedBox(
+                width: circleSize,
+                height: circleSize,
+                child: Icon(
+                  saved ? Icons.favorite : Icons.favorite_border,
+                  size: 18,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
           ),
         ),
       ),

@@ -4,8 +4,9 @@ import '../app_nav.dart';
 import '../data/catalog.dart';
 import '../theme/app_theme.dart';
 
-/// The "Offers" row: portrait banners that scroll sideways. A tap opens
-/// the banner's collection. Includes the page gutter.
+/// The "Offers" row: portrait photo banners (radius 14, no border) that
+/// scroll sideways. A tap opens the banner's collection. Includes the page
+/// gutter.
 class PromoRow extends StatelessWidget {
   const PromoRow({super.key, this.onSelected});
 
@@ -36,10 +37,9 @@ class PromoRow extends StatelessWidget {
               width: bannerWidth,
               child: Material(
                 key: ValueKey('promo-$index'),
-                color: AppColors.tile,
+                color: AppColors.subtle,
                 shape: const RoundedRectangleBorder(
                   borderRadius: AppDims.cardBorderRadius,
-                  side: BorderSide(color: AppColors.border),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Ink.image(

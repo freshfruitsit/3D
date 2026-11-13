@@ -300,7 +300,7 @@ class _PopularChip extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: AppColors.surface,
-        shape: const StadiumBorder(side: BorderSide(color: AppColors.border)),
+        shape: const StadiumBorder(side: BorderSide(color: AppColors.hairline)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -341,7 +341,7 @@ class _ResultRow extends StatelessWidget {
       color: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: AppDims.cardBorderRadius,
-        side: BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.hairline),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

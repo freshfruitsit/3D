@@ -2,8 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 
-/// The white search input (Search screen). Shows a clear (x) button while
-/// it has text; clearing also calls [onChanged] with an empty string.
+/// The search input (Search screen, location picker): off-white fill, no
+/// border, radius 12, 48px high. Shows a clear (x) button while it has
+/// text; clearing also calls [onChanged] with an empty string.
 class AppSearchField extends StatefulWidget {
   const AppSearchField({
     super.key,
@@ -63,12 +64,21 @@ class _AppSearchFieldState extends State<AppSearchField> {
       autocorrect: false,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
-      style: AppText.body.copyWith(color: AppColors.ink, fontSize: 15),
-      cursorColor: AppColors.olive,
+      style: AppText.body,
+      cursorColor: AppColors.ink,
       decoration: InputDecoration(
         hintText: widget.hintText,
-        contentPadding: const EdgeInsets.symmetric(vertical: 13),
+        hintStyle: AppText.body.copyWith(color: AppColors.secondary),
+        filled: true,
+        fillColor: AppColors.subtle,
+        isDense: true,
+        constraints: const BoxConstraints(minHeight: AppDims.fieldHeight),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        border: _border,
+        enabledBorder: _border,
+        focusedBorder: _focusedBorder,
         prefixIcon: const Icon(Icons.search, color: AppColors.ink, size: 22),
+        prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 44),
         suffixIcon: hasText
             ? IconButton(
                 tooltip: 'Clear search',
@@ -84,6 +94,16 @@ class _AppSearchFieldState extends State<AppSearchField> {
     );
   }
 }
+
+const OutlineInputBorder _border = OutlineInputBorder(
+  borderRadius: AppDims.controlBorderRadius,
+  borderSide: BorderSide.none,
+);
+
+const OutlineInputBorder _focusedBorder = OutlineInputBorder(
+  borderRadius: AppDims.controlBorderRadius,
+  borderSide: BorderSide(color: AppColors.ink, width: 1.5),
+);
 
 /// Looks like the search input but is a button: Home and Categories use it
 /// to open the Search screen.
@@ -104,16 +124,15 @@ class SearchFieldButton extends StatelessWidget {
       label: 'Search',
       excludeSemantics: true,
       child: Material(
-        color: AppColors.surface,
+        color: AppColors.subtle,
         shape: const RoundedRectangleBorder(
           borderRadius: AppDims.controlBorderRadius,
-          side: BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
+            constraints: const BoxConstraints(minHeight: AppDims.fieldHeight),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
@@ -125,8 +144,7 @@ class SearchFieldButton extends StatelessWidget {
                       hintText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.body
-                          .copyWith(color: AppColors.secondary, fontSize: 15),
+                      style: AppText.body.copyWith(color: AppColors.secondary),
                     ),
                   ),
                 ],

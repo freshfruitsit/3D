@@ -245,7 +245,7 @@ class _AppShellState extends State<AppShell> {
           if (!didPop) _onBack();
         },
         child: ColoredBox(
-          color: AppColors.page,
+          color: AppColors.canvas,
           child: Stack(
             children: [
               Positioned.fill(
@@ -286,11 +286,11 @@ class _AppShellState extends State<AppShell> {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          // AppColors.page, from clear to solid.
+                          // AppColors.canvas, from clear to solid.
                           colors: [
-                            Color(0x00EFF5DA),
-                            Color(0xE6EFF5DA),
-                            AppColors.page,
+                            Color(0x00FFFFFF),
+                            Color(0xE6FFFFFF),
+                            AppColors.canvas,
                           ],
                           stops: [0, 0.55, 1],
                         ),

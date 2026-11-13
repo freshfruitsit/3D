@@ -3,31 +3,64 @@ import 'package:material_ui/material_ui.dart';
 import '../models/money.dart';
 import '../theme/app_theme.dart';
 
-/// Ink sale pill with lime text: "-46%".
+/// The discount badge: saving-orange tag with white text, "−46%".
 class SalePill extends StatelessWidget {
   const SalePill({super.key, required this.percent});
 
   final int percent;
+
+  /// The text shown: a real minus sign (U+2212), the percent and "%".
+  static String labelFor(int percent) => '−$percent%';
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: const BoxDecoration(
-        color: AppColors.ink,
+        color: AppColors.saving,
         borderRadius: BorderRadius.all(Radius.circular(6)),
       ),
       child: Text(
-        '-$percent%',
+        labelFor(percent),
         semanticsLabel: '$percent percent off',
-        style: const TextStyle(
-          fontFamily: AppText.family,
+        textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+        style: AppText.tag.copyWith(
           fontSize: 12,
-          height: 1.2,
-          fontWeight: FontWeight.w700,
-          color: AppColors.lime,
+          color: AppColors.onDark,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
+    );
+  }
+}
+
+/// An amount with the Dirham sign that screen readers hear as "AED 12.50".
+/// Use it for any price outside [PriceRow] (line totals, summaries).
+class MoneyText extends StatelessWidget {
+  const MoneyText(
+    this.cents, {
+    super.key,
+    this.style = AppText.price,
+    this.textAlign,
+    this.prefix = '',
+  });
+
+  /// Minor units (fils).
+  final int cents;
+  final TextStyle style;
+  final TextAlign? textAlign;
+
+  /// Shown and spoken before the amount, e.g. "Subtotal ".
+  final String prefix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '$prefix${formatMoney(cents)}',
+      semanticsLabel: '$prefix${moneySemantics(cents)}',
+      maxLines: 1,
+      textAlign: textAlign,
+      style: style,
     );
   }
 }
@@ -35,9 +68,11 @@ class SalePill extends StatelessWidget {
 /// A price with the struck-through old price beside it, on one line.
 ///
 /// Pass [oldPriceCents] only when the item is on sale (`variant.oldPriceCents`
-/// and `line.oldLineTotalCents` already follow that rule). Use `large: true`
-/// for the 24/800 price on product detail; add a trailing [SalePill] there
-/// through [trailing].
+/// and `line.oldLineTotalCents` already follow that rule); the price is then
+/// drawn in saving orange. Use `large: true` for the 24/800 price on product
+/// detail; add a trailing [SalePill] there through [trailing].
+///
+/// Screen readers hear "AED 12.50, was AED 23.00".
 class PriceRow extends StatelessWidget {
   const PriceRow({
     super.key,
@@ -66,21 +101,20 @@ class PriceRow extends StatelessWidget {
         children: [
           Text(
             formatMoney(priceCents),
+            semanticsLabel: moneySemantics(priceCents),
             maxLines: 1,
-            // A sale price is olive, the logo's green dark enough for
-            // text on white.
-            style: (large ? AppText.title : AppText.price)
-                .copyWith(color: showOld ? AppColors.olive : null),
+            style: (large ? AppText.priceLarge : AppText.price)
+                .copyWith(color: showOld ? AppColors.saving : null),
           ),
           if (showOld) ...[
             SizedBox(width: large ? 8 : 6),
             Text(
               // The currency is already on the price next to it.
-              formatMoney(old).replaceFirst('Dhs. ', ''),
-              semanticsLabel: 'was ${formatMoney(old)}',
+              formatAmount(old),
+              semanticsLabel: 'was ${moneySemantics(old)}',
               maxLines: 1,
               style: large
-                  ? AppText.oldPrice.copyWith(fontSize: 14)
+                  ? AppText.oldPrice.copyWith(fontSize: 15)
                   : AppText.oldPrice,
             ),
           ],

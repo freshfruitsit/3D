@@ -286,7 +286,7 @@ class _ProgressLine extends StatelessWidget {
           value: value,
           minHeight: 3,
           backgroundColor: const Color(0x59FFFFFF),
-          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lime),
+          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.onDark),
         ),
       ),
     );

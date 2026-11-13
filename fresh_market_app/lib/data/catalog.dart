@@ -2,7 +2,8 @@
 class CategoryEntry {
   const CategoryEntry(this.label, this.asset, this.handle);
 
-  /// Shown uppercase on the tile; used as the list title as written here.
+  /// Shown under the tile as written here (sentence case); also the list
+  /// title.
   final String label;
 
   /// Bundled transparent cut-out photo.
@@ -38,7 +39,7 @@ class HomeBanner {
 class BrandEntry {
   const BrandEntry(this.name, this.asset, this.searchTerm);
 
-  /// Shown uppercase on the tile.
+  /// Shown under the tile as written here.
   final String name;
   final String asset;
   final String searchTerm;
@@ -58,9 +59,12 @@ class PromoEntry {
 }
 
 abstract final class Catalog {
+  /// The black FRESH MARKET wordmark centred on a white square (intro,
+  /// anything square).
   static const String logoAsset = 'assets/images/logo.png';
 
-  /// The logo for the Home header (the same square logo, smaller file).
+  /// The black wordmark on a transparent background, 495x190 (the Home
+  /// header, at 28-30px high).
   static const String logoWideAsset = 'assets/images/logo_wide.png';
   static const String localAsset = 'assets/images/local.jpg';
 

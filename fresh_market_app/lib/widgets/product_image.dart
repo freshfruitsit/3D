@@ -68,7 +68,7 @@ class _ImageFallback extends StatelessWidget {
     return const Center(
       child: Icon(
         Icons.image_not_supported_outlined,
-        color: AppColors.border,
+        color: AppColors.tertiary,
         size: 28,
       ),
     );

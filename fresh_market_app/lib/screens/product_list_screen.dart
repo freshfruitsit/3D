@@ -416,7 +416,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          color: AppColors.olive,
+          color: AppColors.ink,
           backgroundColor: AppColors.surface,
           onRefresh: _refresh,
           child: scrollView,
@@ -534,7 +534,7 @@ class _SortChip extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: AppColors.surface,
-        shape: const StadiumBorder(side: BorderSide(color: AppColors.border)),
+        shape: const StadiumBorder(side: BorderSide(color: AppColors.hairline)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,

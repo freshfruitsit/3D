@@ -293,7 +293,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       // Indeterminate until the page reports progress.
                       value: progress > 0 ? progress : null,
                       minHeight: 3,
-                      backgroundColor: AppColors.tile,
+                      backgroundColor: AppColors.subtle,
                     )
                   : null,
             ),
@@ -386,10 +386,10 @@ class _CheckoutMessage extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: const BoxDecoration(
-                color: AppColors.tile,
+                color: AppColors.subtle,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 32, color: AppColors.tileLabel),
+              child: Icon(icon, size: 32, color: AppColors.ink),
             ),
             const SizedBox(height: 16),
             Text(title, textAlign: TextAlign.center, style: AppText.heading),

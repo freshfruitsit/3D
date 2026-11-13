@@ -245,7 +245,7 @@ class _PhotoPanelState extends State<_PhotoPanel> {
         decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.all(Radius.circular(16)),
-          border: Border.fromBorderSide(BorderSide(color: AppColors.border)),
+          border: Border.fromBorderSide(BorderSide(color: AppColors.hairline)),
         ),
         child: Stack(
           children: [
@@ -277,7 +277,7 @@ class _PhotoPanelState extends State<_PhotoPanel> {
                           decoration: BoxDecoration(
                             // Ink when current, as on the Home banners.
                             color:
-                                i == _page ? AppColors.ink : AppColors.border,
+                                i == _page ? AppColors.ink : AppColors.hairline,
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(3)),
                           ),
@@ -353,7 +353,7 @@ class _VariantButton extends StatelessWidget {
     } else {
       fill = AppColors.surface;
       foreground = AppColors.ink;
-      edge = AppColors.border;
+      edge = AppColors.hairline;
     }
     final name = variant.label ?? 'Standard';
 
@@ -424,12 +424,12 @@ class _FactChip extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.all(Radius.circular(8)),
-        border: Border.fromBorderSide(BorderSide(color: AppColors.border)),
+        border: Border.fromBorderSide(BorderSide(color: AppColors.hairline)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_icon, size: 14, color: AppColors.olive),
+          Icon(_icon, size: 14, color: AppColors.secondary),
           const SizedBox(width: 5),
           Text(
             fact.label,
@@ -471,7 +471,7 @@ class _BuyBar extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.hairline)),
       ),
       child: SafeArea(
         top: false,
@@ -537,12 +537,12 @@ class _AddedBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 12, right: 4),
       decoration: const BoxDecoration(
-        color: AppColors.page,
+        color: AppColors.canvas,
         borderRadius: AppDims.controlBorderRadius,
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, size: 20, color: AppColors.olive),
+          const Icon(Icons.check_circle, size: 20, color: AppColors.green),
           const SizedBox(width: 8),
           Expanded(
             child: Semantics(

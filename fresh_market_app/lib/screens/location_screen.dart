@@ -294,7 +294,7 @@ class _LocationScreenState extends State<LocationScreen> {
     final reason = widget.reason;
 
     return Scaffold(
-      backgroundColor: AppColors.page,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -405,7 +405,7 @@ class _LocationScreenState extends State<LocationScreen> {
                           initialZoom: pick == null ? 10 : 13,
                           minZoom: 6,
                           maxZoom: 18,
-                          backgroundColor: AppColors.tile,
+                          backgroundColor: AppColors.subtle,
                           interactionOptions: const InteractionOptions(
                             flags:
                                 InteractiveFlag.all & ~InteractiveFlag.rotate,
@@ -427,8 +427,8 @@ class _LocationScreenState extends State<LocationScreen> {
                                 point: LatLng(hub.lat, hub.lng),
                                 radius: DeliveryConfig.expressKm * 1000,
                                 useRadiusInMeter: true,
-                                color: const Color(0x38B8D432),
-                                borderColor: AppColors.olive,
+                                color: const Color(0x260E7C3A),
+                                borderColor: AppColors.green,
                                 borderStrokeWidth: 2,
                               ),
                             ],
@@ -506,9 +506,9 @@ class _LocationScreenState extends State<LocationScreen> {
               width: 14,
               height: 14,
               decoration: BoxDecoration(
-                color: const Color(0x38B8D432),
+                color: const Color(0x260E7C3A),
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.olive, width: 2),
+                border: Border.all(color: AppColors.green, width: 2),
               ),
             ),
             const SizedBox(width: 6),
@@ -584,7 +584,7 @@ class _Banner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        color: AppColors.tile,
+        color: AppColors.subtle,
         borderRadius: AppDims.controlBorderRadius,
       ),
       child: Row(
@@ -665,7 +665,7 @@ class _GpsButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2.5),
             )
           else
-            const Icon(Icons.my_location, size: 20, color: AppColors.olive),
+            const Icon(Icons.my_location, size: 20, color: AppColors.green),
           const SizedBox(width: 10),
           Flexible(
             child: Text(
@@ -779,7 +779,7 @@ class _Suggestions extends StatelessWidget {
                       height: 1,
                       thickness: 1,
                       indent: 48,
-                      color: AppColors.border,
+                      color: AppColors.hairline,
                     ),
                   _PlaceRow(
                     place: rows[i],
@@ -846,7 +846,7 @@ class _PlaceRow extends StatelessWidget {
                   Icon(
                     place.isStore ? Icons.storefront : Icons.location_on,
                     size: 22,
-                    color: AppColors.olive,
+                    color: AppColors.secondary,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -894,7 +894,7 @@ class _PlaceRow extends StatelessWidget {
   }
 }
 
-/// Small lime "Express" tag with an ink bolt.
+/// Small green-soft "Express" tag with a green bolt.
 class ExpressTag extends StatelessWidget {
   const ExpressTag({super.key});
 
@@ -903,20 +903,20 @@ class ExpressTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 2, 7, 2),
       decoration: const BoxDecoration(
-        color: AppColors.lime,
+        color: AppColors.greenSoft,
         borderRadius: BorderRadius.all(Radius.circular(10)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.bolt, size: 14, color: AppColors.ink),
+          const Icon(Icons.bolt, size: 14, color: AppColors.green),
           const SizedBox(width: 1),
           Text(
             'Express',
             style: AppText.caption.copyWith(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: AppColors.ink,
+              color: AppColors.green,
             ),
           ),
         ],
@@ -934,7 +934,7 @@ class _HubMarker extends StatelessWidget {
     return const DecoratedBox(
       decoration: BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
       child: Center(
-        child: Icon(Icons.storefront, size: 16, color: AppColors.lime),
+        child: Icon(Icons.storefront, size: 16, color: AppColors.onDark),
       ),
     );
   }
@@ -1038,7 +1038,7 @@ class _OptionRow extends StatelessWidget {
     return Container(
       decoration: divider
           ? const BoxDecoration(
-              border: Border(top: BorderSide(color: AppColors.border)),
+              border: Border(top: BorderSide(color: AppColors.hairline)),
             )
           : null,
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1049,13 +1049,13 @@ class _OptionRow extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: available ? AppColors.lime : AppColors.disabledFill,
+              color: available ? AppColors.greenSoft : AppColors.disabledFill,
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
               size: 18,
-              color: available ? AppColors.ink : AppColors.secondary,
+              color: available ? AppColors.green : AppColors.secondary,
             ),
           ),
           const SizedBox(width: 10),
@@ -1113,7 +1113,7 @@ class _ConfirmBar extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.hairline)),
       ),
       child: SafeArea(
         top: false,
