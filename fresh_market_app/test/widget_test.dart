@@ -195,7 +195,7 @@ void main() {
     expect(find.text('\u20C3 62.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
     expect(find.text('\u221246%'), findsOneWidget);
-    expect(find.text('New Zealand · 500 GM'), findsOneWidget);
+    expect(find.text('500 g · New Zealand'), findsOneWidget);
     expect(find.text('Sold out'), findsOneWidget);
     expect(tester.takeException(), isNull);
 

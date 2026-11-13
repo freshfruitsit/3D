@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/data/catalog.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/screens/home_screen.dart';
@@ -57,8 +58,30 @@ void main() {
       expect(find.byKey(ValueKey('banner-dot-$i')), findsOneWidget);
     }
     expect(find.text('Shop By Category'), findsOneWidget);
-    expect(find.byType(CategoryTile), findsNWidgets(12));
+    // Two rows of four on Home; "See all" opens the Categories tab with
+    // every category.
+    expect(find.byType(CategoryTile), findsNWidgets(8));
+    expect(find.text('Melons'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.widgetWithText(SectionHeader, 'Shop By Category'),
+        matching: find.text('See all'),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('"See all" categories opens the Categories tab', (tester) async {
+    final shell = ShellController();
+    await pumpScreen(tester, const HomeScreen(), shell: shell);
+    await tester.pump();
+    await tester.tap(find.descendant(
+      of: find.widgetWithText(SectionHeader, 'Shop By Category'),
+      matching: find.text('See all'),
+    ));
+    await tester.pump();
+    expect(shell.tab, AppTab.categories);
   });
 
   testWidgets('sections come in the specified order, brands and offers between rails',
@@ -209,13 +232,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('brands grid shows the ten brands in four columns',
+  /// The brand rail's own (sideways) scroll view.
+  Finder brandRail() => find
+      .descendant(
+        of: find.byType(BrandRail),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+
+  /// Scrolls Home to the brands, then the brand rail to brand [i].
+  Future<void> showBrand(WidgetTester tester, int i) async {
+    await _centre(tester, find.byType(BrandRail));
+    await tester.scrollUntilVisible(
+      find.byKey(ValueKey('brand-$i')),
+      BrandRail.tileWidth,
+      scrollable: brandRail(),
+    );
+    await tester.pump();
+  }
+
+  testWidgets('brands sit in one sideways row, the next one peeking',
       (tester) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
-    await _centre(tester, find.byKey(const ValueKey('brand-5')));
+    await _centre(tester, find.byType(BrandRail));
 
-    expect(find.byType(BrandTile), findsNWidgets(10));
     const labels = [
       'Chiquita', 'Zespri', 'Sebastiano', 'Jazz', 'Gems', //
       'Fruitway', 'Dazzle', 'Thai Fresh', 'Pink Lady', 'Juliet',
@@ -225,7 +266,24 @@ void main() {
       'brand_4.jpg', 'brand_5.jpg', 'brand_6.jpg', 'brand_7.png',
       'brand_8.png', 'brand_9.jpg',
     ];
+
+    // One row: 80 wide tiles, 12 apart, from the gutter; the fifth peeks
+    // in at the right edge (a scroll cue), and no row is half empty.
+    Rect rect(int i) => tester.getRect(find.byKey(ValueKey('brand-$i')));
+    expect(rect(0).left, 16);
+    expect(rect(0).width, BrandRail.tileWidth);
+    expect(rect(1).left, 16 + BrandRail.tileWidth + BrandRail.gap);
+    expect(rect(3).top, rect(0).top);
+    expect(rect(4).left, lessThan(390));
+    expect(rect(4).right, greaterThan(390));
+
+    // Every brand, its name below and its photo, in order.
     for (var i = 0; i < 10; i++) {
+      await tester.scrollUntilVisible(
+        find.byKey(ValueKey('brand-$i')),
+        BrandRail.tileWidth,
+        scrollable: brandRail(),
+      );
       final tile = find.byKey(ValueKey('brand-$i'));
       expect(find.descendant(of: tile, matching: find.text(labels[i])),
           findsOneWidget);
@@ -235,41 +293,30 @@ void main() {
           'assets/brands/${files[i]}');
       expect(image.fit, BoxFit.cover);
     }
+    expect(tester.takeException(), isNull);
+  });
 
-    // Four equal columns inside the gutter, 12 apart; a new row after four,
-    // TileGrid.rowGap (16) below.
-    Rect rect(int i) => tester.getRect(find.byKey(ValueKey('brand-$i')));
-    const width = (390 - 2 * 16 - 3 * 12) / 4;
-    expect(rect(0).left, 16);
-    expect(rect(0).width, moreOrLessEquals(width));
-    expect(rect(3).right, moreOrLessEquals(390 - 16));
-    expect(rect(3).top, rect(0).top);
-    expect(rect(4).left, 16);
-    expect(rect(4).top, moreOrLessEquals(rect(0).bottom + TileGrid.rowGap));
-    expect(rect(9).left, rect(1).left);
-    expect(rect(9).top, greaterThan(rect(4).top));
+  testWidgets('a brand tile: the photo fills a radius-14 square, the name '
+      'below in 12/600 ink', (tester) async {
+    await pumpScreen(tester, const HomeScreen());
+    await tester.pump();
+    await _centre(tester, find.byType(BrandRail));
 
-    // The photo fills the square (radius 14); the name sits below it.
-    final image = tester.getRect(find.descendant(
-      of: find.byKey(const ValueKey('brand-0')),
-      matching: find.byType(Image),
-    ));
-    expect(image.width, moreOrLessEquals(width));
-    expect(image.height, moreOrLessEquals(width));
-    expect(image.left, moreOrLessEquals(rect(0).left));
-    expect(image.top, moreOrLessEquals(rect(0).top));
-    final clip = tester.widget<ClipRRect>(find.descendant(
-      of: find.byKey(const ValueKey('brand-0')),
-      matching: find.byType(ClipRRect),
-    ));
+    final tile = find.byKey(const ValueKey('brand-0'));
+    final rect = tester.getRect(tile);
+    final image = tester.getRect(
+        find.descendant(of: tile, matching: find.byType(Image)));
+    expect(image.width, moreOrLessEquals(BrandRail.tileWidth));
+    expect(image.height, moreOrLessEquals(BrandRail.tileWidth));
+    expect(image.left, moreOrLessEquals(rect.left));
+    expect(image.top, moreOrLessEquals(rect.top));
+    final clip = tester.widget<ClipRRect>(
+        find.descendant(of: tile, matching: find.byType(ClipRRect)));
     expect(clip.borderRadius, BorderRadius.circular(14));
 
     // Same tile look as the category grid: an off-white square.
     final square = tester.widget<DecoratedBox>(find
-        .descendant(
-          of: find.byKey(const ValueKey('brand-0')),
-          matching: find.byType(DecoratedBox),
-        )
+        .descendant(of: tile, matching: find.byType(DecoratedBox))
         .first);
     expect((square.decoration as BoxDecoration).color, AppColors.subtle);
     final label = tester.widget<Text>(find.text('Chiquita'));
@@ -284,7 +331,7 @@ void main() {
   testWidgets('a brand tile opens Search pre-filled', (tester) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
-    await _centre(tester, find.byKey(const ValueKey('brand-5')));
+    await showBrand(tester, 7);
 
     await tester.tap(find.text('Thai Fresh'));
     await tester.pump();
@@ -297,7 +344,7 @@ void main() {
     final handle = tester.ensureSemantics();
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
-    await _centre(tester, find.byKey(const ValueKey('brand-5')));
+    await showBrand(tester, 9);
     expect(find.bySemanticsLabel('Pink Lady'), findsOneWidget);
     expect(find.bySemanticsLabel('Juliet'), findsOneWidget);
     handle.dispose();
@@ -479,8 +526,11 @@ void main() {
   testWidgets('sections are 28 apart, grids included', (tester) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
-    Rect heading(String title) =>
-        tester.getRect(find.widgetWithText(SectionHeader, title));
+    // The ink tag itself (its row is a 44pt touch target around it).
+    Rect heading(String title) => tester.getRect(find.descendant(
+          of: find.widgetWithText(SectionHeader, title),
+          matching: find.byType(SectionTag),
+        ));
 
     // Banner dots, then "Shop By Category".
     await _centre(tester, find.widgetWithText(SectionHeader, 'Shop By Category'));
@@ -499,7 +549,7 @@ void main() {
         tester, find.widgetWithText(SectionHeader, "Today's Top Deals"));
     expect(
       heading("Today's Top Deals").top -
-          lastRowBottom(['Melons', 'Tropical', 'Greens', 'Herbs']),
+          lastRowBottom(['Flowers', 'Hampers', 'Citrus', 'Mangoes']),
       moreOrLessEquals(AppDims.sectionGap, epsilon: 0.5),
     );
     // A rail of cards, then the next heading.
@@ -509,12 +559,12 @@ void main() {
       heading('Best Deals').top - tester.getRect(topDeals).bottom,
       moreOrLessEquals(AppDims.sectionGap),
     );
-    // The last row of brand names, then "Fresh Pick For You".
+    // The row of brand names, then "Fresh Pick For You".
     await _centre(
         tester, find.widgetWithText(SectionHeader, 'Fresh Pick For You'));
     expect(
       heading('Fresh Pick For You').top -
-          lastRowBottom(['Pink Lady', 'Juliet']),
+          lastRowBottom(['Chiquita', 'Zespri', 'Sebastiano', 'Jazz']),
       moreOrLessEquals(AppDims.sectionGap, epsilon: 0.5),
     );
     // Heading to content: 12.

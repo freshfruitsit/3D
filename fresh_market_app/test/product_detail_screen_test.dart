@@ -31,7 +31,7 @@ void main() {
 
     expect(find.text('Zespri'), findsOneWidget);
     expect(find.text('Zespri Kiwi Sungold'), findsOneWidget);
-    expect(find.text('New Zealand · 500 GM'), findsOneWidget);
+    expect(find.text('500 g · New Zealand'), findsOneWidget);
     expect(find.text('Weight'), findsOneWidget);
     expect(find.text('1Hr Express'), findsOneWidget);
     expect(find.text('By air'), findsOneWidget);
@@ -49,10 +49,10 @@ void main() {
   ) async {
     await pumpScreen(tester, ProductDetailScreen(product: kiwi));
 
-    await tester.tap(find.text('1 KG'));
+    await tester.tap(find.text('1 kg'));
     await tester.pump();
 
-    expect(find.text('New Zealand · 1 KG'), findsOneWidget);
+    expect(find.text('1 kg · New Zealand'), findsOneWidget);
     expect(find.text('Add to cart · \u20C3 39.75'), findsOneWidget);
   });
 
@@ -83,7 +83,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(cart.quantityOf(2001), 2);
-      expect(find.text('2 added to cart'), findsOneWidget);
+      expect(find.text('2 added to cart · 2 in your cart'), findsOneWidget);
       expect(find.text('View cart'), findsOneWidget);
       // Quantity goes back to 1 and the cart button shows the badge.
       expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
@@ -101,7 +101,7 @@ void main() {
 
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
-    expect(find.text('Added to cart'), findsOneWidget);
+    expect(find.text('Added to cart · 1 in your cart'), findsOneWidget);
 
     await tester.tap(find.text('View cart'));
     await tester.pump();
@@ -163,12 +163,12 @@ void main() {
     );
 
     // The in-stock weight is chosen to start with.
-    expect(find.text('South Africa · 1 KG'), findsOneWidget);
+    expect(find.text('1 kg · South Africa'), findsOneWidget);
     expect(find.text('Sold out'), findsOneWidget);
 
-    await tester.tap(find.text('250 GM'));
+    await tester.tap(find.text('250 g'));
     await tester.pump();
-    expect(find.text('South Africa · 1 KG'), findsOneWidget);
+    expect(find.text('1 kg · South Africa'), findsOneWidget);
 
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
@@ -312,18 +312,18 @@ void main() {
     ) async {
       await pumpScreen(tester, ProductDetailScreen(product: kiwi));
 
-      final chosen = chip(tester, '500 GM');
+      final chosen = chip(tester, '500 g');
       final chosenEdge = (chosen.shape! as RoundedRectangleBorder).side;
       expect(chosen.color, AppColors.surface);
       expect(chosenEdge.color, AppColors.ink);
       expect(chosenEdge.width, 2);
 
-      final other = chip(tester, '1 KG');
+      final other = chip(tester, '1 kg');
       final otherEdge = (other.shape! as RoundedRectangleBorder).side;
       expect(other.color, AppColors.surface);
       expect(otherEdge.color, AppColors.hairline);
       expect(otherEdge.width, 1);
-      expect(find.bySemanticsLabel('1 KG, AED 39.75'), findsOneWidget);
+      expect(find.bySemanticsLabel('1 kg, AED 39.75'), findsOneWidget);
     });
 
     testWidgets('the add button is green and reads the price as AED', (
@@ -345,7 +345,7 @@ void main() {
       final notice = tester.widget<Container>(
         find
             .ancestor(
-              of: find.text('Added to cart'),
+              of: find.text('Added to cart · 1 in your cart'),
               matching: find.byType(Container),
             )
             .first,

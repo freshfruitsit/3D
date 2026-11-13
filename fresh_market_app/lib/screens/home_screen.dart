@@ -95,12 +95,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// [afterGrid]: the names of the tile grid the rail follows (see
   /// [_Section.afterGrid]).
-  Widget _rail(HomeRail rail, {List<String>? afterGrid}) => _ProductRail(
+  /// [afterTileRow]: the rail follows the one-row brand rail.
+  Widget _rail(
+    HomeRail rail, {
+    List<String>? afterGrid,
+    bool afterTileRow = false,
+  }) => _ProductRail(
     rail: rail,
     style: _railStyles[rail.handle] ?? _defaultRailStyle,
     data: _rails[rail.handle] ?? const _RailData(loading: true),
     onRetry: () => _loadRail(rail),
     afterGrid: afterGrid,
+    afterTileRow: afterTileRow,
   );
 
   @override
@@ -153,7 +159,11 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.favorite,
               child: BrandRail(),
             ),
-            for (final rail in Catalog.railsAfterBrands) _rail(rail),
+            for (final rail in Catalog.railsAfterBrands)
+              _rail(
+                rail,
+                afterTileRow: rail == Catalog.railsAfterBrands.first,
+              ),
             const _Section(
               title: 'Offers',
               icon: Icons.campaign,
@@ -181,6 +191,7 @@ class _Section extends StatelessWidget {
     required this.child,
     this.onViewAll,
     this.afterGrid,
+    this.afterTileRow = false,
   });
 
   final String title;
@@ -194,7 +205,16 @@ class _Section extends StatelessWidget {
   /// the eye sees stays [AppDims.sectionGap].
   final List<String>? afterGrid;
 
-  static double gapAbove(BuildContext context, {List<String>? afterGrid}) {
+  /// Set when the section follows the one-row brand rail, which keeps
+  /// [SquareTile.slack] under its names.
+  final bool afterTileRow;
+
+  static double gapAbove(
+    BuildContext context, {
+    List<String>? afterGrid,
+    bool afterTileRow = false,
+  }) {
+    if (afterTileRow) return AppDims.sectionGap - SquareTile.slack;
     if (afterGrid == null) return AppDims.sectionGap;
     final gridWidth = MediaQuery.sizeOf(context).width - 2 * AppDims.gutter;
     final free = TileGrid.trailingSpace(context, gridWidth, afterGrid);
@@ -215,7 +235,9 @@ class _Section extends StatelessWidget {
     final inset = touchInset(context);
     return Padding(
       padding: EdgeInsets.only(
-        top: gapAbove(context, afterGrid: afterGrid) - inset,
+        top:
+            gapAbove(context, afterGrid: afterGrid, afterTileRow: afterTileRow) -
+            inset,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -465,6 +487,7 @@ class _ProductRail extends StatelessWidget {
     required this.data,
     required this.onRetry,
     this.afterGrid,
+    this.afterTileRow = false,
   });
 
   final HomeRail rail;
@@ -472,6 +495,7 @@ class _ProductRail extends StatelessWidget {
   final _RailData data;
   final VoidCallback onRetry;
   final List<String>? afterGrid;
+  final bool afterTileRow;
 
   @override
   Widget build(BuildContext context) {
@@ -512,6 +536,7 @@ class _ProductRail extends StatelessWidget {
       title: rail.title,
       icon: style.icon,
       afterGrid: afterGrid,
+      afterTileRow: afterTileRow,
       onViewAll: () => AppNav.openCollection(
         context,
         handle: rail.handle,

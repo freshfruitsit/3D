@@ -71,13 +71,22 @@ class _IntroScreenState extends State<IntroScreen> with WidgetsBindingObserver {
     unawaited(_start());
   }
 
+  /// The system's "remove animations" setting: the poster stays and the
+  /// video does not play by itself (Skip and Start shopping still work).
+  bool get _reduceMotion =>
+      context
+          .getInheritedWidgetOfExactType<MediaQuery>()
+          ?.data
+          .disableAnimations ??
+      false;
+
   Future<void> _start() async {
     try {
       await _player.initialize();
       if (_disposed || _finished) return;
       await _player.setMuted(_muted);
       if (_disposed || _finished) return;
-      if (_inForeground) await _player.play();
+      if (_inForeground && !_reduceMotion) await _player.play();
     } catch (_) {
       // No video on this device: the poster stays and the buttons work.
       if (!_disposed) setState(() => _failed = true);
@@ -119,6 +128,7 @@ class _IntroScreenState extends State<IntroScreen> with WidgetsBindingObserver {
     if (foreground == _inForeground) return;
     _inForeground = foreground;
     if (_finished || _failed || !_player.isReady) return;
+    if (foreground && _reduceMotion) return;
     _run(foreground ? _player.play : _player.pause);
   }
 

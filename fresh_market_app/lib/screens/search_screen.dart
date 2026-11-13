@@ -345,6 +345,7 @@ class _PopularChip extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Search for $label',
+      onTap: onTap,
       excludeSemantics: true,
       child: OutlinedButton.icon(
         style: AppButtons.chip,

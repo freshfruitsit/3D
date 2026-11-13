@@ -38,7 +38,10 @@ Finder _inKey(String key, Finder matching) =>
 Finder _when(String text) => find.byWidgetPredicate(
   (w) =>
       w is Text &&
-      w.data?.replaceAll('\u00A0', ' ').replaceAll('\u2011', '-') == text,
+      (w.data ?? w.textSpan?.toPlainText())
+              ?.replaceAll('\u00A0', ' ')
+              .replaceAll('\u2011', '-') ==
+          text,
   description: 'option time "$text"',
 );
 
@@ -520,7 +523,8 @@ void main() {
 
     Finder market(String text) => _inKey('mode-market', find.text(text));
     Finder express(String text) => _inKey('mode-express', find.text(text));
-    Finder line(String text) => _inKey('delivery-line', find.text(text));
+    // Times keep together with non-breaking spaces on screen.
+    Finder line(String text) => _inKey('delivery-line', _when(text));
 
     /// The stacked delivery line: [lead] bold (ink, or green for Express)
     /// above [detail] in grey.
@@ -995,7 +999,7 @@ void main() {
       await pumpScreen(tester, const CartScreen(), cart: cart, delivery: store);
       expect(card('Set location'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Checkout'));
+      await tester.tap(find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)));
       await tester.pump();
       await tester.pump(_settle);
       expect(find.byType(LocationScreen), findsOneWidget);

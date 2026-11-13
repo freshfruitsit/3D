@@ -36,7 +36,8 @@ void main() {
       expect(line.variantTitle, '500 GM');
       expect(line.lineTotalCents, 3990);
       expect(line.oldLineTotalCents, isNull);
-      expect(line.detailLine, '500 GM · \u20C3 19.95 each');
+      expect(line.detailLine, '500 g · \u20C3 19.95 each');
+      expect(line.size, '500 g');
       expect(line.origin, 'New Zealand');
 
       final sale = cart.lineOf(beef.variants[0].id)!;
@@ -44,6 +45,12 @@ void main() {
       expect(sale.onSale, isTrue);
       expect(sale.oldLineTotalCents, 3 * 11500);
       expect(sale.detailLine, '\u20C3 62.50 each');
+
+      // At one unit the line total is the price: only the size is said.
+      final one = cart.lineOf(kiwi.variants[1].id)!;
+      expect(one.quantity, 1);
+      expect(one.detailLine, '1 kg');
+      expect(one.detailSemantics, '1 kg');
     });
 
     test('decrement to zero removes the line', () {

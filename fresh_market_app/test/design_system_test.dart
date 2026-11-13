@@ -64,7 +64,18 @@ String _lineText(WidgetTester tester) => tester
           .first,
     )
     .textSpan!
-    .toPlainText();
+    .toPlainText()
+    // Times keep together with non-breaking spaces on screen.
+    .replaceAll('\u00A0', ' ');
+
+/// A Text showing [text], read with non-breaking spaces as spaces.
+Finder _textN(String text) => find.byWidgetPredicate(
+  (w) =>
+      w is Text &&
+      (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u00A0', ' ') ==
+          text,
+  description: 'text "$text"',
+);
 
 void main() {
   group('colour tokens', () {
@@ -323,7 +334,7 @@ void main() {
       await tester.tap(
         _inKey(
           'delivery-line',
-          find.text(DeliveryLine.expressLabel('30–40 min')),
+          _textN(DeliveryLine.expressLabel('30–40 min')),
         ),
       );
       await tester.pump();

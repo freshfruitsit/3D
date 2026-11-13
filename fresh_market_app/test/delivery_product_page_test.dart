@@ -14,7 +14,10 @@ void main() {
   Finder inBox(String text) => find.descendant(
     of: find.byKey(const ValueKey('product-delivery')),
     matching: find.byWidgetPredicate(
-      (w) => w is Text && w.data?.replaceAll('\u00A0', ' ') == text,
+      (w) =>
+          w is Text &&
+          (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u00A0', ' ') ==
+              text,
       description: 'text "$text"',
     ),
   );

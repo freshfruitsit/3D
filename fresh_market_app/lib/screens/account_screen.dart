@@ -122,7 +122,7 @@ class AccountScreen extends StatelessWidget {
                       // The area, as in the Home chip.
                       subtitle: area == null
                           ? DeliveryCopy.chipLabel(null)
-                          : DeliveryCopy.chipHint(area),
+                          : area.label,
                     ),
                     const Divider(height: 1, indent: 52),
                     _AccountRow(

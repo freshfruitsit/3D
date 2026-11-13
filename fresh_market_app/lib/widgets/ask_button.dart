@@ -28,6 +28,7 @@ class AskButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Ask the Fresh Market assistant',
+      onTap: () => open(context),
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: const ShapeDecoration(

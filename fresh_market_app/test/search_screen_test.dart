@@ -52,7 +52,7 @@ void main() {
     await settleSearch(tester);
     expect(searches(api), ['search(kiwi)']);
     expect(find.text('Zespri Kiwi Sungold'), findsOneWidget);
-    expect(find.text('New Zealand · 500 GM'), findsOneWidget);
+    expect(find.text('500 g · New Zealand'), findsOneWidget);
     expect(find.text('\u20C3 19.95'), findsOneWidget);
     expect(find.text('1 result'), findsOneWidget);
     expect(find.text('Popular searches'), findsNothing);
@@ -109,7 +109,7 @@ void main() {
     // Blueberry (sold out) and Strawberry (250 GM sold out, 1 KG on sale).
     expect(find.text('2 results'), findsOneWidget);
     expect(find.text('Sold out'), findsOneWidget);
-    expect(find.text('South Africa · 1 KG'), findsOneWidget);
+    expect(find.text('1 kg · South Africa'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Add Strawberry to cart'));
     await tester.pump();

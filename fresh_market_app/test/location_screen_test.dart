@@ -14,6 +14,10 @@ Future<void> _searchAndPick(
 ) async {
   await tester.enterText(find.byType(TextField), term);
   await tester.pump();
+  // Close the keyboard: its selection handle must not catch the drags
+  // below (where it sits depends on how the text above it wraps).
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump();
   final row = find.descendant(
     of: find.byType(LocationScreen),
     matching: find.text(name),

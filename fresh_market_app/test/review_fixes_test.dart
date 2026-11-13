@@ -146,7 +146,7 @@ void main() {
 
       // The product disappears from the store before checkout.
       api.collectionsByHandle.clear();
-      await tester.tap(find.widgetWithText(FilledButton, 'Checkout'));
+      await tester.tap(find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)));
       await tester.pumpAndSettle();
 
       expect(find.byType(CheckoutScreen), findsNothing);

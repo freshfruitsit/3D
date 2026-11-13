@@ -5,6 +5,7 @@ import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/screens/account_screen.dart';
 import 'package:fresh_market_app/screens/cart_screen.dart';
 import 'package:fresh_market_app/screens/checkout_screen.dart';
+import 'package:fresh_market_app/screens/location_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
@@ -62,14 +63,24 @@ void main() {
 
       expect(find.text('3 items'), findsOneWidget);
       expect(find.text(kiwi.title), findsOneWidget);
-      expect(find.text('500 GM · \u20C3 19.95 each'), findsOneWidget);
+      // Size first, normalised; the unit price once there are two.
+      expect(find.text('500 g · \u20C3 19.95 each'), findsOneWidget);
       expect(find.text('\u20C3 39.90'), findsOneWidget); // kiwi line total
       expect(find.text('\u20C3 62.50'), findsOneWidget); // beef line total
       expect(find.text('115.00'), findsOneWidget); // struck old line total
       expect(find.text('Subtotal'), findsOneWidget);
       expect(find.text('\u20C3 102.40'), findsOneWidget);
+      // UAE prices include VAT (the store's own cart says "Duties and
+      // taxes included"): nothing suggests tax is added later.
       expect(
-        find.text('Delivery and taxes are calculated at checkout.'),
+        find.text('Prices include VAT. Any delivery fee is shown at checkout.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('taxes are calculated'), findsNothing);
+      // The Checkout button carries the total.
+      expect(find.text('Checkout · \u20C3 102.40'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Checkout, AED 102.40'),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -123,7 +134,7 @@ void main() {
       await pumpScreen(tester, const CartScreen(), cart: cart);
       expect(tester.takeException(), isNull);
       final button = tester.getRect(
-        find.widgetWithText(FilledButton, 'Checkout'),
+        find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)),
       );
       expect(button.bottom, lessThanOrEqualTo(844 - 88));
     });
@@ -140,7 +151,7 @@ void main() {
         delivery: testDelivery(),
       );
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Checkout'));
+      await tester.tap(find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)));
       await tester.pumpAndSettle();
 
       // No WebView in tests: the browser fallback takes over. The link
@@ -181,9 +192,8 @@ void main() {
   });
 
   group('AccountScreen', () {
-    testWidgets('shows the sign-in card with a disabled button', (
-      tester,
-    ) async {
+    testWidgets('shows the sign-in card with a Coming soon tag, not a '
+        'dead button', (tester) async {
       await pumpScreen(tester, const AccountScreen());
 
       expect(find.text('Account'), findsOneWidget);
@@ -195,11 +205,37 @@ void main() {
         find.text('Sign-in is not available in this version.'),
         findsOneWidget,
       );
-      final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Sign in'),
-      );
-      expect(button.onPressed, isNull);
+      expect(find.text('Coming soon'), findsOneWidget);
+      expect(find.byType(FilledButton), findsNothing);
       expect(find.text('0'), findsOneWidget);
+    });
+
+    testWidgets('Delivery location row shows the area and opens the picker', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const AccountScreen(),
+        delivery: testDelivery(),
+      );
+      final row = find.byKey(const ValueKey('account-location'));
+      expect(
+        find.descendant(of: row, matching: find.text('Delivery location')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('Business Bay, Dubai')),
+        findsOneWidget,
+      );
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(56));
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.byType(LocationScreen), findsOneWidget);
+    });
+
+    testWidgets('without an area the row asks for one', (tester) async {
+      await pumpScreen(tester, const AccountScreen());
+      expect(find.text('Choose your area'), findsOneWidget);
     });
 
     testWidgets('Favourites row shows the count and opens the list', (
@@ -242,15 +278,15 @@ void main() {
       // One hairline between the two lines (none after the last).
       expect(find.byType(Divider), findsOneWidget);
       expect(
-        tester.widget<Text>(find.text('500 GM · \u20C3 19.95 each'))
+        tester.widget<Text>(find.text('500 g · \u20C3 19.95 each'))
             .semanticsLabel,
-        '500 GM, AED 19.95 each',
+        '500 g, AED 19.95 each',
       );
       expect(find.bySemanticsLabel('AED 102.40'), findsOneWidget);
       expect(find.byKey(const ValueKey('cart-delivery')), findsOneWidget);
       expect(
         tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Checkout'),
+          find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)),
         ).style,
         isNull, // the theme's green buying button
       );
@@ -266,15 +302,16 @@ void main() {
       expect(find.byType(FilledButton), findsNothing);
     });
 
-    testWidgets('Sign in is ink, not the green buying button',
+    testWidgets('Account has no green and no dead Sign in button',
         (tester) async {
       await pumpScreen(tester, const AccountScreen());
-      final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Sign in'),
+      expect(find.widgetWithText(FilledButton, 'Sign in'), findsNothing);
+      final tag = tester.widget<Container>(
+        find.byKey(const ValueKey('sign-in-coming-soon')),
       );
       expect(
-        button.style!.backgroundColor!.resolve(const <WidgetState>{}),
-        AppColors.ink,
+        (tag.decoration! as ShapeDecoration).color,
+        AppColors.subtle,
       );
     });
 

@@ -103,6 +103,7 @@ class _NavItem extends StatelessWidget {
       button: true,
       selected: active,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: InkResponse(
         onTap: onTap,

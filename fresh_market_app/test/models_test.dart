@@ -77,12 +77,12 @@ void main() {
       expect(kiwi.isByAir, isTrue);
       expect(kiwi.isLocal, isFalse);
       expect(kiwi.facts, [ProductFact.express, ProductFact.byAir]);
-      expect(kiwi.sizeLine(), 'New Zealand · 500 GM');
-      expect(kiwi.sizeLine(kiwi.variants[1]), 'New Zealand · 1 KG');
+      expect(kiwi.sizeLine(), '500 g · New Zealand');
+      expect(kiwi.sizeLine(kiwi.variants[1]), '1 kg · New Zealand');
 
       final sweetPotato = products[2];
       expect(sweetPotato.origin, isNull);
-      expect(sweetPotato.sizeLine(), '500 GM');
+      expect(sweetPotato.sizeLine(), '500 g');
     });
 
     test('strips HTML from the description', () {
@@ -144,7 +144,9 @@ void main() {
       expect(p.variants.first.onSale, isFalse);
       expect(p.imageUrl, startsWith('https://cdn.shopify.com/'));
       expect(p.origin, 'South Africa');
-      expect(p.sizeLine(), 'South Africa');
+      // No variant title: the one size the description names ("Each 250g
+      // pack"), first.
+      expect(p.sizeLine(), '250 g · South Africa');
       expect(p.optionName, 'Options');
       expect(p.description, contains('Fresh, vibrant strawberries'));
     });

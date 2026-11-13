@@ -14,6 +14,7 @@ import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
 import 'state/favourites_store.dart';
 import 'theme/app_theme.dart';
+import 'widgets/a11y.dart';
 import 'widgets/ask_button.dart';
 import 'widgets/delivery_gate.dart';
 import 'widgets/floating_nav_bar.dart';
@@ -141,6 +142,9 @@ class FreshMarketApp extends StatelessWidget {
         title: 'Fresh Market',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
+        // A visible focus ring for keyboard, D-pad and Switch Access users.
+        builder: (context, child) =>
+            FocusRingLayer(child: child ?? const SizedBox.shrink()),
         // Every launch shows the intro video, then the shell. Until a
         // delivery area is saved, the location picker comes first.
         home: IntroGate(
@@ -177,6 +181,59 @@ class _AppShellState extends State<AppShell> {
   int _seenReselects = 0;
 
   @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_onFocusChanged);
+  }
+
+  /// How much of the screen's bottom the bar, its scrim and (when shown)
+  /// the Ask button cover, above the device's bottom inset.
+  static double coveredHeight({required bool askShown}) =>
+      FloatingNavBar.bottomInset +
+      FloatingNavBar.height +
+      (askShown ? AskButton.gapAboveNavBar + AskButton.height : 32);
+
+  /// Keyboard and D-pad focus never rests under the floating bar or the
+  /// Ask button: a control focused there is scrolled to the middle of the
+  /// screen (WCAG 2.4.11).
+  void _onFocusChanged() {
+    if (FocusManager.instance.highlightMode !=
+        FocusHighlightMode.traditional) {
+      return;
+    }
+    final node = FocusManager.instance.primaryFocus;
+    final focused = node?.context;
+    if (node == null || focused == null || node is FocusScopeNode) return;
+    // Only the tabs' own pages scroll under the bar.
+    final navigator = focused.findAncestorStateOfType<NavigatorState>();
+    if (navigator == null ||
+        !_navigators.values.any((key) => key.currentState == navigator)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _keepClear(node));
+  }
+
+  void _keepClear(FocusNode node) {
+    final focused = node.context;
+    if (!mounted || focused == null || !node.hasPrimaryFocus) return;
+    if (Scrollable.maybeOf(focused) == null) return;
+    final media = MediaQuery.of(context);
+    final askShown = _controller?.tab != AppTab.cart;
+    final limit =
+        media.size.height -
+        media.viewPadding.bottom -
+        coveredHeight(askShown: askShown);
+    final rect = node.rect;
+    if (rect.bottom <= limit && rect.top >= media.padding.top) return;
+    Scrollable.ensureVisible(
+      focused,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final controller = context.read<ShellController>();
@@ -190,6 +247,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_onFocusChanged);
     _controller?.removeListener(_onShellChanged);
     super.dispose();
   }

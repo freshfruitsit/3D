@@ -545,6 +545,7 @@ class _SortChip extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Sort: ${sort.label}. Tap to change',
+      onTap: onTap,
       excludeSemantics: true,
       child: OutlinedButton.icon(
         style: AppButtons.chip,

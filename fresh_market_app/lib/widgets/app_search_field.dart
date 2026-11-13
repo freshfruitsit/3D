@@ -122,6 +122,7 @@ class SearchFieldButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Search',
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: AppColors.subtle,
