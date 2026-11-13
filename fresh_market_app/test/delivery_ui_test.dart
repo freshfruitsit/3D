@@ -30,6 +30,13 @@ const _settle = Duration(milliseconds: 600);
 Finder _inKey(String key, Finder matching) =>
     find.descendant(of: find.byKey(ValueKey(key)), matching: matching);
 
+/// The time column of the picker's options, where a number and its unit
+/// are joined by a non-breaking space ("6\u00A0hours", "11\u00A0AM").
+Finder _when(String text) => find.byWidgetPredicate(
+  (w) => w is Text && w.data?.replaceAll('\u00A0', ' ') == text,
+  description: 'option time "$text"',
+);
+
 Finder get _confirm => find.descendant(
   of: find.byType(LocationScreen),
   matching: find.byType(FilledButton),
@@ -115,13 +122,13 @@ void main() {
         find.text('Order now and it arrives by 4 PM · same-day cut-off 6 PM'),
         findsOneWidget,
       );
-      expect(find.text('Today within 6 hours'), findsOneWidget);
+      expect(_when('Today within 6 hours'), findsOneWidget);
       expect(find.text('Express · selected items'), findsOneWidget);
       expect(
         find.text('7 km from our Ras Al Khor hub · open until 10 PM'),
         findsOneWidget,
       );
-      expect(find.text('25–35 min'), findsOneWidget);
+      expect(_when('25–35 min'), findsOneWidget);
       expect(_confirmLabel(tester), 'Deliver to Mirdif');
       expect(_confirmEnabled(tester), isTrue);
 
@@ -147,7 +154,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Not available'), findsOneWidget);
-      expect(find.text('Tomorrow morning before 11 AM'), findsOneWidget);
+      expect(_when('Tomorrow morning before 11 AM'), findsOneWidget);
       expect(
         find.text('Ordered after 6 PM, so it comes tomorrow morning'),
         findsOneWidget,
@@ -155,7 +162,7 @@ void main() {
 
       await _searchAndPick(tester, 'business', 'Business Bay');
       expect(find.text('Closed now · runs 8 AM to 10 PM'), findsOneWidget);
-      expect(find.text('From 8 AM'), findsOneWidget);
+      expect(_when('From 8 AM'), findsOneWidget);
     });
 
     testWidgets('addresses from the geocoder join the website areas', (

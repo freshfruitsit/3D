@@ -1080,7 +1080,12 @@ class _OptionRow extends StatelessWidget {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 120),
               child: Text(
-                option.when,
+                // Keep a number with its unit ("6 hours", "11 AM") when
+                // the narrow column wraps.
+                option.when.replaceAllMapped(
+                  RegExp(r'(\d) (?=\S)'),
+                  (m) => '${m[1]}\u00A0',
+                ),
                 textAlign: TextAlign.right,
                 style: AppText.caption.copyWith(
                   fontSize: 13,
