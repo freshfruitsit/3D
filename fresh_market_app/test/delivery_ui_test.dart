@@ -671,7 +671,12 @@ void main() {
         of: lineOf(product),
         matching: find.byType(Text),
       );
-      return tester.widget<Text>(text).textSpan!.toPlainText();
+      // The bold Express time uses non-breaking spaces so it never splits.
+      return tester
+          .widget<Text>(text)
+          .textSpan!
+          .toPlainText()
+          .replaceAll('\u00A0', ' ');
     }
 
     IconData iconOf(WidgetTester tester, Product product) => tester
@@ -690,6 +695,16 @@ void main() {
         'Express item', (tester) async {
       await pumpCards(tester, testDelivery());
       expect(textOf(tester, kiwi), 'Within 6 hrs · or 35 min');
+      expect(
+        find.descendant(
+          of: lineOf(kiwi),
+          matching: find.text(
+            'Within 6 hrs · or\u00A035\u00A0min',
+            findRichText: true,
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(iconOf(tester, kiwi), Icons.local_shipping_outlined);
       expect(textOf(tester, beef), 'Within 6 hrs');
       expect(tester.takeException(), isNull);
@@ -801,7 +816,8 @@ void main() {
       );
       expect(card('Fresh Market delivery'), findsOneWidget);
       expect(card('Business Bay, Dubai'), findsOneWidget);
-      expect(card('Today within 6 hours · by 4 PM'), findsOneWidget);
+      // "4 PM" is joined by a non-breaking space so it never splits.
+      expect(card('Today within 6 hours · by 4\u00A0PM'), findsOneWidget);
       expect(card('Change'), findsOneWidget);
 
       await tester.tap(card('Change'));

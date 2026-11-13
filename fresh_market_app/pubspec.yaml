@@ -73,6 +73,9 @@ flutter:
     - assets/video/
 
   fonts:
+    - family: Dirham
+      fonts:
+        - asset: assets/fonts/Dirham.ttf
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter-Regular.otf

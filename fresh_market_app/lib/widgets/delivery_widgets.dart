@@ -496,8 +496,13 @@ class DeliveryPromiseLine extends StatelessWidget {
                   : TextSpan(
                       children: [
                         TextSpan(text: text.substring(0, at)),
-                        TextSpan(text: highlight, style: bold),
-                        TextSpan(text: text.substring(at + highlight!.length)),
+                        // Non-breaking spaces keep "or 35 min" on one
+                        // line when the promise wraps.
+                        TextSpan(
+                          text: highlight!.replaceAll(' ', '\u00A0'),
+                          style: bold,
+                        ),
+                        TextSpan(text: text.substring(at + highlight.length)),
                       ],
                     ),
               maxLines: maxLines,
@@ -677,7 +682,11 @@ class CartDeliveryCard extends StatelessWidget {
     if (store.isExpress) {
       promise = store.expressClosedNotice ?? 'Express in ${express.range}';
     } else {
-      promise = market.today ? '${market.line} · by ${market.by}' : market.line;
+      // A non-breaking space keeps "7:45 PM" from splitting across lines.
+      final by = market.by;
+      promise = market.today && by != null
+          ? '${market.line} · by ${by.replaceAll(' ', '\u00A0')}'
+          : market.line;
     }
     final mismatch = store.isExpress && split.other > 0
         ? notOnExpress(split.other, market)

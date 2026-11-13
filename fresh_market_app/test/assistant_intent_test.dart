@@ -751,12 +751,18 @@ void main() {
       expectTable([
         ('where is my order', 'Contact'),
         ('where is my order?', 'Contact'),
-        ('when will my order come', 'Contact'),
         ('where is my delivery', 'Contact'),
+        // A late or missing order is for customer care.
+        ('my order is late, when will it arrive', 'Contact'),
+        ("when will my order arrive? it hasn't come", 'Contact'),
         ('is there a minimum order', 'Delivery'),
         ('minimum spend for delivery', 'Delivery'),
         // Still about delivering, not about a placed order.
         ('when will it arrive', 'Delivery'),
+        // When an order comes: the delivery times for the chosen area.
+        ('When will my order arrive?', 'Delivery'),
+        ('when will my order come', 'Delivery'),
+        ('when will my order be delivered', 'Delivery'),
         ('do you deliver to Abu Dhabi?', 'Delivery'),
       ]);
     });

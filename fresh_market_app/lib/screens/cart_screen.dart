@@ -33,9 +33,9 @@ class _CartScreenState extends State<CartScreen> {
   /// The cart is saved on the device, possibly days ago: bring names and
   /// prices up to date and drop lines the store no longer has.
   Future<void> _revalidate() async {
-    final removed = await context
-        .read<CartStore>()
-        .revalidate(context.read<ShopifyApi>());
+    final removed = await context.read<CartStore>().revalidate(
+      context.read<ShopifyApi>(),
+    );
     if (removed > 0 && mounted) {
       AppNav.showNotice(context, AppNav.removedItemsMessage);
     }
@@ -290,11 +290,10 @@ class _SummaryCardState extends State<_SummaryCard> {
           children: [
             Row(
               children: [
-                const Expanded(
-                  child: Text('Subtotal', style: AppText.cardHeading),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
+                const Text('Subtotal', style: AppText.cardHeading),
+                const SizedBox(width: 16),
+                // Takes the rest of the row so the total sits flush right.
+                Expanded(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,

@@ -1,0 +1,16 @@
+Dirham.ttf — UAE Dirham currency sign (U+20C3)
+
+Taken from the npm package "dirham" 1.5.3 (dist/fonts/dirham.ttf),
+https://github.com/pooyagolchian/dirham, licensed under the MIT License.
+The package states that the glyph is sourced from the Central Bank of
+the UAE: https://www.centralbank.ae/en/our-operations/currency-and-coins/
+
+MIT License: Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions: The
+above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS
+IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.

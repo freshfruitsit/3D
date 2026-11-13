@@ -272,8 +272,8 @@ class Recipe {
 ///     then Express or "1 hour" with a delivery word, a status word (open,
 ///     closed, available, area, time, ...) or as a question ("is", "can",
 ///     "when", ...) -> [ExpressIntent]
-///  6. delivery / shipping / "when will it arrive" / "minimum order" ->
-///     [DeliveryIntent]
+///  6. delivery / shipping / "when will it arrive" / "when will my order
+///     arrive" / "minimum order" -> [DeliveryIntent]
 ///  7. `checkout` / `pay` -> [CheckoutIntent]
 ///  8. `cart`, or `basket` when it is not a product ("my basket", not
 ///     "fruit basket") -> [CartIntent]
@@ -1038,6 +1038,14 @@ abstract final class AssistantIntentParser {
     'package',
     'parcel',
   };
+
+  /// A placed order, in "where is my order?" or "when will my order come?".
+  static const Set<String> _parcelWords = {
+    'order',
+    'orders',
+    'parcel',
+    'package',
+  };
   static const Set<String> _notYet = {
     'didnt',
     'hasnt',
@@ -1786,9 +1794,11 @@ abstract final class AssistantIntentParser {
     // 5b. Express questions ("is express open?", "1 hour delivery")
     if (_asksExpress(tokens)) return const ExpressIntent();
 
-    // 6. delivery ("is there a minimum order?": checkout shows any fees)
+    // 6. delivery ("is there a minimum order?": checkout shows any fees;
+    // "when will my order come?": the times for the chosen area)
     if (tokens.any(_deliveryWords.contains) ||
         _hasPhrase(tokens, 'same day') ||
+        (tokens.contains('when') && tokens.any(_parcelWords.contains)) ||
         (tokens.contains('minimum') &&
             tokens.any(
               const {
@@ -2064,12 +2074,10 @@ abstract final class AssistantIntentParser {
     if (tokens.any(_contactWords.contains)) return true;
     if (_contactPhrases.any((p) => _hasPhrase(tokens, p))) return true;
     if (tokens.contains('track') && tokens.contains('order')) return true;
-    // "Where is my order?", "order status", "when will my parcel come?"
-    final asksWhere = tokens.any(const {'where', 'status', 'when'}.contains);
-    if (asksWhere &&
-        tokens.any(const {'order', 'orders', 'parcel', 'package'}.contains)) {
-      return true;
-    }
+    // "Where is my order?", "order status". ("When will my order arrive?"
+    // asks for delivery times: step 6, unless it is late or missing.)
+    final asksWhere = tokens.any(const {'where', 'status'}.contains);
+    if (asksWhere && tokens.any(_parcelWords.contains)) return true;
     if (tokens.contains('delivery') &&
         (tokens.contains('status') ||
             (tokens.contains('where') && tokens.contains('my')))) {
