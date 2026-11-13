@@ -2,8 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
+import 'delivery/delivery.dart';
 import 'models/product.dart';
 import 'screens/checkout_screen.dart';
+import 'screens/location_screen.dart';
 import 'screens/product_detail_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/search_screen.dart';
@@ -84,20 +86,100 @@ abstract final class AppNav {
       );
   }
 
+  /// Shown above the location picker when checkout needs an area first.
+  static const String areaBeforeCheckout =
+      'Tell us where to deliver before you check out.';
+
+  /// The delivery location picker, full screen (it covers the bottom bar).
+  /// [reason] is shown at its top ("Set your location to check Express").
+  ///
+  /// Returns true when a place was chosen; the website's message about it
+  /// ("Delivering to Mirdif") is then shown (see [showNotice] for
+  /// [noticeBottomMargin]).
+  static Future<bool> openLocationPicker(
+    BuildContext context, {
+    String? reason,
+    double? noticeBottomMargin,
+  }) async {
+    final message = await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<String>(
+        fullscreenDialog: true,
+        builder: (_) => LocationScreen(reason: reason),
+      ),
+    );
+    if (message == null) return false;
+    if (context.mounted) {
+      showNotice(context, message, bottomMargin: noticeBottomMargin);
+    }
+    return true;
+  }
+
+  /// Switches between Fresh Market and Express like the website: Express
+  /// with no area first asks for the location (and switches if the chosen
+  /// area has Express); Express outside the Express zone is refused with
+  /// the website's message; Express while closed is chosen and the closed
+  /// notice is shown.
+  static Future<void> chooseDeliveryMode(
+    BuildContext context,
+    DeliveryMode mode, {
+    double? noticeBottomMargin,
+  }) async {
+    final store = context.read<DeliveryStore>();
+    void say(String message) =>
+        showNotice(context, message, bottomMargin: noticeBottomMargin);
+    void sayIfClosed() {
+      final closed = store.expressClosedNotice;
+      if (closed != null) say(closed);
+    }
+
+    final refusal = store.setMode(mode);
+    if (refusal == null) {
+      sayIfClosed();
+      return;
+    }
+    if (store.hasArea) {
+      say(refusal);
+      return;
+    }
+    final picked = await openLocationPicker(
+      context,
+      reason: refusal,
+      noticeBottomMargin: noticeBottomMargin,
+    );
+    if (!picked || !context.mounted) return;
+    final again = store.setMode(mode);
+    if (again != null) {
+      say(again);
+    } else {
+      sayIfClosed();
+    }
+  }
+
   /// Checkout for the current cart, full screen. Does nothing when the
   /// cart is empty.
   ///
-  /// The cart is first checked against the store, because Shopify refuses
-  /// a checkout that contains a variant it no longer has. If lines had to
+  /// With no delivery area yet the location picker opens first. The cart
+  /// is then checked against the store, because Shopify refuses a
+  /// checkout that contains a variant it no longer has. If lines had to
   /// be removed the shopper stays on the cart and is told so, above the
   /// bottom bar, or [noticeBottomMargin] above the bottom of a screen that
-  /// has none (see [showNotice]).
+  /// has none (see [showNotice]). The checkout link carries the website's
+  /// delivery cart attributes.
   static Future<void> openCheckout(
     BuildContext context, {
     double? noticeBottomMargin,
   }) async {
     final cart = context.read<CartStore>();
     if (cart.isEmpty) return;
+    final delivery = context.read<DeliveryStore>();
+    if (!delivery.hasArea) {
+      final picked = await openLocationPicker(
+        context,
+        reason: areaBeforeCheckout,
+        noticeBottomMargin: noticeBottomMargin,
+      );
+      if (!picked || !context.mounted || !delivery.hasArea) return;
+    }
     final removed = await cart
         .revalidate(context.read<ShopifyApi>())
         .timeout(const Duration(seconds: 8), onTimeout: () => 0);
@@ -110,7 +192,7 @@ abstract final class AppNav {
       );
       return;
     }
-    final url = cart.checkoutUrl;
+    final url = cart.checkoutUrlWith(delivery.cartAttributes ?? const {});
     if (url == null) return;
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(builder: (_) => CheckoutScreen(url: url)),

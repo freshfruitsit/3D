@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../delivery/delivery_rules.dart';
 import '../models/money.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
@@ -22,6 +23,7 @@ class CartLine {
     this.compareAtCents,
     this.imageUrl,
     this.origin,
+    this.express,
   });
 
   factory CartLine.of(Product product, Variant variant, int quantity) =>
@@ -35,6 +37,7 @@ class CartLine {
         compareAtCents: variant.oldPriceCents,
         imageUrl: product.imageUrl,
         origin: product.origin,
+        express: DeliveryRules.isExpressEligible(product),
         quantity: quantity,
       );
 
@@ -55,6 +58,11 @@ class CartLine {
   final int? compareAtCents;
   final String? imageUrl;
   final String? origin;
+
+  /// True when the product can come by Express (tagged "1hr-delivery");
+  /// null for a line saved before the app knew, until the cart is checked
+  /// against the store again.
+  final bool? express;
   final int quantity;
 
   bool get onSale => compareAtCents != null && compareAtCents! > priceCents;
@@ -81,6 +89,7 @@ class CartLine {
         compareAtCents: compareAtCents,
         imageUrl: imageUrl,
         origin: origin,
+        express: express,
         quantity: quantity,
       );
 
@@ -94,6 +103,7 @@ class CartLine {
         compareAtCents: (json['compareAtCents'] as num?)?.toInt(),
         imageUrl: json['imageUrl'] as String?,
         origin: json['origin'] as String?,
+        express: json['express'] as bool?,
         quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       );
 
@@ -107,6 +117,7 @@ class CartLine {
         'compareAtCents': compareAtCents,
         'imageUrl': imageUrl,
         'origin': origin,
+        'express': express,
         'quantity': quantity,
       };
 }
@@ -244,20 +255,50 @@ class CartStore extends ChangeNotifier {
 
   /// The Shopify cart permalink that opens checkout with this cart, or
   /// null when the cart is empty.
-  Uri? get checkoutUrl => buildCheckoutUrl(
+  Uri? get checkoutUrl => checkoutUrlWith(const {});
+
+  /// [checkoutUrl] carrying the order's cart [attributes] (the website's
+  /// "Delivery mode", "Delivery area", ...).
+  Uri? checkoutUrlWith(Map<String, String> attributes) => buildCheckoutUrl(
         {for (final line in _lines.values) line.variantId: line.quantity},
+        attributes: attributes,
       );
 
-  /// `https://testtfm.myshopify.com/cart/{variantId}:{qty},{variantId}:{qty}`.
+  /// Units of Express items ([CartLine.express]) and of the others; a line
+  /// not checked yet counts as neither.
+  ({int express, int other}) get expressSplit {
+    var express = 0;
+    var other = 0;
+    for (final line in _lines.values) {
+      if (line.express == true) express += line.quantity;
+      if (line.express == false) other += line.quantity;
+    }
+    return (express: express, other: other);
+  }
+
+  /// `https://testtfm.myshopify.com/cart/{variantId}:{qty},{variantId}:{qty}`,
+  /// followed by `?attributes[Name]=value&...` for each of [attributes]
+  /// (percent-encoded; Shopify cart permalinks copy them onto the cart).
   /// Entries with a quantity of 0 or less are left out; null when nothing
   /// remains.
-  static Uri? buildCheckoutUrl(Map<int, int> quantitiesByVariantId) {
+  static Uri? buildCheckoutUrl(
+    Map<int, int> quantitiesByVariantId, {
+    Map<String, String> attributes = const {},
+  }) {
     final parts = [
       for (final entry in quantitiesByVariantId.entries)
         if (entry.value > 0) '${entry.key}:${entry.value}',
     ];
     if (parts.isEmpty) return null;
-    return Uri.parse('https://$storeHost/cart/${parts.join(',')}');
+    final query = [
+      for (final entry in attributes.entries)
+        '${Uri.encodeComponent('attributes[${entry.key}]')}='
+            '${Uri.encodeComponent(entry.value)}',
+    ].join('&');
+    return Uri.parse(
+      'https://$storeHost/cart/${parts.join(',')}'
+      '${query.isEmpty ? '' : '?$query'}',
+    );
   }
 
   void _changed() {

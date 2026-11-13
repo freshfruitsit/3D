@@ -3,16 +3,19 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'data/catalog.dart';
+import 'delivery/delivery.dart';
 import 'screens/account_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/product_list_screen.dart';
+import 'services/location_services.dart';
 import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
 import 'state/favourites_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/ask_button.dart';
+import 'widgets/delivery_gate.dart';
 import 'widgets/floating_nav_bar.dart';
 import 'widgets/intro_gate.dart';
 
@@ -48,6 +51,8 @@ class AppScope extends StatelessWidget {
     required this.api,
     required this.cart,
     required this.favourites,
+    this.delivery,
+    this.locationServices,
     this.shell,
     required this.child,
   });
@@ -55,6 +60,14 @@ class AppScope extends StatelessWidget {
   final ShopifyApi api;
   final CartStore cart;
   final FavouritesStore favourites;
+
+  /// The shopper's delivery area and mode. When null an in-memory store
+  /// with no area is created (and disposed with this scope).
+  final DeliveryStore? delivery;
+
+  /// What the location picker may use (phone location, address search,
+  /// map); the real ones when null.
+  final LocationServices? locationServices;
 
   /// Supply one to observe tab changes in tests; otherwise one is created.
   final ShellController? shell;
@@ -67,6 +80,13 @@ class AppScope extends StatelessWidget {
         Provider<ShopifyApi>.value(value: api),
         ChangeNotifierProvider<CartStore>.value(value: cart),
         ChangeNotifierProvider<FavouritesStore>.value(value: favourites),
+        if (delivery != null)
+          ChangeNotifierProvider<DeliveryStore>.value(value: delivery!)
+        else
+          ChangeNotifierProvider<DeliveryStore>(create: (_) => DeliveryStore()),
+        Provider<LocationServices>.value(
+          value: locationServices ?? const LocationServices(),
+        ),
         if (shell != null)
           ChangeNotifierProvider<ShellController>.value(value: shell!)
         else
@@ -86,6 +106,8 @@ class FreshMarketApp extends StatelessWidget {
     required this.api,
     required this.cart,
     required this.favourites,
+    this.deliveryStore,
+    this.locationServices,
     this.shell,
     this.showIntro = true,
   });
@@ -93,6 +115,14 @@ class FreshMarketApp extends StatelessWidget {
   final ShopifyApi api;
   final CartStore cart;
   final FavouritesStore favourites;
+
+  /// The saved delivery choice. Null gives an in-memory store with no
+  /// area, so the location picker is shown first (tests pass one with an
+  /// area to go straight to Home).
+  final DeliveryStore? deliveryStore;
+
+  /// See [AppScope.locationServices].
+  final LocationServices? locationServices;
   final ShellController? shell;
 
   /// False skips the intro video (tests).
@@ -104,13 +134,19 @@ class FreshMarketApp extends StatelessWidget {
       api: api,
       cart: cart,
       favourites: favourites,
+      delivery: deliveryStore,
+      locationServices: locationServices,
       shell: shell,
       child: MaterialApp(
         title: 'Fresh Market',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        // Every launch shows the intro video, then the shell.
-        home: IntroGate(enabled: showIntro, child: const AppShell()),
+        // Every launch shows the intro video, then the shell. Until a
+        // delivery area is saved, the location picker comes first.
+        home: IntroGate(
+          enabled: showIntro,
+          child: const DeliveryGate(child: AppShell()),
+        ),
       ),
     );
   }
