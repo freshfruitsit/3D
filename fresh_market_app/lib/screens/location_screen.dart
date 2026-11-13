@@ -573,7 +573,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Lime-tint box with an info icon: why the picker opened.
+/// Off-white box with an info icon: why the picker opened.
 class _Banner extends StatelessWidget {
   const _Banner({required this.text});
 
@@ -925,7 +925,7 @@ class ExpressTag extends StatelessWidget {
   }
 }
 
-/// The hub on the map: an ink disc with a lime storefront.
+/// The hub on the map: an ink disc with a white storefront.
 class _HubMarker extends StatelessWidget {
   const _HubMarker();
 

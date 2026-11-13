@@ -698,7 +698,7 @@ class _AssistantBlock extends StatelessWidget {
   }
 }
 
-/// The 8 [AssistantBrain.quickOptions] in 4 columns, as lime-tint tiles
+/// The 8 [AssistantBrain.quickOptions] in 4 columns, as off-white tiles
 /// like the category tiles. Each row is as tall as its tallest tile, so a
 /// large font grows the tiles instead of cutting labels off.
 class _OptionsGrid extends StatelessWidget {
@@ -948,10 +948,10 @@ class _ProductRow extends StatelessWidget {
 }
 
 enum _ActionLook {
-  /// White pill, olive border and text, chevron.
+  /// White pill, ink border and text, chevron.
   outlined,
 
-  /// Lime pill, ink text ("Add all to cart").
+  /// Green pill, white text ("Add all to cart").
   filled,
 
   /// White pill, ink border and text ("Yes, empty my cart").

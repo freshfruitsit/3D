@@ -182,7 +182,7 @@ const ({IconData icon}) _defaultRailStyle = (icon: Icons.eco);
 
 /// The white header that runs up behind the status bar: the logo, the
 /// delivery location chip, the website's Fresh Market / Express switch and
-/// the search field, finished with a thin lime bar.
+/// the search field, finished with a hairline.
 class _Header extends StatelessWidget {
   const _Header();
 
