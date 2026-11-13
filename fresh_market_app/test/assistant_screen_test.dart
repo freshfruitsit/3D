@@ -10,6 +10,7 @@ import 'package:fresh_market_app/assistant/assistant_session.dart';
 import 'package:fresh_market_app/models/product.dart';
 import 'package:fresh_market_app/screens/assistant_screen.dart';
 import 'package:fresh_market_app/screens/checkout_screen.dart';
+import 'package:fresh_market_app/screens/location_screen.dart';
 import 'package:fresh_market_app/screens/product_detail_screen.dart';
 import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/screens/search_screen.dart';
@@ -49,6 +50,67 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  group('delivery', () {
+    testWidgets('answers for the area; Change location opens the picker and '
+        'answers again for the new place', (tester) async {
+      final store = testDelivery();
+      await pumpScreen(tester, AssistantScreen(session: newSession()),
+          delivery: store);
+      await ask(tester, 'when will my delivery arrive?');
+      await settleReply(tester);
+      expect(
+        find.text('Delivering to Business Bay, Dubai: Today within 6 hours, '
+            'by 4 PM. Express: 30–40 min for items marked Express. Any '
+            'delivery fee is shown at checkout.'),
+        findsOneWidget,
+      );
+      expect(find.text('Shop Express items'), findsOneWidget);
+
+      await tapVisible(tester, find.text('Change location'));
+      expect(find.byType(LocationScreen), findsOneWidget);
+      expect(find.text('Change delivery location'), findsOneWidget);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(LocationScreen),
+          matching: find.byType(TextField),
+        ),
+        'jebel',
+      );
+      await tester.pump();
+      await tester.tap(find.descendant(
+        of: find.byType(LocationScreen),
+        matching: find.text('Jebel Ali'),
+      ));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Deliver to Jebel Ali'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(LocationScreen), findsNothing);
+      expect(store.area?.name, 'Jebel Ali');
+      expect(
+        find.text('Delivering to Jebel Ali, Dubai: Today within 6 hours, by '
+            '4 PM. Express: not available in your area. Any delivery fee is '
+            'shown at checkout.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Express questions without an area ask for the location',
+        (tester) async {
+      await pumpScreen(tester, AssistantScreen(session: newSession()),
+          delivery: testDelivery(area: null));
+      await ask(tester, 'Is Express open?');
+      await settleReply(tester);
+      expect(find.text(AssistantBrain.expressSetLocationText), findsOneWidget);
+      expect(find.text('Set location'), findsOneWidget);
+      await tapVisible(tester, find.text('Set location'));
+      expect(find.byType(LocationScreen), findsOneWidget);
+      expect(find.text('Where should we deliver?'), findsOneWidget);
+    });
+  });
+
   testWidgets('opens with the header, greeting, chips and input',
       (tester) async {
     final api = FakeShopifyApi.sample();
@@ -245,7 +307,7 @@ void main() {
     final kiwi = sampleProducts().first;
     cart.add(kiwi, kiwi.variants.first);
     await pumpScreen(tester, AssistantScreen(session: newSession()),
-        api: api, cart: cart);
+        api: api, cart: cart, delivery: testDelivery());
     await ask(tester, 'checkout');
     await settleReply(tester);
 
@@ -862,7 +924,7 @@ void main() {
       );
       final cart = CartStore()..add(gone, gone.variants.first);
       await pumpScreen(tester, AssistantScreen(session: newSession()),
-          cart: cart);
+          cart: cart, delivery: testDelivery());
       await ask(tester, 'checkout');
       await settleReply(tester);
       await tapVisible(tester, find.text('Go to checkout'));

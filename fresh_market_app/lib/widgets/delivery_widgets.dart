@@ -473,36 +473,39 @@ class DeliveryPromiseLine extends StatelessWidget {
       color: AppColors.secondary,
     );
     const bold = TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink);
-    return Row(
+    return Padding(
       key: const ValueKey('promise-line'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: Icon(
-            icon,
-            size: 14,
-            color: promise.isExpress ? AppColors.ink : AppColors.olive,
+      padding: const EdgeInsets.only(top: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              icon,
+              size: 14,
+              color: promise.isExpress ? AppColors.ink : AppColors.olive,
+            ),
           ),
-        ),
-        const SizedBox(width: 3),
-        Expanded(
-          child: Text.rich(
-            at < 0
-                ? TextSpan(text: text, style: promise.isExpress ? bold : null)
-                : TextSpan(
-                    children: [
-                      TextSpan(text: text.substring(0, at)),
-                      TextSpan(text: highlight, style: bold),
-                      TextSpan(text: text.substring(at + highlight!.length)),
-                    ],
-                  ),
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            style: style,
+          const SizedBox(width: 3),
+          Expanded(
+            child: Text.rich(
+              at < 0
+                  ? TextSpan(text: text, style: promise.isExpress ? bold : null)
+                  : TextSpan(
+                      children: [
+                        TextSpan(text: text.substring(0, at)),
+                        TextSpan(text: highlight, style: bold),
+                        TextSpan(text: text.substring(at + highlight!.length)),
+                      ],
+                    ),
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/assistant/assistant_brain.dart';
 import 'package:fresh_market_app/assistant/assistant_intent.dart';
 import 'package:fresh_market_app/data/catalog.dart';
+import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/models/product.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
@@ -71,6 +72,7 @@ final Map<String, Matcher> fixedChips = {
   'Add 2 cucumbers': isA<AddIntent>(),
   'Cheapest avocado': isA<CheapestIntent>(),
   'Delivery information': isA<DeliveryIntent>(),
+  'Is Express open?': isA<ExpressIntent>(),
   'Payment methods': isA<PaymentIntent>(),
   'Contact customer service': isA<ContactIntent>(),
   'Show 1Hr Express': isA<CollectionIntent>().having(
@@ -83,8 +85,11 @@ final Map<String, Matcher> fixedChips = {
     'handle',
     'local-uae',
   ),
-  "What's new?": isA<CollectionIntent>()
-      .having((i) => i.collection.handle, 'handle', 'new-arrivals'),
+  "What's new?": isA<CollectionIntent>().having(
+    (i) => i.collection.handle,
+    'handle',
+    'new-arrivals',
+  ),
   'Recipe ideas': isA<RecipeIdeasIntent>(),
   'Gift ideas': isA<CategoryIntent>().having(
     (i) => i.category.handle,
@@ -132,6 +137,22 @@ void expectGoodChips(AssistantReply reply) {
   expect(reply.suggestions.length, inInclusiveRange(3, 5), reason: reply.text);
   expect(reply.suggestions.toSet(), hasLength(reply.suggestions.length));
   reply.suggestions.forEach(expectChipParses);
+}
+
+/// 13 Nov 2026 at [hour]:[minute] UAE time (UTC+4).
+DateTime uae(int hour, [int minute = 0]) =>
+    DateTime.utc(2026, 11, 13, hour - 4, minute);
+
+/// A delivery store for one of the website's areas at a fixed time.
+DeliveryStore deliveryAt(
+  String area,
+  DateTime at, {
+  DeliveryMode mode = DeliveryMode.market,
+}) {
+  final store = DeliveryStore(now: () => at, refreshEvery: null)
+    ..setArea(DeliveryConfig.areaNamed(area)!);
+  if (mode == DeliveryMode.express) store.setMode(mode);
+  return store;
 }
 
 void main() {
@@ -1201,26 +1222,14 @@ void main() {
       expect(api.calls, isEmpty);
     });
 
-    test('delivery: no fees, times or minimums', () async {
+    test('delivery without an area asks for the location', () async {
       final reply = await brain.reply('what is the delivery fee?');
-      expect(
-        reply.text,
-        'Fresh Market delivers within the UAE. Many products are in the '
-        '1Hr Express range. You choose the address and delivery time at '
-        'checkout, where any fees are shown.',
-      );
+      expect(reply.text, AssistantBrain.setLocationText);
       for (final claim in ['Dhs', 'AED', 'minute', 'free', 'minimum']) {
         expect(reply.text, isNot(contains(claim)));
       }
-      final express = reply.actions.first as OpenCollectionAction;
-      expect(express.label, 'Open 1Hr Express');
-      expect(express.handle, 'express');
-      expect(express.title, '1Hr Express');
-      final contact = reply.actions.last as SendMessageAction;
-      expect(
-        AssistantIntentParser.parse(contact.message),
-        isA<ContactIntent>(),
-      );
+      final action = reply.actions.single as ChangeLocationAction;
+      expect(action.label, 'Set location');
       expectGoodChips(reply);
       expect(api.calls, isEmpty);
     });
@@ -1377,6 +1386,20 @@ void main() {
           chips.addAll(reply.suggestions);
         }
       }
+      // Delivery and Express answers for every kind of area and time.
+      for (final delivery in [
+        DeliveryStore(),
+        deliveryAt('Business Bay', uae(10)),
+        deliveryAt('Business Bay', uae(23)),
+        deliveryAt('Jebel Ali', uae(10)),
+      ]) {
+        final b = AssistantBrain(api: shop, cart: full, delivery: delivery);
+        for (final message in ['delivery', 'Is Express open?', 'express']) {
+          final reply = await b.reply(message);
+          expectGoodChips(reply);
+          chips.addAll(reply.suggestions);
+        }
+      }
       for (final defaults in [
         ...AssistantBrain.defaultSuggestions,
         for (final option in AssistantBrain.quickOptions) option.message,
@@ -1407,7 +1430,11 @@ void main() {
     test('add picks the cheapest in stock that names the product, not a '
         'box the store lists first, and says its price', () async {
       final box = priced(20, 'Avocado Hass Periban 10 KG Box', 55800);
-      api = FakeShopifyApi(collections: {'fruits': [box, ...shelf()]});
+      api = FakeShopifyApi(
+        collections: {
+          'fruits': [box, ...shelf()],
+        },
+      );
       final b = AssistantBrain(api: api, cart: cart);
 
       var reply = await b.reply('add an avocado');
@@ -1442,7 +1469,11 @@ void main() {
       // Two products with the same name: the box comes first.
       final box = priced(30, 'Kiwi Green Zespri', 25200);
       final pack = priced(31, 'Kiwi Green Zespri', 1895);
-      api = FakeShopifyApi(collections: {'fruits': [box, pack]});
+      api = FakeShopifyApi(
+        collections: {
+          'fruits': [box, pack],
+        },
+      );
       final b = AssistantBrain(api: api, cart: cart);
 
       final found = await b.reply('find kiwi green');
@@ -1489,7 +1520,10 @@ void main() {
         api: api,
         cart: cart,
       ).reply('Add 1 Kiwi Gold', previous: found);
-      expect(reply.text, 'Kiwi Gold is sold out right now, so nothing was added.');
+      expect(
+        reply.text,
+        'Kiwi Gold is sold out right now, so nothing was added.',
+      );
       expect(cart.isEmpty, isTrue);
     });
 
@@ -1569,6 +1603,117 @@ void main() {
         (await brain.reply('where is my order')).text,
         AssistantBrain.contactText,
       );
+    });
+  });
+
+  group('delivery (the website rules)', () {
+    test('before the cut-off: today by, and Express for the area', () async {
+      final b = AssistantBrain(
+        api: api,
+        cart: cart,
+        delivery: deliveryAt('Business Bay', uae(10)),
+      );
+      final reply = await b.reply('when will my delivery arrive?');
+      expect(
+        reply.text,
+        'Delivering to Business Bay, Dubai: Today within 6 hours, by 4 PM. '
+        'Express: 30–40 min for items marked Express. '
+        'Any delivery fee is shown at checkout.',
+      );
+      expect(reply.actions.first, isA<ChangeLocationAction>());
+      expect(reply.actions.first.label, 'Change location');
+      final shop = reply.actions.last as OpenCollectionAction;
+      expect(shop.label, 'Shop Express items');
+      expect(shop.handle, 'express');
+      expectGoodChips(reply);
+      expect(api.calls, isEmpty);
+    });
+
+    test('after the cut-off and with Express closed', () async {
+      final b = AssistantBrain(
+        api: api,
+        cart: cart,
+        delivery: deliveryAt('Business Bay', uae(23)),
+      );
+      final reply = await b.reply('delivery');
+      expect(
+        reply.text,
+        'Delivering to Business Bay, Dubai: Tomorrow morning before 11 AM. '
+        'Express: closed right now (it runs 8 AM to 10 PM). '
+        'Any delivery fee is shown at checkout.',
+      );
+    });
+
+    test('outside the Express zone: no Express button', () async {
+      final b = AssistantBrain(
+        api: api,
+        cart: cart,
+        delivery: deliveryAt('Jebel Ali', uae(10)),
+      );
+      final reply = await b.reply('delivery');
+      expect(
+        reply.text,
+        'Delivering to Jebel Ali, Dubai: Today within 6 hours, by 4 PM. '
+        'Express: not available in your area. '
+        'Any delivery fee is shown at checkout.',
+      );
+      expect(reply.actions.single, isA<ChangeLocationAction>());
+    });
+
+    test('Express questions get the real status', () async {
+      Future<AssistantReply> ask(DeliveryStore? delivery, String q) =>
+          AssistantBrain(api: api, cart: cart, delivery: delivery).reply(q);
+
+      var reply = await ask(null, 'Is Express open?');
+      expect(reply.text, AssistantBrain.expressSetLocationText);
+      expect(reply.actions.first, isA<ChangeLocationAction>());
+      expect(reply.actions.first.label, 'Set location');
+
+      reply = await ask(
+        deliveryAt('Business Bay', uae(10)),
+        'can I get it in 1 hour',
+      );
+      expect(
+        reply.text,
+        'Express reaches Business Bay, Dubai in 30–40 min for items marked '
+        'Express. It is open until 10 PM.',
+      );
+      expect((reply.actions.first as OpenCollectionAction).handle, 'express');
+      expect(reply.actions.last, isA<ChangeLocationAction>());
+
+      reply = await ask(
+        deliveryAt('Business Bay', uae(23)),
+        'is express open now',
+      );
+      expect(
+        reply.text,
+        'Express is closed right now. It runs 8 AM to 10 PM. Fresh Market '
+        'delivers tomorrow morning before 11 am.',
+      );
+
+      reply = await ask(deliveryAt('Jebel Ali', uae(10)), 'express delivery');
+      expect(
+        reply.text,
+        "Express isn't available in Jebel Ali yet. Fresh Market delivers "
+        'today within 6 hours.',
+      );
+      expect(reply.actions.single, isA<ChangeLocationAction>());
+      expect(api.calls, isEmpty);
+    });
+
+    test('the Express products start with the status for the area', () async {
+      api = FakeShopifyApi(collections: {'express': shelf()});
+      var reply = await AssistantBrain(
+        api: api,
+        cart: cart,
+        delivery: deliveryAt('Business Bay', uae(10)),
+      ).reply('express');
+      expect(
+        reply.text,
+        'Express to Business Bay: 30–40 min. A few products from 1Hr Express:',
+      );
+      reply = await AssistantBrain(api: api, cart: cart).reply('express');
+      expect(reply.text, 'A few products from 1Hr Express:');
     });
   });
 }

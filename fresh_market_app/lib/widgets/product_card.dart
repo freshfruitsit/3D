@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
+import '../delivery/delivery_store.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
 import 'add_control.dart';
@@ -31,7 +33,9 @@ class ProductCard extends StatelessWidget {
 
   static const double _photoHeight = 132;
 
-  /// The fixed height of a card at the current text size.
+  /// The fixed height of a card at the current text size. Call it from a
+  /// build method: once a delivery area is set the cards grow to make room
+  /// for the delivery line, and the caller is rebuilt.
   static double heightOf(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
     final name = scaler.scale(AppText.productName.fontSize!) *
@@ -41,12 +45,18 @@ class ProductCard extends StatelessWidget {
         scaler.scale(AppText.caption.fontSize!) * AppText.caption.height!;
     final price =
         scaler.scale(AppText.price.fontSize!) * AppText.price.height!;
-    // Room for the delivery line; without an area the name gets it.
-    final delivery = scaler.scale(DeliveryPromiseLine.fontSize) *
-        DeliveryPromiseLine.lineHeight *
-        DeliveryPromiseLine.maxLines;
-    // border 2 + photo + top pad 8 + gaps 2 + 4 + 3 + control 44 + bottom 6.
-    return (2 + _photoHeight + 8 + 2 + 4 + 3 + AppDims.touch + 6) +
+    // Room for the delivery line (two lines at most), shown once an area
+    // is set.
+    final hasArea =
+        context.select<DeliveryStore?, bool>((s) => s?.hasArea ?? false);
+    final delivery = hasArea
+        ? 3 +
+            scaler.scale(DeliveryPromiseLine.fontSize) *
+                DeliveryPromiseLine.lineHeight *
+                DeliveryPromiseLine.maxLines
+        : 0.0;
+    // border 2 + photo + top pad 8 + gaps 2 + 4 + control 44 + bottom 6.
+    return (2 + _photoHeight + 8 + 2 + 4 + AppDims.touch + 6) +
         name +
         size +
         price +
@@ -134,7 +144,6 @@ class ProductCard extends StatelessWidget {
                           priceCents: variant.priceCents,
                           oldPriceCents: variant.oldPriceCents,
                         ),
-                      const SizedBox(height: 3),
                       DeliveryPromiseLine(product: product),
                     ],
                   ),

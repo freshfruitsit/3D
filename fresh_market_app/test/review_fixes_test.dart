@@ -139,7 +139,8 @@ void main() {
         (tester) async {
       final cart = CartStore()..add(kiwi, kiwi.variants[0]);
       final api = FakeShopifyApi.sample();
-      await pumpScreen(tester, const CartScreen(), cart: cart, api: api);
+      await pumpScreen(tester, const CartScreen(),
+          cart: cart, api: api, delivery: testDelivery());
       await tester.pumpAndSettle();
       expect(cart.itemCount, 1);
 

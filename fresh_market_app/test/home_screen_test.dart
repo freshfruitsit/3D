@@ -46,7 +46,10 @@ void main() {
 
     expect(find.text('Deliver to'), findsOneWidget);
     expect(find.text('Choose your area'), findsOneWidget);
-    expect(find.text('1Hr Express'), findsOneWidget);
+    // The website's mode switch replaced the old "1Hr Express" button.
+    expect(find.text('Fresh Market'), findsOneWidget);
+    expect(find.text('Express'), findsOneWidget);
+    expect(find.text('1Hr Express'), findsNothing);
     expect(find.byType(SearchFieldButton), findsOneWidget);
     expect(find.byKey(const ValueKey('banner-0')), findsOneWidget);
     for (var i = 0; i < Catalog.banners.length; i++) {

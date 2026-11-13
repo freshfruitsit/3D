@@ -130,15 +130,25 @@ void main() {
     ) async {
       final launched = mockLauncher(tester, result: true);
       final cart = CartStore()..add(kiwi, kiwi.variants[0], quantity: 2);
-      await pumpScreen(tester, const CartScreen(), cart: cart);
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: cart,
+        delivery: testDelivery(),
+      );
 
       await tester.tap(find.widgetWithText(FilledButton, 'Checkout'));
       await tester.pumpAndSettle();
 
-      // No WebView in tests: the browser fallback takes over.
+      // No WebView in tests: the browser fallback takes over. The link
+      // carries the website's delivery cart attributes.
       expect(find.byType(CheckoutScreen), findsOneWidget);
       expect(launched, [
-        'https://testtfm.myshopify.com/cart/${kiwi.variants[0].id}:2',
+        'https://testtfm.myshopify.com/cart/${kiwi.variants[0].id}:2'
+            '?attributes%5BDelivery%20mode%5D=Fresh%20Market'
+            '&attributes%5BDelivery%20area%5D=Business%20Bay%2C%20Dubai'
+            '&attributes%5BDelivery%20promise%5D=Today%20within%206%20hours'
+            '&attributes%5BDelivery%20pin%5D=25.18500%2C55.26500',
       ]);
       expect(find.text('Checkout opened in your browser'), findsOneWidget);
 
