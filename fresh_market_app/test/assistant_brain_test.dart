@@ -1402,6 +1402,175 @@ void main() {
       expect((await brain.reply('find kiwi')).suggestions, isEmpty);
     });
   });
+
+  group('second review', () {
+    test('add picks the cheapest in stock that names the product, not a '
+        'box the store lists first, and says its price', () async {
+      final box = priced(20, 'Avocado Hass Periban 10 KG Box', 55800);
+      api = FakeShopifyApi(collections: {'fruits': [box, ...shelf()]});
+      final b = AssistantBrain(api: api, cart: cart);
+
+      var reply = await b.reply('add an avocado');
+      expect(
+        reply.text,
+        'Done. I added 1 × Avocado Shepard to your cart at Dhs. 8.00.',
+      );
+      expect(cart.quantityOf(5006), 1);
+      expect(cart.quantityOf(5020), 0);
+
+      reply = await b.reply('add 2 avocados');
+      expect(
+        reply.text,
+        'Done. I added 2 × Avocado Shepard to your cart at Dhs. 8.00 each.',
+      );
+      expect(cart.quantityOf(5006), 3);
+
+      // A word inside another word does not name the product.
+      api = FakeShopifyApi(
+        collections: {
+          'fruits': [
+            priced(40, 'Pineapple Gold', 500),
+            priced(41, 'Apple Red', 900),
+          ],
+        },
+      );
+      reply = await AssistantBrain(api: api, cart: cart).reply('add apple');
+      expect(reply.products.single.title, 'Apple Red');
+    });
+
+    test('a product chip acts on the row it was made from', () async {
+      // Two products with the same name: the box comes first.
+      final box = priced(30, 'Kiwi Green Zespri', 25200);
+      final pack = priced(31, 'Kiwi Green Zespri', 1895);
+      api = FakeShopifyApi(collections: {'fruits': [box, pack]});
+      final b = AssistantBrain(api: api, cart: cart);
+
+      final found = await b.reply('find kiwi green');
+      expect(found.products.first.id, 30);
+      expect(found.suggestions, contains('Add 1 Kiwi Green Zespri'));
+      expect(found.chipProducts['Add 1 Kiwi Green Zespri']?.id, 30);
+
+      api.calls.clear();
+      var reply = await b.reply('Add 1 Kiwi Green Zespri', previous: found);
+      expect(
+        reply.text,
+        'Done. I added 1 × Kiwi Green Zespri to your cart at Dhs. 252.00.',
+      );
+      expect(cart.quantityOf(5030), 1);
+      expect(cart.quantityOf(5031), 0);
+      // Today's copy of that product, without a new search.
+      expect(api.calls, ['product(p30)']);
+      expect(reply.chipProducts['Add 1 more Kiwi Green Zespri']?.id, 30);
+
+      final stock = await b.reply('is kiwi green in stock');
+      reply = await b.reply('How much is Kiwi Green Zespri?', previous: stock);
+      expect(reply.text, 'Kiwi Green Zespri is Dhs. 252.00.');
+      expect(reply.products.single.id, 30);
+
+      // Typed without a chip, the add searches as before.
+      reply = await b.reply('Add 1 Kiwi Green Zespri');
+      expect(cart.quantityOf(5031), 1);
+    });
+
+    test('a chip whose product sold out since adds nothing', () async {
+      final kiwi = priced(32, 'Kiwi Gold', 1500);
+      final found = AssistantReply(
+        'Found',
+        products: [kiwi],
+        suggestions: const ['Add 1 Kiwi Gold'],
+        chipProducts: {'Add 1 Kiwi Gold': kiwi},
+      );
+      api = FakeShopifyApi(
+        collections: {
+          'fruits': [priced(32, 'Kiwi Gold', 1500, available: false)],
+        },
+      );
+      final reply = await AssistantBrain(
+        api: api,
+        cart: cart,
+      ).reply('Add 1 Kiwi Gold', previous: found);
+      expect(reply.text, 'Kiwi Gold is sold out right now, so nothing was added.');
+      expect(cart.isEmpty, isTrue);
+    });
+
+    test('remove matches whole words; only berries match by ending', () async {
+      final pineapple = priced(50, 'Pineapple Gold', 1000);
+      final apple = priced(51, 'Apple Red', 500);
+      final watermelon = priced(52, 'Watermelon Red', 1500);
+      final melon = priced(53, 'Melon Galia', 800);
+      final custard = priced(54, 'Custard Apple', 2000);
+      for (final p in [pineapple, apple, watermelon, melon, custard]) {
+        cart.add(p, p.variants.first, quantity: 2);
+      }
+
+      var reply = await brain.reply('remove 1 apple');
+      expect(reply.text, startsWith('Removed 1 × Apple Red from your cart.'));
+      expect(cart.quantityOf(5050), 2);
+      expect(cart.quantityOf(5051), 1);
+
+      reply = await brain.reply('remove apple');
+      expect(
+        reply.text,
+        startsWith('Removed Apple Red and Custard Apple from your cart.'),
+      );
+      expect(cart.quantityOf(5050), 2);
+
+      reply = await brain.reply('remove melon');
+      expect(reply.text, startsWith('Removed Melon Galia from your cart.'));
+      expect(cart.quantityOf(5052), 2);
+    });
+
+    test('a typed yes or no to "Are you sure?"', () async {
+      final cucumber = sampleProducts()[2];
+      cart.add(cucumber, cucumber.variants.first, quantity: 2);
+      final asked = await brain.reply('Empty my cart');
+      final clear = asked.actions.first as ClearCartAction;
+      expect(clear.expected, {2004: 2});
+      expect(clear.matches(cart), isTrue);
+
+      for (final text in ['yes', 'yes empty it', 'Yes please', 'go ahead']) {
+        final reply = await brain.reply(text, previous: asked);
+        expect(
+          reply.text,
+          'To empty your cart, tap "Yes, empty my cart" below.',
+          reason: text,
+        );
+        expect(reply.actions.first, same(clear), reason: text);
+        expectGoodChips(reply);
+      }
+      for (final text in ['no', 'cancel', 'keep it', 'no thanks']) {
+        final reply = await brain.reply(text, previous: asked);
+        expect(reply.text, 'OK, I left your cart as it is.', reason: text);
+        expectGoodChips(reply);
+      }
+      expect(cart.itemCount, 2);
+
+      // A new request is answered as usual.
+      final reply = await brain.reply('add 1 cucumber', previous: asked);
+      expect(reply.text, startsWith('Done. I added 1 × Cucumber'));
+
+      // The question no longer covers a cart that changed.
+      expect(clear.matches(cart), isFalse);
+    });
+
+    test('order and account questions do not search the store', () async {
+      for (final text in ['my account', 'order history', 'password']) {
+        final reply = await brain.reply(text);
+        expect(
+          reply.text,
+          startsWith('I cannot look up orders or accounts here.'),
+          reason: text,
+        );
+        expect(reply.actions, AssistantBrain.contactActions, reason: text);
+        expectGoodChips(reply);
+      }
+      expect(api.calls, isEmpty);
+      expect(
+        (await brain.reply('where is my order')).text,
+        AssistantBrain.contactText,
+      );
+    });
+  });
 }
 
 class _LimitApi extends FakeShopifyApi {

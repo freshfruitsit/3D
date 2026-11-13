@@ -1543,7 +1543,6 @@ abstract final class AssistantIntentParser {
     ..._byeWords,
     ..._greetWords,
     ..._helpWords,
-    'basket',
     'free',
     'add',
     'buy',

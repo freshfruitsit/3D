@@ -669,6 +669,117 @@ void main() {
     });
   });
 
+  group('second review', () {
+    test('basket is the cart only when no product word comes before it', () {
+      expectTable([
+        ('basket', 'Cart'),
+        ("what's in my basket?", 'Cart'),
+        ('show basket', 'Cart'),
+        ('can you add a kiwi to the basket', 'Add(1, kiwi)'),
+        ('add a kiwi to a basket', 'Add(1, kiwi)'),
+        ('please empty the basket', 'ClearCart'),
+        // A basket the store sells.
+        ('fruit basket', 'Search(fruit basket)'),
+        ('gift basket', 'Search(gift basket)'),
+        ('add a fruit basket', 'Add(1, fruit basket)'),
+        ('get a fruit basket', 'Search(fruit basket)'),
+        ('remove the fruit basket', 'Remove(all, fruit basket)'),
+        ('take the fruit basket out of my basket', 'Remove(all, fruit basket)'),
+      ]);
+    });
+
+    test('number words go up to twenty', () {
+      expectAdd('add twenty limes', 20, 'limes');
+      expectAdd('add fifteen kiwis', 15, 'kiwis');
+      expectAdd('add eleven cucumbers', 11, 'cucumbers');
+      expectTable([('remove twelve kiwis', 'Remove(12, kiwis)')]);
+      // "basket" in a product name stays a product word in chips.
+      expect(AssistantIntentParser.isPlainWord('basket'), isTrue);
+      expectTable([
+        ('Cheapest fruit basket', 'Cheapest(fruit basket)'),
+        ('Is fruit basket in stock?', 'Stock(fruit basket)'),
+        ('Add 1 Oriental Delights Basket', 'Add(1, oriental delights basket)'),
+        ('Remove Basket Joy', 'Remove(all, basket joy)'),
+      ]);
+      for (final word in ['eleven', 'fifteen', 'twenty']) {
+        expect(AssistantIntentParser.isPlainWord(word), isFalse, reason: word);
+      }
+    });
+
+    test('an add with another request still adds, and says the rest was '
+        'left out', () {
+      var intent = parse('add 2 cucumbers and show me offers') as AddIntent;
+      expect(intent.quantity, 2);
+      expect(intent.query, 'cucumbers');
+      expect(intent.moreItems, isTrue);
+
+      intent = parse('add 2 cucumbers to my cart and checkout') as AddIntent;
+      expect(intent.query, 'cucumbers');
+      expect(intent.moreItems, isTrue);
+
+      intent = parse('add gluten free bread') as AddIntent;
+      expect(intent.query, 'gluten free bread');
+      expect(intent.moreItems, isFalse);
+
+      // Only offer words: the offers.
+      expectTable([
+        ('Buy 1 get 1 free offers', 'Offers'),
+        ('buy one get one free', 'Offers'),
+        ('buy 2 deals', 'Offers'),
+      ]);
+    });
+
+    test('order and account questions are not product searches', () {
+      expectTable([
+        ('where is my order', 'Contact'),
+        ('where is my order?', 'Contact'),
+        ('when will my order come', 'Contact'),
+        ('where is my delivery', 'Contact'),
+        ('is there a minimum order', 'Delivery'),
+        ('minimum spend for delivery', 'Delivery'),
+        // Still about delivering, not about a placed order.
+        ('when will it arrive', 'Delivery'),
+        ('do you deliver to Abu Dhabi?', 'Delivery'),
+      ]);
+    });
+
+    test('Gulf courtesy words and "sell" are not searched for', () {
+      expectTable([
+        ('shukran habibi', 'Thanks'),
+        ('yalla bye', 'Bye'),
+        ('khalas thanks', 'Bye'),
+        ('salam', 'Greeting'),
+        ('habibi show me mangoes', 'Category(mangoes)'),
+        ('salam, do you have dates?', 'Collection(dates)'),
+        ('wallah the cheapest avocado', 'Cheapest(avocado)'),
+        ('do you sell chiquita bananas', 'Search(chiquita bananas)'),
+        ('pls add 2 kiwis', 'Add(2, kiwis)'),
+        ('what do you sell', 'AllCategories'),
+      ]);
+    });
+
+    test('a typed answer to "Are you sure?"', () {
+      for (final text in [
+        'yes',
+        'Yes please',
+        'yes empty it',
+        'ok, clear my cart',
+        'confirm',
+        'go ahead',
+        'do it',
+        'sure',
+      ]) {
+        expect(AssistantIntentParser.confirmation(text), isTrue, reason: text);
+      }
+      for (final text in ['no', 'No thanks', 'cancel', 'keep it', "don't"]) {
+        expect(AssistantIntentParser.confirmation(text), isFalse, reason: text);
+      }
+      for (final text in ['', 'add 2 kiwis', 'no, add 2 kiwis', 'show me']) {
+        expect(AssistantIntentParser.confirmation(text), isNull, reason: text);
+      }
+    });
+  });
+
   test('plain words', () {
     for (final word in ['kiwi', 'zespri', 'sungold', 'cucumber', 'honey']) {
       expect(AssistantIntentParser.isPlainWord(word), isTrue, reason: word);

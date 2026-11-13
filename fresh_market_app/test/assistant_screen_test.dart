@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/rendering.dart' show RenderParagraph;
+import 'package:flutter/services.dart' show SystemChannels;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/app.dart';
+import 'package:fresh_market_app/app_nav.dart';
 import 'package:fresh_market_app/assistant/assistant_brain.dart';
 import 'package:fresh_market_app/assistant/assistant_session.dart';
+import 'package:fresh_market_app/models/product.dart';
 import 'package:fresh_market_app/screens/assistant_screen.dart';
 import 'package:fresh_market_app/screens/checkout_screen.dart';
 import 'package:fresh_market_app/screens/product_detail_screen.dart';
@@ -704,6 +710,182 @@ void main() {
 
       await tapVisible(tester, find.text('All categories'));
       expect(shell.tab, AppTab.categories);
+    });
+  });
+
+  group('second review', () {
+    testWidgets('done buttons stay done when the assistant is reopened',
+        (tester) async {
+      final cart = CartStore();
+      final session = newSession();
+      final picked = [sampleProducts()[0], sampleProducts()[2]];
+      session.note(AssistantReply(
+        'A salad',
+        products: picked,
+        actions: [AddProductsAction('Add all to cart', products: picked)],
+      ));
+      await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+      await tapVisible(tester, find.text('Add all to cart'));
+      expect(cart.itemCount, 2);
+      expect(session.messages, hasLength(3));
+
+      // Leave the assistant and open it again (Open cart, then Ask).
+      await pumpScreen(tester, const SizedBox(), cart: cart);
+      await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+      expect(tester.widget<Material>(pillMaterial(tester, 'Add all to cart'))
+          .color, AppColors.disabledFill);
+      expect(find.bySemanticsLabel('Add all to cart, done'), findsOneWidget);
+      await tapVisible(tester, find.text('Add all to cart'));
+      expect(cart.itemCount, 2);
+      expect(session.messages, hasLength(3));
+    });
+
+    testWidgets('an old "Yes, empty my cart" leaves a cart that changed '
+        'since the shopper confirmed', (tester) async {
+      final kiwi = sampleProducts().first;
+      final cart = CartStore()..add(kiwi, kiwi.variants.first);
+      final session = newSession();
+      await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
+      await ask(tester, 'Empty my cart');
+      await settleReply(tester);
+      expect(
+        find.text('This will remove the 1 item in your cart. Are you sure?'),
+        findsOneWidget,
+      );
+      await ask(tester, 'add 5 cucumbers');
+      await settleReply(tester);
+      expect(cart.itemCount, 6);
+
+      await tapVisible(tester, find.text('Yes, empty my cart'));
+      expect(cart.itemCount, 6);
+      // The scroll back to the newest message.
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.text('Your cart changed since you asked, so I left it as it '
+            'is. Ask "Empty my cart" again if you still want it empty.'),
+        findsOneWidget,
+      );
+
+      // Back to what was confirmed, the same button empties the cart.
+      cart.remove(2004);
+      await tapVisible(tester, find.text('Yes, empty my cart'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(cart.isEmpty, isTrue);
+      expect(find.text('Done. Your cart is empty now.'), findsOneWidget);
+    });
+
+    testWidgets('a double tap on a link opens it once', (tester) async {
+      final launched = <Uri>[];
+      var pending = Completer<bool>();
+      Future<bool> launcher(Uri uri) {
+        launched.add(uri);
+        return pending.future;
+      }
+
+      final session = newSession();
+      session.note(const AssistantReply(
+        AssistantBrain.contactText,
+        actions: AssistantBrain.contactActions,
+      ));
+      await pumpScreen(
+        tester,
+        AssistantScreen(session: session, launcher: launcher),
+      );
+      final page = find.text('Contact page');
+      await tester.ensureVisible(page);
+      await tester.pump();
+      await tester.tap(page);
+      await tester.pump();
+      await tester.tap(page);
+      await tester.pump();
+      expect(launched, hasLength(1));
+
+      pending.complete(true);
+      await tester.pump();
+      pending = Completer<bool>()..complete(true);
+      await tester.tap(page);
+      await tester.pump();
+      expect(launched, hasLength(2));
+    });
+
+    testWidgets('screen readers hear each new answer', (tester) async {
+      final announced = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<
+          dynamic>(SystemChannels.accessibility, (message) async {
+        final map = message as Map<Object?, Object?>;
+        if (map['type'] == 'announce') {
+          announced.add((map['data']! as Map<Object?, Object?>)['message']!
+              as String);
+        }
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(
+              SystemChannels.accessibility, null));
+
+      await pumpScreen(tester, AssistantScreen(session: newSession()));
+      await ask(tester, 'find kiwi');
+      await settleReply(tester);
+      expect(announced, ['I found this for "kiwi". 1 product below.']);
+    });
+
+    testWidgets('the keyboard stays up after sending; its Send key says to '
+        'wait while a reply loads', (tester) async {
+      await pumpScreen(tester, AssistantScreen(session: newSession()));
+      await tester.showKeyboard(find.byType(TextField));
+      await ask(tester, 'find kiwi');
+      FocusNode focus() =>
+          tester.state<EditableTextState>(find.byType(EditableText))
+              .widget
+              .focusNode;
+      expect(focus().hasFocus, isTrue);
+
+      await tester.enterText(find.byType(TextField), 'beef');
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await tester.pump();
+      expect(find.text('One moment, I am still answering.'), findsOneWidget);
+      expect(find.text('beef'), findsOneWidget);
+
+      await settleReply(tester);
+      expect(focus().hasFocus, isTrue);
+    });
+
+    testWidgets('the notice about removed items sits just above the input',
+        (tester) async {
+      const gone = Product(
+        id: 77,
+        title: 'Old Kiwi',
+        handle: 'old-kiwi',
+        variants: [Variant(id: 7077, title: 'Default Title', priceCents: 500)],
+      );
+      final cart = CartStore()..add(gone, gone.variants.first);
+      await pumpScreen(tester, AssistantScreen(session: newSession()),
+          cart: cart);
+      await ask(tester, 'checkout');
+      await settleReply(tester);
+      await tapVisible(tester, find.text('Go to checkout'));
+      expect(find.text(AppNav.removedItemsMessage), findsOneWidget);
+      final bar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect((bar.margin! as EdgeInsets).bottom, 12);
+      expect(find.byType(CheckoutScreen), findsNothing);
+    });
+
+    testWidgets('the demo label is never cut off, even at 200% text on a '
+        '360dp phone', (tester) async {
+      await pumpScreen(tester, AssistantScreen(session: newSession()));
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pump();
+
+      final caption = find.text(AssistantScreen.caption);
+      expect(tester.widget<Text>(caption).maxLines, isNull);
+      expect(
+        tester.renderObject<RenderParagraph>(caption).didExceedMaxLines,
+        isFalse,
+      );
+      expect(tester.getSize(caption).height, greaterThan(40));
+      expect(tester.takeException(), isNull);
     });
   });
 

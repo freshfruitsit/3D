@@ -967,6 +967,9 @@ class _ActionButton extends StatelessWidget {
           };
     final chevron = look == _ActionLook.outlined;
     return Semantics(
+      // Its own node even when disabled, so it is not read together with
+      // the reply above it.
+      container: true,
       button: true,
       enabled: enabled,
       label: done ? '$label, done' : label,
