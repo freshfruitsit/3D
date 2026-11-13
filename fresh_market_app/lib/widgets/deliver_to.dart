@@ -6,7 +6,6 @@ import '../delivery/delivery.dart';
 import '../profile/customer_details.dart';
 import '../state/profile_store.dart';
 import '../theme/app_theme.dart';
-import 'a11y.dart';
 import 'details_fields.dart';
 
 /// The "Deliver to" card on the cart, under the delivery card: the saved
@@ -49,7 +48,7 @@ class CartDeliverToCard extends StatelessWidget {
       return _Card(
         icon: addressLabelIcon(address.label),
         title: 'Deliver to',
-        tag: AddressLabelTag(label: address.label),
+        tag: AddressLabelTag(label: address.label, color: AppColors.surface),
         semantics:
             'Deliver to ${address.semantics}'
             '${contact.isEmpty ? '' : '. $contact'}',
@@ -291,6 +290,7 @@ class _RadioRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      container: true,
       button: true,
       checked: selected,
       inMutuallyExclusiveGroup: true,
@@ -418,49 +418,56 @@ class _Card extends StatelessWidget {
           ),
       ],
     );
-    return Container(
-      key: const ValueKey('cart-deliver-to'),
-      decoration: AppDecor.info,
-      padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 4, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                margin: const EdgeInsets.only(top: 2),
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  shape: BoxShape.circle,
+    // Its own node, apart from the delivery card above it.
+    return Semantics(
+      container: true,
+      child: Container(
+        key: const ValueKey('cart-deliver-to'),
+        decoration: AppDecor.info,
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 4, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  margin: const EdgeInsets.only(top: 2),
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 20, color: AppColors.ink),
                 ),
-                child: Icon(icon, size: 20, color: AppColors.ink),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: semantics == null
-                      ? text
-                      : Semantics(
-                          label: semantics,
-                          excludeSemantics: true,
-                          child: text,
-                        ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 8),
+                    child: semantics == null
+                        ? Semantics(container: true, child: text)
+                        : Semantics(
+                            container: true,
+                            label: semantics,
+                            excludeSemantics: true,
+                            child: text,
+                          ),
+                  ),
                 ),
-              ),
-              ?action,
-            ],
-          ),
-          if (footer != null)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: 46, top: 8),
-              child: footer,
+                ?action,
+              ],
             ),
-        ],
+            if (footer != null)
+              Padding(
+                // Under the text column (the 36px icon and its 10px gap, less
+                // the button's own 8px padding), as on the delivery card.
+                padding: const EdgeInsetsDirectional.only(start: 38, top: 6),
+                child: footer,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -472,30 +479,38 @@ class _QuietRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      key: const ValueKey('cart-deliver-to'),
-      color: AppColors.subtle,
-      borderRadius: AppDims.wellBorderRadius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => AppNav.openMyDetails(context),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: AppDims.controlTarget),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Icon(Icons.person_outline, size: 20, color: AppColors.ink),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    CartDeliverToCard.quietLabel,
-                    style: AppText.bodySmall,
+    return Semantics(
+      container: true,
+      button: true,
+      child: Material(
+        key: const ValueKey('cart-deliver-to'),
+        color: AppColors.subtle,
+        borderRadius: AppDims.wellBorderRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => AppNav.openMyDetails(context),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: AppDims.controlTarget),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.person_outline, size: 20, color: AppColors.ink),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      CartDeliverToCard.quietLabel,
+                      style: AppText.bodySmall,
+                    ),
                   ),
-                ),
-                SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 20, color: AppColors.tertiary),
-              ],
+                  SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: AppColors.tertiary,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -596,16 +611,17 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
 
   void _continue() {
     setState(() => _tried = true);
+    // The form says the first error to screen readers itself.
     if (!_form.currentState!.validate()) {
-      final message = focusFirstError(
+      focusFirstError(
         [_mobileKey, _emailKey, _buildingKey],
         {
           _mobileKey: _mobileNode,
           _emailKey: _emailNode,
           _buildingKey: _buildingNode,
         },
+        {_mobileKey: _mobile, _emailKey: _email, _buildingKey: _building},
       );
-      if (message != null) announce(context, message);
       return;
     }
     Navigator.of(context).pop(
@@ -646,9 +662,6 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
                 ),
                 child: Form(
                   key: _form,
-                  autovalidateMode: _tried
-                      ? AutovalidateMode.onUserInteraction
-                      : AutovalidateMode.disabled,
                   child: AutofillGroup(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -692,11 +705,12 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
                           focusNode: _mobileNode,
                           controller: _mobile,
                           label: 'Mobile',
-                          hint: '+971 50 123 4567',
+                          hint: mobileHint,
                           autofillHints: const [AutofillHints.telephoneNumber],
                           keyboardType: TextInputType.phone,
                           maxLength: 24,
                           validator: CustomerInput.validateMobile,
+                          validateWhileTyping: _tried,
                         ),
                         const SizedBox(height: 12),
                         DetailsField(
@@ -704,18 +718,22 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
                           focusNode: _emailNode,
                           controller: _email,
                           label: 'Email',
-                          hint: 'name@example.com',
+                          hint: emailHint,
                           autofillHints: const [AutofillHints.email],
                           keyboardType: TextInputType.emailAddress,
                           maxLength: CustomerInput.emailMax,
                           validator: CustomerInput.validateEmail,
+                          validateWhileTyping: _tried,
                         ),
                         const SizedBox(height: 16),
-                        Text(
-                          'Your address in ${widget.area.name}',
-                          style: AppText.label,
+                        Semantics(
+                          header: true,
+                          child: Text(
+                            'Your address in ${widget.area.name}',
+                            style: AppText.cardHeading.copyWith(fontSize: 15),
+                          ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         FieldPair(
                           first: DetailsField(
                             fieldKey: _buildingKey,
@@ -729,6 +747,7 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
                             textCapitalization: TextCapitalization.words,
                             maxLength: CustomerInput.buildingMax,
                             validator: _validateBuilding,
+                            validateWhileTyping: _tried,
                           ),
                           second: DetailsField(
                             controller: _flat,

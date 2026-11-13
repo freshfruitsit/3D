@@ -19,15 +19,14 @@ const sara = ContactDetails(
 
 DeliveryArea area(String name) => DeliveryConfig.areaNamed(name)!;
 
-SavedAddress home({String id = 'h1', String flat = 'Flat 302'}) =>
-    SavedAddress(
-      id: id,
-      label: AddressLabel.home,
-      area: area('Business Bay'),
-      building: 'Bay Square, Building 5',
-      flat: flat,
-      instructions: 'Call when you arrive',
-    );
+SavedAddress home({String id = 'h1', String flat = 'Flat 302'}) => SavedAddress(
+  id: id,
+  label: AddressLabel.home,
+  area: area('Business Bay'),
+  building: 'Bay Square, Building 5',
+  flat: flat,
+  instructions: 'Call when you arrive',
+);
 
 SavedAddress office() => SavedAddress(
   id: 'o1',
@@ -68,10 +67,19 @@ void main() {
     });
 
     test('other international numbers written with + or 00 (E.164)', () {
-      expect(CustomerInput.normaliseMobile('+44 20 7946 0958'), '+442079460958');
-      expect(CustomerInput.normaliseMobile('0044 7700 900123'), '+447700900123');
+      expect(
+        CustomerInput.normaliseMobile('+44 20 7946 0958'),
+        '+442079460958',
+      );
+      expect(
+        CustomerInput.normaliseMobile('0044 7700 900123'),
+        '+447700900123',
+      );
       expect(CustomerInput.normaliseMobile('+91 98765 43210'), '+919876543210');
-      expect(CustomerInput.normaliseMobile('+1 (202) 555-0143'), '+12025550143');
+      expect(
+        CustomerInput.normaliseMobile('+1 (202) 555-0143'),
+        '+12025550143',
+      );
       // 8 and 15 digits are the limits.
       expect(CustomerInput.normaliseMobile('+12345678'), '+12345678');
       expect(
@@ -176,8 +184,7 @@ void main() {
   group('checkout prefill', () {
     final bay = area('Business Bay');
 
-    test('contact and the address in the delivery area, in checkout order',
-        () {
+    test('contact and the address in the delivery area, in checkout order', () {
       final params = CheckoutPrefill.params(
         contact: sara,
         address: home(),
@@ -213,10 +220,7 @@ void main() {
         address: office(),
         area: area('Dubai Marina'),
       );
-      expect(
-        params[CheckoutPrefill.address1],
-        'Marina Plaza, Al Marsa Street',
-      );
+      expect(params[CheckoutPrefill.address1], 'Marina Plaza, Al Marsa Street');
       expect(params[CheckoutPrefill.address2], 'Office 1204');
       expect(params[CheckoutPrefill.city], 'Dubai Marina');
       expect(params[CheckoutPrefill.country], 'AE');
@@ -235,10 +239,7 @@ void main() {
       expect(params[CheckoutPrefill.province], 'DU');
       expect(params[CheckoutPrefill.country], 'AE');
       expect(params[CheckoutPrefill.email], 'sara@example.com');
-      expect(
-        CheckoutPrefill.attributes(address: office(), area: bay),
-        isEmpty,
-      );
+      expect(CheckoutPrefill.attributes(address: office(), area: bay), isEmpty);
     });
 
     test('the same area by name and emirate, wherever the pin is', () {
@@ -262,14 +263,13 @@ void main() {
         lat: 25.3,
         lng: 55.4,
       );
-      expect(
-        CheckoutPrefill.params(
-          contact: ContactDetails.empty,
-          address: home(),
-          area: sharjahBay,
-        ),
-        isEmpty,
+      final inSharjah = CheckoutPrefill.params(
+        contact: ContactDetails.empty,
+        address: home(),
+        area: sharjahBay,
       );
+      expect(inSharjah.keys, isNot(contains(CheckoutPrefill.address1)));
+      expect(inSharjah[CheckoutPrefill.province], 'SH');
     });
 
     test('empty values are left out; nothing saved sends nothing', () {
@@ -292,6 +292,17 @@ void main() {
       expect(contactOnly[CheckoutPrefill.city], 'Business Bay');
       expect(contactOnly[CheckoutPrefill.province], 'DU');
       expect(contactOnly.keys, isNot(contains(CheckoutPrefill.address1)));
+      // Only an address in another area: the current city and emirate.
+      final elsewhere = CheckoutPrefill.params(
+        contact: ContactDetails.empty,
+        address: office(),
+        area: bay,
+      );
+      expect(elsewhere, {
+        CheckoutPrefill.city: 'Business Bay',
+        CheckoutPrefill.province: 'DU',
+        CheckoutPrefill.country: 'AE',
+      });
       // No area: contact only.
       final noArea = CheckoutPrefill.params(contact: sara, address: home());
       expect(noArea.keys, [
@@ -306,8 +317,10 @@ void main() {
       for (final e in Emirate.values) {
         final a = DeliveryArea(name: 'Somewhere', emirate: e, lat: 25, lng: 55);
         expect(
-          CheckoutPrefill.params(contact: sara, area: a)[
-              CheckoutPrefill.province],
+          CheckoutPrefill.params(
+            contact: sara,
+            area: a,
+          )[CheckoutPrefill.province],
           CustomerInput.provinceCode(e),
         );
       }
@@ -434,7 +447,10 @@ void main() {
         ).toString(),
         'https://testtfm.myshopify.com/cart/2001:1',
       );
-      expect(CartStore.buildCheckoutUrl({2001: 0}, prefill: {'a': 'b'}), isNull);
+      expect(
+        CartStore.buildCheckoutUrl({2001: 0}, prefill: {'a': 'b'}),
+        isNull,
+      );
     });
   });
 
@@ -529,7 +545,11 @@ void main() {
         },
         'addresses': [
           home().toJson(),
-          {'id': 'bad', 'area': {'name': 'X'}, 'building': 'B'},
+          {
+            'id': 'bad',
+            'area': {'name': 'X'},
+            'building': 'B',
+          },
         ],
         'default': 'missing',
       });

@@ -3,16 +3,24 @@ import 'package:material_ui/material_ui.dart';
 
 import '../profile/customer_details.dart';
 import '../theme/app_theme.dart';
+import 'circle_icon_button.dart';
+
+/// The hints of the mobile and email fields: "e.g." so an empty field
+/// never looks filled in.
+const String mobileHint = 'e.g. +971 50 123 4567';
+const String emailHint = 'e.g. name@example.com';
 
 /// The text field of the details forms (My details, an address, the
-/// checkout sheet): the theme's off-white field with its label always
-/// shown above the typed text, the hint inside, and errors in ink (never
-/// red) with an icon, so they read without colour.
+/// checkout sheet): its label above it (13/600 ink, "optional" in grey),
+/// then the theme's off-white field with the hint inside, and errors in
+/// ink (never red) with an icon, so they read without colour. Screen
+/// readers hear the label as the field's name.
 class DetailsField extends StatelessWidget {
   const DetailsField({
     super.key,
     required this.controller,
     required this.label,
+    this.optional = false,
     this.hint,
     this.focusNode,
     this.validator,
@@ -26,12 +34,16 @@ class DetailsField extends StatelessWidget {
     this.onSubmitted,
     this.onChanged,
     this.fieldKey,
+    this.validateWhileTyping = false,
   });
 
   final TextEditingController controller;
 
-  /// Shown above the typed text and read out as the field's name.
+  /// Shown above the field and read out as its name.
   final String label;
+
+  /// Adds "(optional)" after the label.
+  final bool optional;
   final String? hint;
   final FocusNode? focusNode;
   final FormFieldValidator<String>? validator;
@@ -52,6 +64,11 @@ class DetailsField extends StatelessWidget {
   /// The [FormFieldState]'s key, to read or focus it from the form.
   final GlobalKey<FormFieldState<String>>? fieldKey;
 
+  /// Checks the field as it is typed (once Save was tried), so an error
+  /// clears as soon as it is fixed. Field by field: the form's own check
+  /// would say its first error again on every key.
+  final bool validateWhileTyping;
+
   /// Error messages: ink, never red, with an icon.
   static final TextStyle errorStyle = AppText.caption.copyWith(
     color: AppColors.ink,
@@ -66,71 +83,100 @@ class DetailsField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final limit = maxLength;
-    return TextFormField(
-      key: fieldKey,
-      controller: controller,
-      focusNode: focusNode,
-      validator: validator,
-      autofillHints: autofillHints,
-      keyboardType: maxLines > 1 ? TextInputType.multiline : keyboardType,
-      textInputAction: textInputAction,
-      textCapitalization: textCapitalization,
-      maxLines: maxLines,
-      minLines: 1,
-      maxLength: showCounter ? limit : null,
-      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-      inputFormatters: [
-        if (limit != null && !showCounter)
-          LengthLimitingTextInputFormatter(limit),
-      ],
-      onFieldSubmitted: onSubmitted,
-      onChanged: onChanged,
-      // An icon with the message, so an error does not rely on colour.
-      errorBuilder: (context, message) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.error_outline, size: 15, color: AppColors.ink),
-          ),
-          const SizedBox(width: 4),
-          Expanded(child: Text(message, style: errorStyle)),
-        ],
-      ),
-      style: AppText.body,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        labelStyle: AppText.body.copyWith(color: AppColors.secondary),
-        floatingLabelStyle: WidgetStateTextStyle.resolveWith(
-          (states) => AppText.label.copyWith(
-            color: states.contains(WidgetState.focused) ||
-                    states.contains(WidgetState.error)
-                ? AppColors.ink
-                : AppColors.secondary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ExcludeSemantics(
+          child: Text.rich(
+            TextSpan(
+              text: label,
+              children: [
+                if (optional)
+                  TextSpan(
+                    text: ' (optional)',
+                    style: AppText.label.copyWith(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+            style: AppText.label,
           ),
         ),
-        errorBorder: _errorBorder,
-        focusedErrorBorder: _errorBorder,
-        counterStyle: AppText.caption,
-        contentPadding: const EdgeInsets.fromLTRB(14, 22, 14, 12),
-      ),
+        const SizedBox(height: 6),
+        Semantics(
+          label: optional ? '$label, optional' : label,
+          child: TextFormField(
+            key: fieldKey,
+            controller: controller,
+            focusNode: focusNode,
+            validator: validator,
+            autovalidateMode: validateWhileTyping
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
+            autofillHints: autofillHints,
+            keyboardType: maxLines > 1 ? TextInputType.multiline : keyboardType,
+            textInputAction: textInputAction,
+            textCapitalization: textCapitalization,
+            maxLines: maxLines,
+            minLines: 1,
+            maxLength: showCounter ? limit : null,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            inputFormatters: [
+              if (limit != null && !showCounter)
+                LengthLimitingTextInputFormatter(limit),
+            ],
+            onFieldSubmitted: onSubmitted,
+            onChanged: onChanged,
+            // An icon with the message, so an error does not rely on colour.
+            errorBuilder: (context, message) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(
+                    Icons.error_outline,
+                    size: 15,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(child: Text(message, style: errorStyle)),
+              ],
+            ),
+            style: AppText.body,
+            decoration: InputDecoration(
+              hintText: hint,
+              errorBorder: _errorBorder,
+              focusedErrorBorder: _errorBorder,
+              counterStyle: AppText.caption,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// The small off-white tag with an address's label ("Home") and its icon.
+/// The small off-white tag with an address's label ("Home"); the row it
+/// sits in shows the label's icon.
 class AddressLabelTag extends StatelessWidget {
-  const AddressLabelTag({super.key, required this.label});
+  const AddressLabelTag({
+    super.key,
+    required this.label,
+    this.color = AppColors.subtle,
+  });
 
   final AddressLabel label;
 
+  /// The pill: off-white on white, white on an off-white card.
+  final Color color;
+
   @override
-  Widget build(BuildContext context) => SmallTag(
-    text: label.label,
-    icon: addressLabelIcon(label),
-  );
+  Widget build(BuildContext context) =>
+      SmallTag(text: label.label, color: color);
 }
 
 /// The icon of an address label.
@@ -143,19 +189,24 @@ IconData addressLabelIcon(AddressLabel label) => switch (label) {
 /// A small off-white pill with ink text ("Home", "Default", "Coming
 /// soon").
 class SmallTag extends StatelessWidget {
-  const SmallTag({super.key, required this.text, this.icon});
+  const SmallTag({
+    super.key,
+    required this.text,
+    this.icon,
+    this.color = AppColors.subtle,
+  });
 
   final String text;
   final IconData? icon;
+
+  /// The pill's fill: [AppColors.subtle], or white on an off-white card.
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: const ShapeDecoration(
-        color: AppColors.subtle,
-        shape: StadiumBorder(),
-      ),
+      decoration: ShapeDecoration(color: color, shape: const StadiumBorder()),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -229,6 +280,15 @@ class DetailsSwitchRow extends StatelessWidget {
                   onChanged: change,
                   activeThumbColor: AppColors.onDark,
                   activeTrackColor: AppColors.ink,
+                  // Off: a grey thumb and outline that keep 3:1 (WCAG
+                  // 1.4.11), not the hairline.
+                  inactiveThumbColor: AppColors.secondary,
+                  inactiveTrackColor: AppColors.surface,
+                  trackOutlineColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? AppColors.ink
+                        : AppColors.secondary,
+                  ),
                 ),
               ],
             ),
@@ -258,9 +318,7 @@ class PrivacyNote extends StatelessWidget {
           child: Icon(Icons.lock_outline, size: 14, color: AppColors.secondary),
         ),
         const SizedBox(width: 6),
-        Flexible(
-          child: Text(text, style: AppText.caption),
-        ),
+        Flexible(child: Text(text, style: AppText.caption)),
       ],
     );
   }
@@ -305,7 +363,7 @@ class DetailsPage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  _BackButton(),
+                  CircleIconButton.back(context),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Semantics(
@@ -353,53 +411,13 @@ class DetailsPage extends StatelessWidget {
                         onPressed: onSave,
                         child: Text(saveLabel, textAlign: TextAlign.center),
                       ),
-                      if (note != null) ...[
-                        const SizedBox(height: 8),
-                        note!,
-                      ],
+                      if (note != null) ...[const SizedBox(height: 8), note!],
                     ],
                   ),
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The round back button of the form pages (pops the page).
-class _BackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Back',
-      excludeSemantics: true,
-      onTap: () => Navigator.of(context).maybePop(),
-      child: Tooltip(
-        message: 'Back',
-        child: DecoratedBox(
-          decoration: const ShapeDecoration(
-            shape: CircleBorder(),
-            shadows: AppShadows.raised,
-          ),
-          child: Material(
-            color: AppColors.surface,
-            shape: const CircleBorder(
-              side: BorderSide(color: AppColors.hairline),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: const SizedBox(
-                width: AppDims.touch,
-                height: AppDims.touch,
-                child: Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -435,15 +453,27 @@ class FieldPair extends StatelessWidget {
 }
 
 /// Moves focus to the first field of [keys] whose form says it is wrong
-/// and returns its message (to announce), or null when all are right.
+/// (the cursor at the end of its text) and returns its message (to
+/// announce), or null when all are right.
 String? focusFirstError(
   List<GlobalKey<FormFieldState<String>>> keys,
-  Map<GlobalKey<FormFieldState<String>>, FocusNode> nodes,
-) {
+  Map<GlobalKey<FormFieldState<String>>, FocusNode> nodes, [
+  Map<GlobalKey<FormFieldState<String>>, TextEditingController> controllers =
+      const {},
+]) {
   for (final key in keys) {
     final state = key.currentState;
     if (state != null && state.hasError) {
       nodes[key]?.requestFocus();
+      final controller = controllers[key];
+      if (controller != null) {
+        // Not the whole text selected, as a web field does on focus.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          controller.selection = TextSelection.collapsed(
+            offset: controller.text.length,
+          );
+        });
+      }
       return state.errorText;
     }
   }

@@ -381,7 +381,9 @@ abstract final class AppNav {
       },
       prefill: CheckoutPrefill.params(
         contact: details.contact,
-        address: details.address,
+        // One in another area still gives checkout the city and emirate
+        // (never its building).
+        address: details.address ?? profile.addressElsewhere(area),
         area: area,
       ),
     );

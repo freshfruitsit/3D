@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../profile/customer_details.dart';
 import '../state/profile_store.dart';
 import '../theme/app_theme.dart';
-import '../widgets/a11y.dart';
 import '../widgets/details_fields.dart';
 
 /// "My details": first and last name, mobile and email, all optional.
@@ -64,12 +63,14 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
   void _save() {
     setState(() => _tried = true);
     final form = _form.currentState!;
+    // The form says the first error to screen readers itself; focus goes
+    // to that field.
     if (!form.validate()) {
-      final message = focusFirstError(
+      focusFirstError(
         [_mobileKey, _emailKey],
         {_mobileKey: _mobileNode, _emailKey: _emailNode},
+        {_mobileKey: _mobile, _emailKey: _email},
       );
-      if (message != null) announce(context, message);
       return;
     }
     context.read<ProfileStore>().saveContact(
@@ -99,9 +100,6 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
         const SizedBox(height: 20),
         Form(
           key: _form,
-          autovalidateMode: _tried
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
           child: AutofillGroup(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,11 +128,12 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
                   focusNode: _mobileNode,
                   controller: _mobile,
                   label: 'Mobile',
-                  hint: '+971 50 123 4567',
+                  hint: mobileHint,
                   autofillHints: const [AutofillHints.telephoneNumber],
                   keyboardType: TextInputType.phone,
                   maxLength: 24,
                   validator: CustomerInput.validateMobile,
+                  validateWhileTyping: _tried,
                 ),
                 const SizedBox(height: 12),
                 DetailsField(
@@ -142,12 +141,13 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
                   focusNode: _emailNode,
                   controller: _email,
                   label: 'Email',
-                  hint: 'name@example.com',
+                  hint: emailHint,
                   autofillHints: const [AutofillHints.email],
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.done,
                   maxLength: CustomerInput.emailMax,
                   validator: CustomerInput.validateEmail,
+                  validateWhileTyping: _tried,
                   onSubmitted: (_) => _save(),
                 ),
               ],

@@ -89,14 +89,15 @@ class _AddressScreenState extends State<AddressScreen> {
     setState(() => _tried = true);
     final valid = _form.currentState!.validate();
     final area = _area;
-    if (!valid || area == null) {
-      final message = !valid
-          ? focusFirstError(
-              [_buildingKey],
-              {_buildingKey: _buildingNode},
-            )
-          : AddressScreen.areaError;
-      announce(context, message ?? AddressScreen.areaError);
+    if (!valid) {
+      // The form says the error to screen readers itself.
+      focusFirstError([_buildingKey], {_buildingKey: _buildingNode}, {
+        _buildingKey: _building,
+      });
+      return;
+    }
+    if (area == null) {
+      announce(context, AddressScreen.areaError);
       return;
     }
     final profile = context.read<ProfileStore>();
@@ -209,9 +210,6 @@ class _AddressScreenState extends State<AddressScreen> {
         const SizedBox(height: 16),
         Form(
           key: _form,
-          autovalidateMode: _tried
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
           child: AutofillGroup(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -227,11 +225,13 @@ class _AddressScreenState extends State<AddressScreen> {
                   textCapitalization: TextCapitalization.words,
                   maxLength: CustomerInput.buildingMax,
                   validator: CustomerInput.validateBuilding,
+                  validateWhileTyping: _tried,
                 ),
                 const SizedBox(height: 12),
                 DetailsField(
                   controller: _street,
-                  label: 'Street (optional)',
+                  label: 'Street',
+                  optional: true,
                   autofillHints: const [AutofillHints.streetAddressLine2],
                   keyboardType: TextInputType.streetAddress,
                   textCapitalization: TextCapitalization.words,
@@ -240,7 +240,8 @@ class _AddressScreenState extends State<AddressScreen> {
                 const SizedBox(height: 12),
                 DetailsField(
                   controller: _flat,
-                  label: 'Flat, floor (optional)',
+                  label: 'Flat, floor',
+                  optional: true,
                   hint: 'Flat or office number, floor',
                   autofillHints: const [AutofillHints.streetAddressLine3],
                   textCapitalization: TextCapitalization.sentences,
@@ -249,7 +250,8 @@ class _AddressScreenState extends State<AddressScreen> {
                 const SizedBox(height: 12),
                 DetailsField(
                   controller: _notes,
-                  label: 'Delivery instructions (optional)',
+                  label: 'Delivery instructions',
+                  optional: true,
                   hint: 'For the driver, like "Call when you arrive"',
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.done,
@@ -302,6 +304,7 @@ class _LabelChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      container: true,
       button: true,
       selected: selected,
       inMutuallyExclusiveGroup: true,
@@ -379,6 +382,7 @@ class _AreaRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Semantics(
+              container: true,
               label: a == null ? 'Area: not chosen' : 'Area: ${a.label}',
               excludeSemantics: true,
               child: Column(

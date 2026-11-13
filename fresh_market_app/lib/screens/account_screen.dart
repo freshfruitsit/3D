@@ -119,14 +119,16 @@ class AccountScreen extends StatelessWidget {
             const _SignInNote(),
             if (hasDetails) ...[
               const SizedBox(height: 16),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  key: const ValueKey('delete-details'),
-                  onPressed: () => _confirmDelete(context),
-                  icon: const Icon(Icons.delete_outline, size: 20),
-                  label: const Text(deleteLabel),
+              // The whole row is the target, the text on the gutter.
+              TextButton.icon(
+                key: const ValueKey('delete-details'),
+                style: TextButton.styleFrom(
+                  alignment: AlignmentDirectional.centerStart,
+                  minimumSize: const Size.fromHeight(AppDims.controlTarget),
                 ),
+                onPressed: () => _confirmDelete(context),
+                icon: const Icon(Icons.delete_outline, size: 20),
+                label: const Text(deleteLabel),
               ),
             ],
           ],
@@ -204,9 +206,8 @@ class AccountScreen extends StatelessWidget {
       Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<void>(
           fullscreenDialog: true,
-          builder: (routeContext) => IntroScreen(
-            onDone: () => Navigator.of(routeContext).pop(),
-          ),
+          builder: (routeContext) =>
+              IntroScreen(onDone: () => Navigator.of(routeContext).pop()),
         ),
       );
 }
@@ -269,10 +270,7 @@ class _AccountRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) ...[
-                trailing!,
-                const SizedBox(width: 4),
-              ],
+              if (trailing != null) ...[trailing!, const SizedBox(width: 4)],
               const Icon(
                 Icons.chevron_right,
                 size: 22,
@@ -291,12 +289,11 @@ class _AccountRow extends StatelessWidget {
 class _HelpSheet extends StatelessWidget {
   const _HelpSheet();
 
-  static IconData _iconFor(String link) =>
-      switch (Uri.tryParse(link)?.scheme) {
-        'tel' => Icons.phone_outlined,
-        'mailto' => Icons.mail_outline,
-        _ => Icons.open_in_new,
-      };
+  static IconData _iconFor(String link) => switch (Uri.tryParse(link)?.scheme) {
+    'tel' => Icons.phone_outlined,
+    'mailto' => Icons.mail_outline,
+    _ => Icons.open_in_new,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -516,6 +513,7 @@ class _AddressesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Semantics(
+          container: true,
           header: true,
           child: const Text('Delivery addresses', style: AppText.heading),
         ),
@@ -531,6 +529,7 @@ class _AddressesSection extends StatelessWidget {
                 for (final (i, a) in addresses.indexed) ...[
                   if (i > 0) const Divider(height: 1, indent: 52),
                   Semantics(
+                    container: true,
                     button: true,
                     label:
                         '${a.semantics}${a.id == defaultId ? ', default' : ''}'
@@ -579,14 +578,19 @@ class _AddressesSection extends StatelessWidget {
                 if (profile.canAddAddress) ...[
                   if (addresses.isNotEmpty)
                     const Divider(height: 1, indent: 52),
-                  _AccountRow(
-                    key: const ValueKey('add-address'),
-                    icon: Icons.add,
-                    label: 'Add address',
-                    subtitle: addresses.isEmpty
-                        ? 'Building and flat, filled in at checkout'
-                        : null,
-                    onTap: () => AppNav.openAddress(context, area: area),
+                  // Its own node: with one row under the heading the two
+                  // would otherwise be read (and tapped) as one.
+                  Semantics(
+                    container: true,
+                    child: _AccountRow(
+                      key: const ValueKey('add-address'),
+                      icon: Icons.add,
+                      label: 'Add address',
+                      subtitle: addresses.isEmpty
+                          ? 'Building and flat, filled in at checkout'
+                          : null,
+                      onTap: () => AppNav.openAddress(context, area: area),
+                    ),
                   ),
                 ],
               ],

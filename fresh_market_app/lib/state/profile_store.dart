@@ -86,10 +86,7 @@ class ProfileStore extends ChangeNotifier {
   /// Default first, then in the order they were added.
   List<SavedAddress> get addresses {
     final d = defaultAddress;
-    return List.unmodifiable([
-      ?d,
-      ..._addresses.where((a) => a.id != d?.id),
-    ]);
+    return List.unmodifiable([?d, ..._addresses.where((a) => a.id != d?.id)]);
   }
 
   /// The default address (the first one saved, unless another was made
@@ -162,7 +159,8 @@ class ProfileStore extends ChangeNotifier {
     final address = once.address;
     return CheckoutDetails(
       contact: once.contact,
-      address: address != null &&
+      address:
+          address != null &&
               area != null &&
               CustomerInput.sameArea(address.area, area)
           ? address

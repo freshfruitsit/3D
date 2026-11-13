@@ -35,7 +35,7 @@ abstract final class CheckoutPrefill {
   ///
   /// - Contact: email, first and last name, phone (already normalised).
   /// - Address in [area]: address1 (building, street), address2 (flat).
-  /// - With anything to send and an [area]: city (the area's name),
+  /// - With any saved details and an [area]: city (the area's name),
   ///   province (the emirate's Shopify code) and country (AE). With an
   ///   address in another area only these are sent, never its building.
   ///
@@ -55,7 +55,7 @@ abstract final class CheckoutPrefill {
     put(email, contact.email);
     put(firstName, contact.firstName);
     put(lastName, contact.lastName);
-    if (area != null && (match != null || !contact.isEmpty)) {
+    if (area != null && (address != null || !contact.isEmpty)) {
       if (match != null) {
         put(address1, match.address1);
         put(address2, match.flat);
