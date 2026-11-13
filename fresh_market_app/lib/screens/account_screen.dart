@@ -119,16 +119,23 @@ class AccountScreen extends StatelessWidget {
             const _SignInNote(),
             if (hasDetails) ...[
               const SizedBox(height: 16),
-              // The whole row is the target, the text on the gutter.
-              TextButton.icon(
+              // The whole row is the target; the icon and text on the
+              // card rows' columns.
+              TextButton(
                 key: const ValueKey('delete-details'),
                 style: TextButton.styleFrom(
                   alignment: AlignmentDirectional.centerStart,
                   minimumSize: const Size.fromHeight(AppDims.controlTarget),
+                  padding: const EdgeInsets.symmetric(horizontal: _rowInset),
                 ),
                 onPressed: () => _confirmDelete(context),
-                icon: const Icon(Icons.delete_outline, size: 20),
-                label: const Text(deleteLabel),
+                child: const Row(
+                  children: [
+                    Icon(Icons.delete_outline, size: 22),
+                    SizedBox(width: _iconGap),
+                    Flexible(child: Text(deleteLabel)),
+                  ],
+                ),
               ),
             ],
           ],
@@ -138,6 +145,11 @@ class AccountScreen extends StatelessWidget {
   }
 
   static const String deleteLabel = 'Delete my details';
+
+  /// The card rows' columns, which the rows under the cards follow: the
+  /// icon 16 in from the card's 1px border, the text 14 after the 22 icon.
+  static const double _rowInset = 1 + 16;
+  static const double _iconGap = 14;
   static const String deleteTitle = 'Delete your details?';
   static const String deleteMessage =
       'Your name, mobile, email and saved addresses are removed from this '
@@ -416,9 +428,59 @@ class _DetailsCard extends StatelessWidget {
 
     final name = contact.fullName;
     final lines = [
-      if (contact.mobile.isNotEmpty) contact.mobileDisplay,
+      if (contact.mobile.isNotEmpty) contact.mobileOneLine,
       if (contact.email.isNotEmpty) contact.email,
     ];
+    final heading = Semantics(
+      header: true,
+      child: Text(name.isEmpty ? emptyTitle : name, style: AppText.cardHeading),
+    );
+    final details = [
+      for (final line in lines)
+        Text(
+          line,
+          style: AppText.bodySmall.copyWith(color: AppColors.secondary),
+        ),
+    ];
+    final editButton = TextButton(
+      key: const ValueKey('edit-details'),
+      onPressed: edit,
+      child: const Text('Edit', semanticsLabel: 'Edit my details'),
+    );
+
+    // At a large font size the lines take the card's width (the mobile and
+    // email stay whole) and Edit goes under them.
+    if (MediaQuery.textScalerOf(context).scale(10) / 10 > 1.3) {
+      return Container(
+        key: const ValueKey('account-details'),
+        decoration: AppDecor.card,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _Avatar(initials: _initials(contact)),
+                const SizedBox(width: 12),
+                Expanded(child: heading),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...details,
+            const SizedBox(height: 4),
+            Transform.translate(
+              // The label on the text's edge (less the button's padding).
+              offset: Offset(
+                Directionality.of(context) == TextDirection.rtl ? 8 : -8,
+                0,
+              ),
+              child: editButton,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       key: const ValueKey('account-details'),
       decoration: AppDecor.card,
@@ -431,30 +493,10 @@ class _DetailsCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    name.isEmpty ? emptyTitle : name,
-                    style: AppText.cardHeading,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                for (final line in lines)
-                  Text(
-                    line,
-                    style: AppText.bodySmall.copyWith(
-                      color: AppColors.secondary,
-                    ),
-                  ),
-              ],
+              children: [heading, const SizedBox(height: 2), ...details],
             ),
           ),
-          TextButton(
-            key: const ValueKey('edit-details'),
-            onPressed: edit,
-            child: const Text('Edit', semanticsLabel: 'Edit your details'),
-          ),
+          editButton,
         ],
       ),
     );
@@ -603,7 +645,8 @@ class _AddressesSection extends StatelessWidget {
 }
 
 /// Sign-in is not in this version: a quiet note with a "Coming soon" tag,
-/// not a dead button.
+/// not a dead button. The tag sits under the two lines, so at a large font
+/// size the text keeps the row's width.
 class _SignInNote extends StatelessWidget {
   const _SignInNote();
 
@@ -611,12 +654,12 @@ class _SignInNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       key: const ValueKey('account-sign-in'),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AccountScreen._rowInset),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.login, size: 20, color: AppColors.ink),
-          const SizedBox(width: 10),
+          const Icon(Icons.login, size: 22, color: AppColors.ink),
+          const SizedBox(width: AccountScreen._iconGap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,20 +674,25 @@ class _SignInNote extends StatelessWidget {
                   'Sign-in is not available in this version.',
                   style: AppText.caption,
                 ),
+                const SizedBox(height: 4),
+                Container(
+                  key: const ValueKey('sign-in-coming-soon'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: const ShapeDecoration(
+                    color: AppColors.subtle,
+                    shape: StadiumBorder(),
+                  ),
+                  child: Text(
+                    AccountScreen.comingSoon,
+                    style: AppText.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            key: const ValueKey('sign-in-coming-soon'),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: const ShapeDecoration(
-              color: AppColors.subtle,
-              shape: StadiumBorder(),
-            ),
-            child: Text(
-              AccountScreen.comingSoon,
-              style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

@@ -56,6 +56,7 @@ class LocationScreen extends StatefulWidget {
       'the same.';
   static const String addressNote =
       'The emirate comes from the area you choose.';
+  static const String addressPickFirst = 'Pick the area this address is in.';
 
   static const String subtitle =
       "We'll show delivery times and what's available for your area.";
@@ -82,6 +83,7 @@ class LocationScreen extends StatefulWidget {
   static const String userAgentPackageName = 'ae.freshmarket.fresh_market_app';
   static const String attribution = '© OpenStreetMap contributors';
   static const String mapHint = 'Tap the map or drag it to move the pin.';
+
   /// The Express zone's fill on the map: the accent at 10%.
   static const Color zoneFill = Color(0x1A0E7C3A);
 
@@ -324,9 +326,11 @@ class _LocationScreenState extends State<LocationScreen> {
         options: summary.options,
         buttonLabel: summary.canConfirm && pickedArea != null
             ? 'Use ${pickedArea.name}'
-            : summary.buttonLabel,
+            : 'Use this area',
         canConfirm: summary.canConfirm,
-        note: summary.canConfirm ? LocationScreen.addressNote : summary.note,
+        note: summary.canConfirm
+            ? LocationScreen.addressNote
+            : (_pick == null ? LocationScreen.addressPickFirst : summary.note),
       );
     }
     final reason = widget.reason;
@@ -396,15 +400,26 @@ class _LocationScreenState extends State<LocationScreen> {
                       searching: _search.searching,
                       selected: _pick,
                       onPick: _pickPlace,
+                      showExpress: !widget.pickOnly,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _WhatYouGet(
-                    key: _panelKey,
-                    summary: summary,
-                    resolving: _resolving,
-                    pickedNothing: _pick == null,
-                  ),
+                  // For an address: which emirate the area is in, not a
+                  // delivery promise (the delivery location stays).
+                  if (widget.pickOnly)
+                    _AddressAreaPanel(
+                      key: _panelKey,
+                      pick: _pick,
+                      resolving: _resolving,
+                      hasMap: _services.showMap,
+                    )
+                  else
+                    _WhatYouGet(
+                      key: _panelKey,
+                      summary: summary,
+                      resolving: _resolving,
+                      pickedNothing: _pick == null,
+                    ),
                   if (_services.showMap) ...[
                     const SizedBox(height: 20),
                     _mapBox(),
@@ -412,7 +427,12 @@ class _LocationScreenState extends State<LocationScreen> {
                 ],
               ),
             ),
-            _ConfirmBar(summary: summary, onConfirm: _confirm),
+            _ConfirmBar(
+              summary: summary,
+              onConfirm: _confirm,
+              // "Use Business Bay" for an address is not a buying action.
+              dark: widget.pickOnly,
+            ),
           ],
         ),
       ),
@@ -834,6 +854,7 @@ class _Suggestions extends StatelessWidget {
     required this.searching,
     required this.selected,
     required this.onPick,
+    this.showExpress = true,
   });
 
   final String term;
@@ -842,6 +863,10 @@ class _Suggestions extends StatelessWidget {
   final bool searching;
   final DeliveryPlace? selected;
   final ValueChanged<DeliveryPlace> onPick;
+
+  /// The "Express" tags; off when picking an address's area (not a
+  /// delivery choice).
+  final bool showExpress;
 
   @override
   Widget build(BuildContext context) {
@@ -884,6 +909,7 @@ class _Suggestions extends StatelessWidget {
                     place: rows[i],
                     selected: _same(rows[i], selected),
                     onTap: () => onPick(rows[i]),
+                    showExpress: showExpress,
                   ),
                 ],
               ],
@@ -915,15 +941,18 @@ class _PlaceRow extends StatelessWidget {
     required this.place,
     required this.selected,
     required this.onTap,
+    this.showExpress = true,
   });
 
   final DeliveryPlace place;
   final bool selected;
   final VoidCallback onTap;
+  final bool showExpress;
 
   @override
   Widget build(BuildContext context) {
-    final covered = place.deliverable && DeliveryRules.isCovered(place);
+    final covered =
+        showExpress && place.deliverable && DeliveryRules.isCovered(place);
     final subtitle = place.subtitle;
     return Semantics(
       button: true,
@@ -1133,6 +1162,100 @@ class _WhatYouGet extends StatelessWidget {
   }
 }
 
+/// The picker for an address's area: one neutral line on where the
+/// picked area is ("Business Bay is in Dubai."), or what to do first. No
+/// delivery promise: the delivery location does not change.
+class _AddressAreaPanel extends StatelessWidget {
+  const _AddressAreaPanel({
+    super.key,
+    required this.pick,
+    required this.resolving,
+    required this.hasMap,
+  });
+
+  final DeliveryPlace? pick;
+  final bool resolving;
+  final bool hasMap;
+
+  /// "Business Bay is in Dubai.", or what to do when nothing usable is
+  /// picked.
+  static String line(DeliveryPlace? pick, {bool hasMap = true}) {
+    if (pick == null) {
+      return 'Pick the area: search above, ${hasMap ? 'tap the map, ' : ''}'
+          'or use your current location.';
+    }
+    final area = pick.toArea();
+    if (area == null) {
+      return '${DeliveryRules.notDeliverableTitle}. Move the pin or search '
+          'another area.';
+    }
+    final emirate = area.emirate.label;
+    return area.name.toLowerCase() == emirate.toLowerCase()
+        ? 'The emirate is $emirate.'
+        : '${area.name} is in $emirate.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final usable = pick?.toArea() != null;
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.subtle,
+          borderRadius: AppDims.cardBorderRadius,
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                usable ? Icons.place_outlined : Icons.location_off_outlined,
+                size: 20,
+                color: usable ? AppColors.ink : AppColors.tertiary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      line(pick, hasMap: hasMap),
+                      style: AppText.body.copyWith(
+                        fontWeight: usable ? FontWeight.w600 : FontWeight.w500,
+                        color: usable ? AppColors.ink : AppColors.secondary,
+                      ),
+                    ),
+                    if (resolving)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          DeliveryCopy.findingSpot,
+                          style: AppText.caption,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// One option: a white disc with its icon (Express: a green bolt), then
 /// the title, the time (Express: in green) and the detail, stacked so
 /// nothing wraps mid-phrase on a narrow phone. Unavailable options are
@@ -1224,10 +1347,17 @@ class _OptionRow extends StatelessWidget {
 /// The sticky white bar with the green "Deliver to …" button and the
 /// website's note under it.
 class _ConfirmBar extends StatelessWidget {
-  const _ConfirmBar({required this.summary, required this.onConfirm});
+  const _ConfirmBar({
+    required this.summary,
+    required this.onConfirm,
+    this.dark = false,
+  });
 
   final PickSummary summary;
   final VoidCallback onConfirm;
+
+  /// Ink, not green: picking an address's area is not a buying action.
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
@@ -1251,6 +1381,7 @@ class _ConfirmBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               FilledButton(
+                style: dark ? AppButtons.dark : null,
                 onPressed: summary.canConfirm ? onConfirm : null,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,

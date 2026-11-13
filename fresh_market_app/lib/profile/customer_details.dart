@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../delivery/delivery_config.dart';
+import '../delivery/delivery_rules.dart';
 
 /// The shopper's own contact details, kept on the phone to fill in the
 /// Shopify checkout. Every field is optional; an empty string means "not
@@ -36,6 +36,10 @@ class ContactDetails {
 
   /// The mobile as people write it ("+971 50 123 4567").
   String get mobileDisplay => CustomerInput.formatMobile(mobile);
+
+  /// [mobileDisplay] with non-breaking spaces, so a wrapped line never
+  /// splits the number (for showing it; a field takes [mobileDisplay]).
+  String get mobileOneLine => mobileDisplay.replaceAll(' ', '\u00A0');
 
   ContactDetails copyWith({
     String? firstName,
@@ -370,9 +374,22 @@ abstract final class CustomerInput {
   };
 
   /// True when [a] and [b] are the same place for an address: the same
-  /// emirate and area name (case and spacing aside), wherever the pin
-  /// inside it was dropped.
+  /// emirate and area name (case and spacing aside) and pins at most
+  /// [DeliveryConfig.nearKm] apart. A name alone is not enough: a "Near
+  /// Jebel Ali" pin covers up to 60 km, so two of them can be far apart.
   static bool sameArea(DeliveryArea a, DeliveryArea b) =>
       a.emirate == b.emirate &&
-      cleanLine(a.name).toLowerCase() == cleanLine(b.name).toLowerCase();
+      cleanLine(a.name).toLowerCase() == cleanLine(b.name).toLowerCase() &&
+      DeliveryRules.km(a, b) <= DeliveryConfig.nearKm;
+
+  /// The town checkout is given for [area]: its name, without the
+  /// picker's "Near " ("Near Jebel Ali" is sent as "Jebel Ali").
+  static String cityName(DeliveryArea area) {
+    final name = cleanLine(area.name);
+    final bare = name.replaceFirst(
+      RegExp(r'^near\s+', caseSensitive: false),
+      '',
+    );
+    return bare.isEmpty ? name : bare;
+  }
 }

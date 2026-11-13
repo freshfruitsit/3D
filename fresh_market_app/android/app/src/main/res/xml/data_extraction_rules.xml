@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and higher (android:dataExtractionRules): the same rules as
+     backup_rules.xml for cloud backup and for moving to a new phone. The
+     flutter_secure_storage files stay on this phone; everything else is
+     copied as before. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml"/>
+        <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml"/>
+        <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml"/>
+        <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml"/>
+        <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml"/>
+        <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml"/>
+        <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml"/>
+    </device-transfer>
+</data-extraction-rules>

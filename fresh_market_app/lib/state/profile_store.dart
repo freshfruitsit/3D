@@ -76,8 +76,17 @@ class ProfileStore extends ChangeNotifier {
   /// checkout, kept in memory only (the sheet opens with it again).
   CheckoutDetails? _oneTime;
 
+  /// A change was made before the saved record was read: [load] merges
+  /// the record into it rather than replacing it.
   bool _changedBeforeLoad = false;
-  bool _loaded = false;
+
+  /// "Delete my details" before the saved record was read: [load] drops
+  /// the record.
+  bool _discardSaved = false;
+
+  /// The read of the saved record ([load]), once started.
+  Future<void>? _loading;
+  bool _readDone = false;
   Future<void> _writing = Future.value();
   int _idSeq = 0;
 
@@ -108,9 +117,10 @@ class ProfileStore extends ChangeNotifier {
   bool get checkoutSheetSkipped => _sheetSkipped;
 
   /// The first checkout offers the "Fill in checkout faster" sheet: until
-  /// something is saved or the shopper skips it.
+  /// something is saved or the shopper skips it. Never before the saved
+  /// record was read (a returning shopper is not asked again).
   bool get offersCheckoutSheet =>
-      askAtCheckout && !hasDetails && !_sheetSkipped;
+      askAtCheckout && loaded && !hasDetails && !_sheetSkipped;
 
   /// The details typed for one checkout only (see [CheckoutSheetResult]).
   CheckoutDetails? get oneTime => _oneTime;
@@ -217,8 +227,12 @@ class ProfileStore extends ChangeNotifier {
   }
 
   /// Applies the "Fill in checkout faster" sheet's answer for [area].
+  /// "Continue to checkout" with nothing typed counts as a skip, so the
+  /// sheet is not shown on every checkout.
   void applyCheckoutSheet(CheckoutSheetResult result, DeliveryArea area) {
-    if (result.skipped) {
+    if (result.skipped ||
+        (result.contact.isEmpty &&
+            CustomerInput.cleanLine(result.building).isEmpty)) {
       _sheetSkipped = true;
       _oneTime = null;
       _changed();
@@ -252,6 +266,7 @@ class ProfileStore extends ChangeNotifier {
   /// "Delete my details": removes everything this store keeps, here and
   /// on the phone. The first checkout asks again.
   Future<void> deleteAll() async {
+    if (!loaded) _discardSaved = true;
     _contact = ContactDetails.empty;
     _addresses.clear();
     _defaultId = null;
@@ -265,18 +280,18 @@ class ProfileStore extends ChangeNotifier {
   /// Completes when every change so far has reached the vault (tests).
   Future<void> get idle => _writing;
 
-  /// True once [load] has run.
-  bool get loaded => _loaded;
+  /// True once the saved record was read (at once with no vault).
+  bool get loaded => _vault == null || _readDone;
 
-  /// Reads the saved record. A record that cannot be read or parsed is
-  /// dropped (and a damaged one removed); a change made while loading
-  /// wins over the record.
-  Future<void> load() async {
+  /// Reads the saved record, once (later calls return the same read). A
+  /// record that cannot be read or parsed is dropped (and a damaged one
+  /// removed). A change made while it was being read is kept: the record
+  /// is merged into it (see [_merge]), never written over unread.
+  Future<void> load() => _loading ??= _load();
+
+  Future<void> _load() async {
     final vault = _vault;
-    if (vault == null) {
-      _loaded = true;
-      return;
-    }
+    if (vault == null) return;
     String? raw;
     try {
       raw = await vault.read();
@@ -285,26 +300,39 @@ class ProfileStore extends ChangeNotifier {
       // start empty; the next change writes a fresh record.
       raw = null;
     }
-    _loaded = true;
-    if (_changedBeforeLoad || raw == null || raw.isEmpty) return;
-    try {
-      _restore(jsonDecode(raw));
-    } catch (_) {
-      _contact = ContactDetails.empty;
-      _addresses.clear();
-      _defaultId = null;
-      _chosenId = null;
-      _sheetSkipped = false;
-      _writing = _writing.then((_) async {
-        try {
-          await vault.delete();
-        } catch (_) {}
-      });
+    _readDone = true;
+    if (_discardSaved || raw == null || raw.isEmpty) {
+      // Nothing to restore; any change made meanwhile is saved as is.
+      notifyListeners();
+      return;
     }
-    notifyListeners();
+    _Saved saved;
+    try {
+      saved = _parse(jsonDecode(raw));
+    } catch (_) {
+      // Damaged: removed from the phone, unless a change made meanwhile
+      // is about to replace it.
+      if (!_changedBeforeLoad) {
+        _writing = _writing.then((_) async {
+          try {
+            await vault.delete();
+          } catch (_) {}
+        });
+      }
+      notifyListeners();
+      return;
+    }
+    if (_changedBeforeLoad) {
+      _merge(saved);
+      _changed();
+    } else {
+      _apply(saved);
+      notifyListeners();
+    }
   }
 
-  void _restore(Object? saved) {
+  /// Reads a saved record; throws when it is not a record at all.
+  _Saved _parse(Object? saved) {
     if (saved is! Map) throw const FormatException('not a record');
     final contact = ContactDetails.fromJson(saved['contact']);
     final list = saved['addresses'];
@@ -319,15 +347,54 @@ class ProfileStore extends ChangeNotifier {
         }
       }
     }
-    _contact = contact;
+    bool known(Object? id) => id is String && addresses.any((a) => a.id == id);
+    final d = saved['default'];
+    final c = saved['chosen'];
+    return (
+      contact: contact,
+      addresses: addresses,
+      defaultId: known(d) ? d as String : null,
+      chosenId: known(c) ? c as String : null,
+      skipped: saved['skipped'] == true,
+    );
+  }
+
+  void _apply(_Saved saved) {
+    _contact = saved.contact;
     _addresses
       ..clear()
-      ..addAll(addresses);
-    final d = saved['default'];
-    _defaultId = d is String && addressById(d) != null ? d : null;
-    final c = saved['chosen'];
-    _chosenId = c is String && addressById(c) != null ? c : null;
-    _sheetSkipped = saved['skipped'] == true;
+      ..addAll(saved.addresses);
+    _defaultId = saved.defaultId;
+    _chosenId = saved.chosenId;
+    _sheetSkipped = saved.skipped;
+  }
+
+  /// The saved record joined with what changed before it was read: each
+  /// contact field typed meanwhile wins (the screens started empty, so
+  /// nothing could be cleared), the saved addresses come first and keep
+  /// their default, and a skip from either side counts.
+  void _merge(_Saved saved) {
+    String pick(String now, String before) => now.isNotEmpty ? now : before;
+    final c = saved.contact;
+    _contact = ContactDetails(
+      firstName: pick(_contact.firstName, c.firstName),
+      lastName: pick(_contact.lastName, c.lastName),
+      mobile: pick(_contact.mobile, c.mobile),
+      email: pick(_contact.email, c.email),
+    );
+    final added = _addresses
+        .where((a) => !saved.addresses.any((b) => b.id == a.id))
+        .toList();
+    _addresses
+      ..clear()
+      ..addAll(saved.addresses)
+      ..addAll(added.take(maxAddresses - saved.addresses.length));
+    _defaultId =
+        saved.defaultId ??
+        (saved.addresses.isEmpty ? _defaultId : saved.addresses.first.id);
+    if (addressById(_defaultId) == null) _defaultId = null;
+    if (addressById(_chosenId) == null) _chosenId = saved.chosenId;
+    _sheetSkipped = _sheetSkipped || saved.skipped;
   }
 
   bool get _blank => !hasDetails && !_sheetSkipped;
@@ -341,13 +408,19 @@ class ProfileStore extends ChangeNotifier {
     'skipped': _sheetSkipped,
   };
 
+  /// Says the change and saves it. A change before the saved record was
+  /// read starts the read (it is merged, see [load]); writes wait for it.
   void _changed() {
-    if (!_loaded) _changedBeforeLoad = true;
+    if (!loaded) _changedBeforeLoad = true;
     notifyListeners();
     final vault = _vault;
     if (vault == null) return;
-    final record = _blank ? null : jsonEncode(_toJson());
+    final reading = load();
     _writing = _writing.then((_) async {
+      await reading;
+      // What is saved is the state when the write runs, so a merge made
+      // by the read is never written over.
+      final record = _blank ? null : jsonEncode(_toJson());
       try {
         if (record == null) {
           await vault.delete();
@@ -360,3 +433,12 @@ class ProfileStore extends ChangeNotifier {
     });
   }
 }
+
+/// A saved record as read from the phone.
+typedef _Saved = ({
+  ContactDetails contact,
+  List<SavedAddress> addresses,
+  String? defaultId,
+  String? chosenId,
+  bool skipped,
+});

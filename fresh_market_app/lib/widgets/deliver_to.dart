@@ -19,18 +19,28 @@ class CartDeliverToCard extends StatelessWidget {
   static const String quietLabel =
       'Add your details to fill in checkout faster';
 
-  /// "Your Home address is in Dubai Marina."
-  static String elsewhereTitle(SavedAddress address) =>
-      'Your ${address.label.label} address is in ${address.area.name}.';
+  /// "Your Home address is in Dubai Marina." ("Your saved address" for
+  /// one labelled Other).
+  static String elsewhereTitle(SavedAddress address) {
+    final whose = address.label == AddressLabel.other
+        ? 'saved'
+        : address.label.label;
+    return 'Your $whose address is in ${address.area.name}.';
+  }
+
+  /// Under [elsewhereTitle]: what checkout does without an address here.
+  static String elsewhereLine(DeliveryArea? area) => area == null
+      ? 'Checkout will ask for your address.'
+      : 'Checkout will ask for your building in ${area.name}.';
 
   /// "Add one in Business Bay", or "Add address" with no area.
   static String addHereLabel(DeliveryArea? area) =>
       area == null ? 'Add address' : 'Add one in ${area.name}';
 
-  /// "Sara Ahmed · +971 50 123 4567".
+  /// "Sara Ahmed · +971 50 123 4567" (the number kept on one line).
   static String contactLine(ContactDetails contact) => [
     contact.fullName,
-    contact.mobileDisplay,
+    contact.mobileOneLine,
   ].where((p) => p.isNotEmpty).join(' · ');
 
   @override
@@ -66,17 +76,14 @@ class CartDeliverToCard extends StatelessWidget {
     }
 
     if (elsewhere != null) {
+      // A calm prompt with two actions; "Change" comes back once an
+      // address is chosen.
       return _Card(
         icon: Icons.place_outlined,
         title: elsewhereTitle(elsewhere),
-        lines: [if (contact.isNotEmpty) (contact, false)],
-        action: profile.addresses.length > 1
-            ? TextButton(
-                key: const ValueKey('deliver-to-change'),
-                onPressed: change,
-                child: const Text('Change', semanticsLabel: 'Change address'),
-              )
-            : null,
+        lines: [(elsewhereLine(area), false)],
+        // The outlined button's border on the text column.
+        footerPadding: const EdgeInsetsDirectional.only(start: 46, top: 8),
         footer: Wrap(
           spacing: 8,
           runSpacing: 4,
@@ -380,6 +387,7 @@ class _Card extends StatelessWidget {
     this.tag,
     this.action,
     this.footer,
+    this.footerPadding = const EdgeInsetsDirectional.only(start: 38, top: 6),
     this.semantics,
   });
 
@@ -392,11 +400,17 @@ class _Card extends StatelessWidget {
   final Widget? action;
   final Widget? footer;
 
+  /// Puts the footer under the text column (the 36px icon and its 10px
+  /// gap): start 38 for a text button (less its own 8px padding), 46 for
+  /// an outlined button, whose border is then on the column.
+  final EdgeInsetsDirectional footerPadding;
+
   /// What screen readers hear for the title and lines together.
   final String? semantics;
 
   @override
   Widget build(BuildContext context) {
+    final large = MediaQuery.textScalerOf(context).scale(10) / 10 > 1.3;
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -456,16 +470,20 @@ class _Card extends StatelessWidget {
                           ),
                   ),
                 ),
-                ?action,
+                if (!large) ?action,
               ],
             ),
-            if (footer != null)
+            // At a large font size the action goes under the text, so the
+            // lines keep the card's width (a mobile number stays whole).
+            if (large && action != null)
               Padding(
-                // Under the text column (the 36px icon and its 10px gap, less
-                // the button's own 8px padding), as on the delivery card.
-                padding: const EdgeInsetsDirectional.only(start: 38, top: 6),
-                child: footer,
+                padding: const EdgeInsetsDirectional.only(start: 38),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: action,
+                ),
               ),
+            if (footer != null) Padding(padding: footerPadding, child: footer),
           ],
         ),
       ),

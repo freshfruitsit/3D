@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:ui' show CheckedState;
 
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/app_nav.dart';
 import 'package:fresh_market_app/assistant/assistant_session.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/profile/customer_details.dart';
@@ -32,6 +35,24 @@ const sara = ContactDetails(
 );
 
 DeliveryArea area(String name) => DeliveryConfig.areaNamed(name)!;
+
+/// Sara's mobile as shown: non-breaking spaces keep it on one line.
+const saraMobile = '+971\u00A050\u00A0123\u00A04567';
+
+/// A vault whose read waits until [open] (a slow phone at start-up).
+class GatedVault extends MemoryProfileVault {
+  GatedVault(super.value);
+
+  final Completer<void> _gate = Completer<void>();
+
+  void open() => _gate.complete();
+
+  @override
+  Future<String?> read() async {
+    await _gate.future;
+    return super.read();
+  }
+}
 
 SavedAddress homeIn(String areaName) => SavedAddress(
   id: 'home',
@@ -191,7 +212,7 @@ void main() {
         delivery: testDelivery(),
       );
       expect(find.text('Sara Ahmed'), findsOneWidget);
-      expect(find.text('+971 50 123 4567'), findsOneWidget);
+      expect(find.text(saraMobile), findsOneWidget);
       expect(find.text('sara@example.com'), findsOneWidget);
       expect(find.text('SA'), findsOneWidget);
       expect(find.widgetWithText(TextButton, 'Edit'), findsOneWidget);
@@ -253,7 +274,7 @@ void main() {
       expect(profile.contact.mobile, '+971501234567');
       expect(find.text(MyDetailsScreen.savedMessage), findsOneWidget);
       expect(find.text('سارة Ahmed'), findsOneWidget);
-      expect(find.text('+971 50 123 4567'), findsOneWidget);
+      expect(find.text(saraMobile), findsOneWidget);
     });
 
     testWidgets('Delete my details asks first; Cancel keeps, Delete '
@@ -540,7 +561,7 @@ void main() {
       expect(inCard('Home'), findsOneWidget);
       expect(inCard('Bay Square, Building 5 · Flat 302'), findsOneWidget);
       expect(inCard('Business Bay, Dubai'), findsOneWidget);
-      expect(inCard('Sara Ahmed · +971 50 123 4567'), findsOneWidget);
+      expect(inCard('Sara Ahmed · $saraMobile'), findsOneWidget);
       expect(find.byKey(const ValueKey('deliver-to-change')), findsOneWidget);
       expect(find.byType(FilledButton), findsOneWidget);
     });
@@ -654,7 +675,7 @@ void main() {
         delivery: testDelivery(),
         profile: ProfileStore()..saveContact(sara),
       );
-      expect(find.text('Sara Ahmed · +971 50 123 4567'), findsOneWidget);
+      expect(find.text('Sara Ahmed · $saraMobile'), findsOneWidget);
       expect(find.text('Add your address in Business Bay'), findsOneWidget);
     });
   });
@@ -847,6 +868,24 @@ void main() {
       expect(later.offersCheckoutSheet, isFalse);
     });
 
+    testWidgets('Continue with nothing typed is remembered like Skip', (
+      tester,
+    ) async {
+      final vault = MemoryProfileVault();
+      final profile = ProfileStore(vault: vault);
+      final launched = await openSheet(tester, profile);
+      await tapInSheet(tester, const ValueKey('sheet-continue'));
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(launched.single, isNot(contains('checkout%5B')));
+
+      await tester.tap(find.text('Back to cart'));
+      await tester.pumpAndSettle();
+      await tapCheckout(tester);
+      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(launched, hasLength(2));
+    });
+
     testWidgets('Save off: used for this checkout only', (tester) async {
       final vault = MemoryProfileVault();
       final profile = ProfileStore(vault: vault);
@@ -946,6 +985,83 @@ void main() {
       );
     });
 
+    testWidgets('the sign-in note keeps its width; its tag sits under it', (
+      tester,
+    ) async {
+      await atDoubleText(tester, const AccountScreen());
+      final caption = find.text('Sign-in is not available in this version.');
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('sign-in-coming-soon')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('sign-in-coming-soon'))).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(caption).dy),
+      );
+      // The text column is the row's width, not a one-word strip.
+      expect(tester.getSize(caption).width, greaterThan(220));
+    });
+
+    testWidgets('only Save is pinned: the privacy note scrolls with the '
+        'form, and hints are not cut', (tester) async {
+      await atDoubleText(
+        tester,
+        const MyDetailsScreen(),
+        profile: ProfileStore(),
+      );
+      final save = find.byKey(const ValueKey('details-save'));
+      // 360x780dp screen: the pinned bar is the button and its padding.
+      expect(780 - tester.getTopLeft(save).dy, lessThan(110));
+      await tester.scrollUntilVisible(
+        find.byType(PrivacyNote),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(PrivacyNote),
+        ),
+        findsOneWidget,
+      );
+      for (final decorator in tester.widgetList<InputDecorator>(
+        find.byType(InputDecorator),
+      )) {
+        expect(decorator.decoration.hintMaxLines, 2);
+      }
+    });
+
+    testWidgets('the mobile number stays on one line on Account and the '
+        'cart', (tester) async {
+      for (final screen in [const AccountScreen(), const CartScreen()]) {
+        await atDoubleText(tester, screen, cart: twoItemCart());
+        final number = find.textContaining(saraMobile);
+        expect(number, findsOneWidget, reason: '$screen');
+        final paragraph = tester.renderObject<RenderParagraph>(number);
+        final lines = paragraph.getBoxesForSelection(
+          TextSelection(
+            baseOffset: 0,
+            extentOffset: paragraph.text.toPlainText().length,
+          ),
+        );
+        final start = paragraph.text.toPlainText().indexOf(saraMobile);
+        final numberBoxes = paragraph.getBoxesForSelection(
+          TextSelection(
+            baseOffset: start,
+            extentOffset: start + saraMobile.length,
+          ),
+        );
+        expect(lines, isNotEmpty);
+        expect(
+          numberBoxes.map((b) => b.top).toSet(),
+          hasLength(1),
+          reason: 'not split across lines on $screen',
+        );
+      }
+    });
+
     testWidgets('the cart in every Deliver to state', (tester) async {
       await atDoubleText(tester, const CartScreen(), cart: twoItemCart());
       await atDoubleText(
@@ -1001,6 +1117,274 @@ void main() {
       await tester.ensureVisible(find.byKey(const ValueKey('sheet-skip')));
       await tester.pump();
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Polish', () {
+    testWidgets('the area picker for an address: an ink button and where '
+        'the area is, no delivery promise', (tester) async {
+      final profile = ProfileStore()..saveAddress(homeIn('Business Bay'));
+      final delivery = testDelivery();
+      await pumpScreen(
+        tester,
+        AddressScreen(initialArea: delivery.area),
+        profile: profile,
+        delivery: delivery,
+      );
+      await tester.tap(find.text('Change'));
+      await tester.pumpAndSettle();
+      final use = find.widgetWithText(FilledButton, 'Use Business Bay');
+      expect(use, findsOneWidget);
+      final style = tester.widget<FilledButton>(use).style;
+      expect(style, isNotNull, reason: 'not the green buying style');
+      expect(style!.backgroundColor!.resolve({}), AppColors.ink);
+      expect(find.textContaining('What you get'), findsNothing);
+      expect(find.textContaining('Express'), findsNothing);
+      expect(find.text('Business Bay is in Dubai.'), findsOneWidget);
+    });
+
+    testWidgets('no address in the area: two actions, what checkout will '
+        'ask, "Deliver there" on the text column', (tester) async {
+      final profile = ProfileStore()
+        ..saveContact(sara)
+        ..saveAddress(homeIn('Dubai Marina'))
+        ..saveAddress(office);
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: twoItemCart(),
+        delivery: testDelivery(),
+        profile: profile,
+      );
+      final title = find.text('Your Home address is in Dubai Marina.');
+      expect(title, findsOneWidget);
+      expect(find.byKey(const ValueKey('deliver-to-change')), findsNothing);
+      expect(
+        find.text('Checkout will ask for your building in Business Bay.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Sara Ahmed'), findsNothing);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('deliver-there'))).dx,
+        moreOrLessEquals(tester.getTopLeft(title).dx, epsilon: 0.5),
+      );
+    });
+
+    testWidgets('an address labelled Other is "your saved address"', (
+      tester,
+    ) async {
+      final other = SavedAddress(
+        id: 'other',
+        label: AddressLabel.other,
+        area: area('Dubai Marina'),
+        building: 'Marina Gate 2',
+      );
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: twoItemCart(),
+        delivery: testDelivery(),
+        profile: ProfileStore()..saveAddress(other),
+      );
+      expect(
+        find.text('Your saved address is in Dubai Marina.'),
+        findsOneWidget,
+      );
+      expect(
+        AppNav.deliveringToAddress(other),
+        'Delivering to your saved address, Marina Gate 2',
+      );
+    });
+
+    testWidgets('My details: Save with nothing typed confirms nothing; '
+        'clearing saved details says so', (tester) async {
+      final profile = ProfileStore();
+      await pumpScreen(tester, const AccountScreen(), profile: profile);
+      await tester.tap(find.text('Add details'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('details-save')));
+      await tester.pumpAndSettle();
+      expect(find.byType(MyDetailsScreen), findsNothing);
+      expect(find.text(MyDetailsScreen.savedMessage), findsNothing);
+      expect(find.text('Add details'), findsOneWidget);
+
+      profile.saveContact(sara);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('edit-details')));
+      await tester.pumpAndSettle();
+      for (final label in ['First name', 'Last name', 'Mobile', 'Email']) {
+        await type(tester, label, '');
+      }
+      await tester.tap(find.byKey(const ValueKey('details-save')));
+      await tester.pumpAndSettle();
+      expect(find.text(MyDetailsScreen.clearedMessage), findsOneWidget);
+      expect(find.text(MyDetailsScreen.savedMessage), findsNothing);
+      expect(profile.hasContact, isFalse);
+    });
+
+    testWidgets('the default switch shows only from the second address', (
+      tester,
+    ) async {
+      Future<void> pumpAddress(ProfileStore profile, SavedAddress? a) async {
+        await pumpScreen(
+          tester,
+          AddressScreen(
+            key: UniqueKey(),
+            address: a,
+            initialArea: area('Business Bay'),
+          ),
+          profile: profile,
+          delivery: testDelivery(),
+        );
+        await tester.scrollUntilVisible(
+          find.byType(PrivacyNote),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+      }
+
+      final defaultSwitch = find.byKey(const ValueKey('address-default'));
+      // The first address, and the only one when edited: always default.
+      await pumpAddress(ProfileStore(), null);
+      expect(defaultSwitch, findsNothing);
+      final only = homeIn('Business Bay');
+      await pumpAddress(ProfileStore()..saveAddress(only), only);
+      expect(defaultSwitch, findsNothing);
+      // A second one, or either of two when edited.
+      await pumpAddress(ProfileStore()..saveAddress(only), null);
+      expect(defaultSwitch, findsOneWidget);
+      await pumpAddress(filledProfile(), office);
+      expect(defaultSwitch, findsOneWidget);
+      // The group heading, and hints that show the format.
+      expect(find.text(AddressScreen.labelHeading), findsOneWidget);
+      expect(find.text('Label'), findsNothing);
+    });
+
+    testWidgets('focus is the heaviest edge, also among errors', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const MyDetailsScreen(),
+        profile: ProfileStore(),
+      );
+      await type(tester, 'Mobile', '050 123 45');
+      await type(tester, 'Email', 'sara@example');
+      await tester.tap(find.byKey(const ValueKey('details-save')));
+      await tester.pump();
+      InputDecorator decoratorOf(String label) => tester.widget<InputDecorator>(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is DetailsField && w.label == label,
+          ),
+          matching: find.byType(InputDecorator),
+        ),
+      );
+      final mobile = decoratorOf('Mobile');
+      final email = decoratorOf('Email');
+      expect(mobile.isFocused, isTrue, reason: 'the first error');
+      expect(email.isFocused, isFalse);
+      double width(InputBorder? b) =>
+          (b! as OutlineInputBorder).borderSide.width;
+      expect(width(mobile.decoration.focusedErrorBorder), 2.5);
+      expect(width(mobile.decoration.focusedBorder), 2.5);
+      expect(width(email.decoration.errorBorder), 1.5);
+    });
+
+    testWidgets('Account: the rows under the cards share their columns; '
+        'one name for Edit; the mobile on one line', (tester) async {
+      await pumpScreen(
+        tester,
+        const AccountScreen(),
+        profile: filledProfile(),
+        delivery: testDelivery(),
+      );
+      expect(find.bySemanticsLabel('Edit my details'), findsOneWidget);
+      expect(find.text(saraMobile), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('delete-details')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      final iconX = tester
+          .getTopLeft(find.byIcon(Icons.support_agent_outlined))
+          .dx;
+      final textX = tester.getTopLeft(find.text(AccountScreen.helpLabel)).dx;
+      expect(tester.getTopLeft(find.byIcon(Icons.login)).dx, iconX);
+      expect(tester.getTopLeft(find.byIcon(Icons.delete_outline)).dx, iconX);
+      expect(
+        tester.getTopLeft(find.text('Sign in to see your orders')).dx,
+        textX,
+      );
+      expect(tester.getTopLeft(find.text(AccountScreen.deleteLabel)).dx, textX);
+    });
+
+    testWidgets('a returning shopper whose details are still being read is '
+        'not asked, and checkout gets the details', (tester) async {
+      final saved = MemoryProfileVault();
+      final writer = ProfileStore(vault: saved)
+        ..saveContact(sara)
+        ..saveAddress(homeIn('Business Bay'));
+      await writer.idle;
+      expect(saved.value, isNotNull);
+      final vault = GatedVault(saved.value);
+      final profile = ProfileStore(vault: vault);
+      unawaited(profile.load());
+      final launched = mockLauncher(tester);
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: twoItemCart(),
+        delivery: testDelivery(),
+        profile: profile,
+      );
+      await tester.tap(checkoutButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
+      vault.open();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      final q = Uri.parse(launched.single).queryParameters;
+      expect(q['checkout[email]'], 'sara@example.com');
+      expect(
+        q['checkout[shipping_address][address1]'],
+        'Bay Square, Building 5',
+      );
+    });
+
+    testWidgets('checkout moves the delivery pin to the address it sends', (
+      tester,
+    ) async {
+      final launched = mockLauncher(tester);
+      final delivery = testDelivery()
+        // Business Bay by name, 1 km from where Home was saved.
+        ..setArea(
+          const DeliveryArea(
+            name: 'Business Bay',
+            emirate: Emirate.dubai,
+            lat: 25.194,
+            lng: 55.265,
+          ),
+        );
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: twoItemCart(),
+        delivery: delivery,
+        profile: filledProfile(),
+      );
+      await tapCheckout(tester);
+      final q = Uri.parse(launched.single).queryParameters;
+      expect(
+        q['checkout[shipping_address][address1]'],
+        'Bay Square, Building 5',
+      );
+      expect(q['attributes[Delivery pin]'], '25.18500,55.26500');
+      expect(delivery.area, area('Business Bay'));
     });
   });
 }

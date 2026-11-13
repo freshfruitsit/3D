@@ -181,22 +181,22 @@ abstract final class AppNav {
     }
   }
 
-  /// "My details", full screen. Says [MyDetailsScreen.savedMessage] when
-  /// saved (see [showNotice] for [noticeBottomMargin]); returns true then.
+  /// "My details", full screen. Says what Save did ("Your details are
+  /// saved." or, when every field was cleared, "Your details are
+  /// cleared."; see [showNotice] for [noticeBottomMargin]) and returns
+  /// true then. Saving an empty form with nothing saved says nothing.
   static Future<bool> openMyDetails(
     BuildContext context, {
     double? noticeBottomMargin,
   }) async {
-    final saved = await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<bool>(builder: (_) => const MyDetailsScreen()),
+    final result = await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<MyDetailsResult>(
+        builder: (_) => const MyDetailsScreen(),
+      ),
     );
-    if (saved != true) return false;
+    if (result == null) return false;
     if (context.mounted) {
-      showNotice(
-        context,
-        MyDetailsScreen.savedMessage,
-        bottomMargin: noticeBottomMargin,
-      );
+      showNotice(context, result.message, bottomMargin: noticeBottomMargin);
     }
     return true;
   }
@@ -243,10 +243,12 @@ abstract final class AppNav {
     ),
   );
 
-  /// Delivers the order to [address]: it becomes the cart's address, and
-  /// when it is in another area the delivery location (and with it the
-  /// delivery promise) moves there, which is said ("Delivering to Dubai
-  /// Marina").
+  /// Delivers the order to [address]: it becomes the cart's address and
+  /// the delivery location moves to its pin, so the delivery promise, the
+  /// Express check and the order's "Delivery pin" follow the building
+  /// that checkout is given. A move to another area is said ("Delivering
+  /// to Dubai Marina"), as is a switch to Fresh Market; otherwise the
+  /// address is.
   static void deliverTo(
     BuildContext context,
     SavedAddress address, {
@@ -255,17 +257,31 @@ abstract final class AppNav {
     final delivery = context.read<DeliveryStore>();
     context.read<ProfileStore>().choose(address.id);
     final area = delivery.area;
-    if (area == null || !CustomerInput.sameArea(area, address.area)) {
-      final message = delivery.setArea(address.area);
+    final mode = delivery.mode;
+    final message = area == address.area
+        ? null
+        : delivery.setArea(address.area);
+    if (message != null &&
+        (area == null ||
+            !CustomerInput.sameArea(area, address.area) ||
+            delivery.mode != mode)) {
       showNotice(context, message, bottomMargin: noticeBottomMargin);
     } else {
-      announce(
-        context,
-        'Delivering to your ${address.label.label} address, '
-        '${address.firstLine}',
-      );
+      announce(context, deliveringToAddress(address));
     }
   }
+
+  /// "Delivering to your Home address, Bay Square, Building 5 · Flat 302"
+  /// ("your saved address" for one labelled Other).
+  static String deliveringToAddress(SavedAddress address) =>
+      'Delivering to ${addressName(address)}, ${address.firstLine}';
+
+  /// "your Home address", "your Office address", or "your saved address"
+  /// for one labelled Other.
+  static String addressName(SavedAddress address) =>
+      address.label == AddressLabel.other
+      ? 'your saved address'
+      : 'your ${address.label.label} address';
 
   /// Checkout for the current cart, full screen. Does nothing when the
   /// cart is empty.
@@ -338,6 +354,19 @@ abstract final class AppNav {
       }
     }
     final profile = context.read<ProfileStore>();
+    // The saved details are read before deciding, so a returning shopper
+    // is never offered the first-checkout sheet (or loses what is saved).
+    await profile.load().timeout(_profileWait, onTimeout: () {});
+    if (!context.mounted) return;
+    final switched = alignDeliveryWithAddress(
+      delivery: delivery,
+      profile: profile,
+    );
+    if (switched != null) {
+      // Express does not reach the address: say so on the cart.
+      showNotice(context, switched, bottomMargin: noticeBottomMargin);
+      return;
+    }
     if (profile.offersCheckoutSheet && delivery.area != null) {
       final area = delivery.area!;
       final answer = await showCheckoutDetailsSheet(
@@ -364,6 +393,24 @@ abstract final class AppNav {
     );
   }
 
+  /// Moves the delivery location to the pin of the saved address checkout
+  /// fills in (the same area, but its pin can be up to 3 km away), so the
+  /// order's "Delivery pin", promise and Express check follow the
+  /// building sent. Returns the delivery store's message when the move
+  /// switched Express to Fresh Market (to be said), otherwise null.
+  static String? alignDeliveryWithAddress({
+    required DeliveryStore delivery,
+    required ProfileStore profile,
+  }) {
+    final area = delivery.area;
+    if (area == null) return null;
+    final address = profile.checkoutDetails(area).address;
+    if (address == null || address.area == area) return null;
+    final mode = delivery.mode;
+    final message = delivery.setArea(address.area);
+    return delivery.mode != mode ? message : null;
+  }
+
   /// The checkout link for [cart]: the website's delivery cart attributes
   /// (plus the address's delivery instructions) and the shopper's details
   /// for the current delivery area. Null when nothing can be bought.
@@ -388,6 +435,9 @@ abstract final class AppNav {
       ),
     );
   }
+
+  /// How long checkout waits for the saved details to be read.
+  static const Duration _profileWait = Duration(seconds: 3);
 
   /// The checkout question while Express is chosen but closed.
   static const String expressClosedTitle = 'Express is closed';

@@ -8,7 +8,7 @@ import '../widgets/details_fields.dart';
 
 /// "My details": first and last name, mobile and email, all optional.
 /// Saved encrypted on the phone and used only to fill in checkout. Closes
-/// with true once saved.
+/// with what happened ([MyDetailsResult]), or null when nothing changed.
 class MyDetailsScreen extends StatefulWidget {
   const MyDetailsScreen({super.key});
 
@@ -21,8 +21,22 @@ class MyDetailsScreen extends StatefulWidget {
   /// Said after saving.
   static const String savedMessage = 'Your details are saved.';
 
+  /// Said after clearing every field of saved details.
+  static const String clearedMessage = 'Your details are cleared.';
+
   @override
   State<MyDetailsScreen> createState() => _MyDetailsScreenState();
+}
+
+/// What "Save" on [MyDetailsScreen] did.
+enum MyDetailsResult {
+  saved(MyDetailsScreen.savedMessage),
+  cleared(MyDetailsScreen.clearedMessage);
+
+  const MyDetailsResult(this.message);
+
+  /// Said once the screen has closed.
+  final String message;
 }
 
 class _MyDetailsScreenState extends State<MyDetailsScreen> {
@@ -73,15 +87,21 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
       );
       return;
     }
-    context.read<ProfileStore>().saveContact(
-      ContactDetails(
-        firstName: CustomerInput.cleanLine(_first.text),
-        lastName: CustomerInput.cleanLine(_last.text),
-        mobile: CustomerInput.normaliseMobile(_mobile.text) ?? '',
-        email: _email.text.trim(),
-      ),
+    final profile = context.read<ProfileStore>();
+    final before = profile.contact;
+    final contact = ContactDetails(
+      firstName: CustomerInput.cleanLine(_first.text),
+      lastName: CustomerInput.cleanLine(_last.text),
+      mobile: CustomerInput.normaliseMobile(_mobile.text) ?? '',
+      email: _email.text.trim(),
     );
-    Navigator.of(context).pop(true);
+    profile.saveContact(contact);
+    // Nothing typed and nothing saved before: nothing to confirm.
+    Navigator.of(context).pop(
+      contact.isEmpty
+          ? (before.isEmpty ? null : MyDetailsResult.cleared)
+          : MyDetailsResult.saved,
+    );
   }
 
   @override
@@ -91,7 +111,6 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
       saveLabel: MyDetailsScreen.saveLabel,
       saveKey: const ValueKey('details-save'),
       onSave: _save,
-      note: const PrivacyNote(),
       children: [
         Text(
           MyDetailsScreen.intro,
@@ -154,6 +173,8 @@ class _MyDetailsScreenState extends State<MyDetailsScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 20),
+        const PrivacyNote(),
       ],
     );
   }

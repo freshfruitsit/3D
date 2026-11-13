@@ -29,6 +29,13 @@ class AddressScreen extends StatefulWidget {
   static const String defaultLabel = 'Make this my default address';
   static const String deleteLabel = 'Delete this address';
 
+  /// The heading over Home, Office and Other.
+  static const String labelHeading = 'Save as';
+
+  /// The hints of the building and flat fields.
+  static const String buildingHint = 'e.g. Bay Square, Building 5';
+  static const String flatHint = 'e.g. Flat 302';
+
   @override
   State<AddressScreen> createState() => _AddressScreenState();
 }
@@ -45,6 +52,10 @@ class _AddressScreenState extends State<AddressScreen> {
   late AddressLabel _label;
   DeliveryArea? _area;
   late bool _makeDefault;
+
+  /// This is, or will be, the only saved address: it is the default
+  /// whatever the switch says, so the switch is not shown.
+  late bool _onlyAddress;
   bool _tried = false;
 
   @override
@@ -58,6 +69,9 @@ class _AddressScreenState extends State<AddressScreen> {
     _notes = TextEditingController(text: a?.instructions ?? '');
     _area = a?.area ?? widget.initialArea;
     _makeDefault = a == null ? !profile.hasAddresses : profile.isDefault(a);
+    _onlyAddress = a == null
+        ? !profile.hasAddresses
+        : profile.addresses.length == 1 && profile.addresses.single.id == a.id;
     _label = a?.label ?? _firstFreeLabel(profile);
   }
 
@@ -162,11 +176,10 @@ class _AddressScreenState extends State<AddressScreen> {
       saveLabel: AddressScreen.saveLabel,
       saveKey: const ValueKey('address-save'),
       onSave: _save,
-      note: const PrivacyNote(),
       children: [
         Semantics(
           header: true,
-          child: const Text('Label', style: AppText.label),
+          child: const Text(AddressScreen.labelHeading, style: AppText.label),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -219,7 +232,7 @@ class _AddressScreenState extends State<AddressScreen> {
                   focusNode: _buildingNode,
                   controller: _building,
                   label: 'Building or villa',
-                  hint: 'Building name and number, or villa',
+                  hint: AddressScreen.buildingHint,
                   autofillHints: const [AutofillHints.streetAddressLine1],
                   keyboardType: TextInputType.streetAddress,
                   textCapitalization: TextCapitalization.words,
@@ -242,7 +255,7 @@ class _AddressScreenState extends State<AddressScreen> {
                   controller: _flat,
                   label: 'Flat, floor',
                   optional: true,
-                  hint: 'Flat or office number, floor',
+                  hint: AddressScreen.flatHint,
                   autofillHints: const [AutofillHints.streetAddressLine3],
                   textCapitalization: TextCapitalization.sentences,
                   maxLength: CustomerInput.flatMax,
@@ -263,23 +276,38 @@ class _AddressScreenState extends State<AddressScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        DetailsSwitchRow(
-          key: const ValueKey('address-default'),
-          label: AddressScreen.defaultLabel,
-          subtitle: 'Used at checkout when you deliver to its area.',
-          value: _makeDefault,
-          onChanged: (value) => setState(() => _makeDefault = value),
-        ),
+        if (!_onlyAddress) ...[
+          const SizedBox(height: 4),
+          DetailsSwitchRow(
+            key: const ValueKey('address-default'),
+            label: AddressScreen.defaultLabel,
+            subtitle: 'Used at checkout when you deliver to its area.',
+            value: _makeDefault,
+            onChanged: (value) => setState(() => _makeDefault = value),
+          ),
+        ],
+        const SizedBox(height: 16),
+        const PrivacyNote(),
         if (editing) ...[
           const SizedBox(height: 12),
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
+            child: TextButton(
               key: const ValueKey('address-delete'),
+              style: TextButton.styleFrom(
+                // The icon on the form's edge, under the fields.
+                padding: const EdgeInsetsDirectional.only(end: 12),
+                minimumSize: const Size(AppDims.touch, AppDims.controlTarget),
+              ),
               onPressed: _delete,
-              icon: const Icon(Icons.delete_outline, size: 20),
-              label: const Text(AddressScreen.deleteLabel),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.delete_outline, size: 20),
+                  SizedBox(width: 8),
+                  Flexible(child: Text(AddressScreen.deleteLabel)),
+                ],
+              ),
             ),
           ),
         ],

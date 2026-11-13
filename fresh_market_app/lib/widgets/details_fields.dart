@@ -75,9 +75,17 @@ class DetailsField extends StatelessWidget {
     fontWeight: FontWeight.w600,
   );
 
+  /// An error: an ink 1.5 edge (with the icon and message under it).
   static const OutlineInputBorder _errorBorder = OutlineInputBorder(
     borderRadius: AppDims.controlBorderRadius,
     borderSide: BorderSide(color: AppColors.ink, width: 1.5),
+  );
+
+  /// Focus, with or without an error: ink 2.5, always the heaviest edge,
+  /// so the field typing goes to is seen among fields with errors.
+  static const OutlineInputBorder _focusBorder = OutlineInputBorder(
+    borderRadius: AppDims.controlBorderRadius,
+    borderSide: BorderSide(color: AppColors.ink, width: 2.5),
   );
 
   @override
@@ -105,53 +113,64 @@ class DetailsField extends StatelessWidget {
             style: AppText.label,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Semantics(
           label: optional ? '$label, optional' : label,
-          child: TextFormField(
-            key: fieldKey,
-            controller: controller,
-            focusNode: focusNode,
-            validator: validator,
-            autovalidateMode: validateWhileTyping
-                ? AutovalidateMode.onUserInteraction
-                : AutovalidateMode.disabled,
-            autofillHints: autofillHints,
-            keyboardType: maxLines > 1 ? TextInputType.multiline : keyboardType,
-            textInputAction: textInputAction,
-            textCapitalization: textCapitalization,
-            maxLines: maxLines,
-            minLines: 1,
-            maxLength: showCounter ? limit : null,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            inputFormatters: [
-              if (limit != null && !showCounter)
-                LengthLimitingTextInputFormatter(limit),
-            ],
-            onFieldSubmitted: onSubmitted,
-            onChanged: onChanged,
-            // An icon with the message, so an error does not rely on colour.
-            errorBuilder: (context, message) => Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 1),
-                  child: Icon(
-                    Icons.error_outline,
-                    size: 15,
-                    color: AppColors.ink,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(child: Text(message, style: errorStyle)),
+          // Rebuilt as it is typed in: see hintMaxLines.
+          child: ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) => TextFormField(
+              key: fieldKey,
+              controller: controller,
+              focusNode: focusNode,
+              validator: validator,
+              autovalidateMode: validateWhileTyping
+                  ? AutovalidateMode.onUserInteraction
+                  : AutovalidateMode.disabled,
+              autofillHints: autofillHints,
+              keyboardType: maxLines > 1
+                  ? TextInputType.multiline
+                  : keyboardType,
+              textInputAction: textInputAction,
+              textCapitalization: textCapitalization,
+              maxLines: maxLines,
+              minLines: 1,
+              maxLength: showCounter ? limit : null,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              inputFormatters: [
+                if (limit != null && !showCounter)
+                  LengthLimitingTextInputFormatter(limit),
               ],
-            ),
-            style: AppText.body,
-            decoration: InputDecoration(
-              hintText: hint,
-              errorBorder: _errorBorder,
-              focusedErrorBorder: _errorBorder,
-              counterStyle: AppText.caption,
+              onFieldSubmitted: onSubmitted,
+              onChanged: onChanged,
+              // An icon with the message, so an error does not rely on colour.
+              errorBuilder: (context, message) => Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.error_outline,
+                      size: 15,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(message, style: errorStyle)),
+                ],
+              ),
+              style: AppText.body,
+              decoration: InputDecoration(
+                hintText: hint,
+                // A hint is the only place that shows the format: never cut
+                // at a large font size. Only while it shows, so a filled
+                // field is one line high again.
+                hintMaxLines: controller.text.isEmpty ? 2 : 1,
+                errorBorder: _errorBorder,
+                focusedBorder: _focusBorder,
+                focusedErrorBorder: _focusBorder,
+                counterStyle: AppText.caption,
+              ),
             ),
           ),
         ),
@@ -299,7 +318,7 @@ class DetailsSwitchRow extends StatelessWidget {
   }
 }
 
-/// The note under the Save buttons: where the details are kept.
+/// The note after a details form's fields: where the details are kept.
 class PrivacyNote extends StatelessWidget {
   const PrivacyNote({super.key});
 
@@ -310,7 +329,6 @@ class PrivacyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
@@ -325,8 +343,9 @@ class PrivacyNote extends StatelessWidget {
 }
 
 /// A full-screen form page: back button and 24/800 title, the scrolling
-/// [children], and a white bar pinned at the bottom with the green
-/// [saveLabel] button (52pt) and [note] under it.
+/// [children], and a white bar pinned at the bottom with only the green
+/// [saveLabel] button (52pt), so at a large font size the bar stays small
+/// and never covers an error (the [PrivacyNote] scrolls with the form).
 class DetailsPage extends StatelessWidget {
   const DetailsPage({
     super.key,
@@ -334,7 +353,6 @@ class DetailsPage extends StatelessWidget {
     required this.children,
     required this.saveLabel,
     required this.onSave,
-    this.note,
     this.saveKey,
   });
 
@@ -342,7 +360,6 @@ class DetailsPage extends StatelessWidget {
   final List<Widget> children;
   final String saveLabel;
   final VoidCallback onSave;
-  final Widget? note;
   final Key? saveKey;
 
   @override
@@ -400,19 +417,12 @@ class DetailsPage extends StatelessWidget {
                     AppDims.gutter,
                     12,
                     AppDims.gutter,
-                    10,
+                    12,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FilledButton(
-                        key: saveKey,
-                        onPressed: onSave,
-                        child: Text(saveLabel, textAlign: TextAlign.center),
-                      ),
-                      if (note != null) ...[const SizedBox(height: 8), note!],
-                    ],
+                  child: FilledButton(
+                    key: saveKey,
+                    onPressed: onSave,
+                    child: Text(saveLabel, textAlign: TextAlign.center),
                   ),
                 ),
               ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/profile/checkout_prefill.dart';
 import 'package:fresh_market_app/profile/customer_details.dart';
 import 'package:fresh_market_app/profile/profile_vault.dart';
+import 'package:fresh_market_app/app_nav.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
@@ -242,7 +244,7 @@ void main() {
       expect(CheckoutPrefill.attributes(address: office(), area: bay), isEmpty);
     });
 
-    test('the same area by name and emirate, wherever the pin is', () {
+    test('the same area by name and emirate, pins close together', () {
       const pin = DeliveryArea(
         name: 'business bay',
         emirate: Emirate.dubai,
@@ -270,6 +272,55 @@ void main() {
       );
       expect(inSharjah.keys, isNot(contains(CheckoutPrefill.address1)));
       expect(inSharjah[CheckoutPrefill.province], 'SH');
+    });
+
+    test('a "Near" area of the same name far away is another place; the '
+        'city is sent without "Near"', () {
+      // 118 km apart, both called "Near Jebel Ali" by the picker.
+      const saved = DeliveryArea(
+        name: 'Near Jebel Ali',
+        emirate: Emirate.dubai,
+        lat: 24.5,
+        lng: 55.22,
+      );
+      const here = DeliveryArea(
+        name: 'Near Jebel Ali',
+        emirate: Emirate.dubai,
+        lat: 25.46,
+        lng: 54.72,
+      );
+      const villa = SavedAddress(
+        id: 'v',
+        label: AddressLabel.home,
+        area: saved,
+        building: 'Villa 12',
+      );
+      expect(CustomerInput.sameArea(saved, here), isFalse);
+      expect(CustomerInput.sameArea(saved, saved), isTrue);
+      final params = CheckoutPrefill.params(
+        contact: sara,
+        address: villa,
+        area: here,
+      );
+      expect(params.containsKey(CheckoutPrefill.address1), isFalse);
+      expect(params[CheckoutPrefill.city], 'Jebel Ali');
+      expect(
+        CheckoutPrefill.params(
+          contact: sara,
+          address: villa,
+          area: saved,
+        )[CheckoutPrefill.address1],
+        'Villa 12',
+      );
+      expect(CustomerInput.cityName(area('Business Bay')), 'Business Bay');
+      // 3 km is the most two pins of one place can be apart.
+      const nearby = DeliveryArea(
+        name: 'Business Bay',
+        emirate: Emirate.dubai,
+        lat: 25.215,
+        lng: 55.265,
+      );
+      expect(CustomerInput.sameArea(nearby, area('Business Bay')), isFalse);
     });
 
     test('empty values are left out; nothing saved sends nothing', () {
@@ -584,6 +635,8 @@ void main() {
       );
 
       final saving = ProfileStore(vault: MemoryProfileVault());
+      expect(saving.offersCheckoutSheet, isFalse, reason: 'not read yet');
+      await saving.load();
       expect(saving.offersCheckoutSheet, isTrue);
       saving.applyCheckoutSheet(answer, bay);
       expect(saving.contact, sara);
@@ -623,5 +676,153 @@ void main() {
     test('the store AppScope makes by default never asks', () {
       expect(ProfileStore(askAtCheckout: false).offersCheckoutSheet, isFalse);
     });
+
+    test('Continue with nothing typed counts as a skip', () async {
+      final vault = MemoryProfileVault();
+      final store = ProfileStore(vault: vault);
+      await store.load();
+      store.applyCheckoutSheet(
+        const CheckoutSheetResult(contact: ContactDetails.empty),
+        area('Business Bay'),
+      );
+      expect(store.offersCheckoutSheet, isFalse);
+      expect(store.checkoutSheetSkipped, isTrue);
+      expect(store.hasDetails, isFalse);
+      await store.idle;
+      final later = ProfileStore(vault: vault);
+      await later.load();
+      expect(later.offersCheckoutSheet, isFalse, reason: 'remembered');
+    });
   });
+
+  group('ProfileStore: a slow first read', () {
+    final saved = jsonEncode({
+      'v': 1,
+      'contact': sara.toJson(),
+      'addresses': [home().toJson(), office().toJson()],
+      'default': 'h1',
+    });
+
+    test('nothing is offered or written before the record is read', () async {
+      final vault = _GatedVault(saved);
+      final store = ProfileStore(vault: vault);
+      final loading = store.load();
+      expect(store.loaded, isFalse);
+      expect(store.offersCheckoutSheet, isFalse);
+      vault.open();
+      await loading;
+      expect(store.loaded, isTrue);
+      expect(store.contact, sara);
+      expect(store.offersCheckoutSheet, isFalse);
+    });
+
+    test('Skip during the read keeps the saved details', () async {
+      final vault = _GatedVault(saved);
+      final store = ProfileStore(vault: vault);
+      final loading = store.load();
+      store.applyCheckoutSheet(
+        const CheckoutSheetResult.skip(),
+        area('Business Bay'),
+      );
+      expect(vault.writes, isEmpty, reason: 'nothing written unread');
+      vault.open();
+      await loading;
+      await store.idle;
+      expect(store.contact, sara);
+      expect(store.addresses.map((a) => a.id), ['h1', 'o1']);
+      expect(store.checkoutSheetSkipped, isTrue);
+      final again = ProfileStore(vault: MemoryProfileVault(vault.value));
+      await again.load();
+      expect(again.contact, sara);
+      expect(again.addresses, hasLength(2));
+    });
+
+    test('saving My details or an address during the read merges', () async {
+      final vault = _GatedVault(saved);
+      final store = ProfileStore(vault: vault);
+      final loading = store.load();
+      store.saveContact(const ContactDetails(email: 'sara.new@example.com'));
+      final villa = SavedAddress(
+        id: 'n1',
+        label: AddressLabel.other,
+        area: area('Mirdif'),
+        building: 'Villa 12',
+      );
+      store.saveAddress(villa);
+      vault.open();
+      await loading;
+      await store.idle;
+      // The field typed meanwhile wins; the others are kept.
+      expect(store.contact.email, 'sara.new@example.com');
+      expect(store.contact.firstName, 'Sara');
+      expect(store.contact.mobile, '+971501234567');
+      // The saved addresses first, their default kept; the new one added.
+      expect(store.addresses.map((a) => a.id), ['h1', 'o1', 'n1']);
+      expect(store.defaultAddress!.id, 'h1');
+      final again = ProfileStore(vault: MemoryProfileVault(vault.value));
+      await again.load();
+      expect(again.addresses.map((a) => a.id), ['h1', 'o1', 'n1']);
+      expect(again.contact.lastName, 'Ahmed');
+    });
+
+    test('Delete my details during the read removes the record', () async {
+      final vault = _GatedVault(saved);
+      final store = ProfileStore(vault: vault)
+        ..saveContact(const ContactDetails(firstName: 'Sara'));
+      final deleting = store.deleteAll();
+      vault.open();
+      await deleting;
+      expect(store.hasDetails, isFalse);
+      expect(vault.value, isNull);
+    });
+  });
+
+  group('checkout pin', () {
+    test('the order\'s Delivery pin is the pin of the address sent', () {
+      final kiwi = sampleProducts()[0];
+      final cart = CartStore()..add(kiwi, kiwi.variants[0]);
+      final delivery = DeliveryStore(
+        now: () => DateTime.utc(2026, 11, 13, 6),
+        refreshEvery: null,
+      );
+      // A pin in Business Bay, 1 km from where Home was saved.
+      delivery.setArea(
+        const DeliveryArea(
+          name: 'Business Bay',
+          emirate: Emirate.dubai,
+          lat: 25.194,
+          lng: 55.265,
+        ),
+      );
+      final profile = ProfileStore()..saveAddress(home());
+      // What checkout does first: the delivery pin moves to the address.
+      AppNav.alignDeliveryWithAddress(delivery: delivery, profile: profile);
+      final q = AppNav.checkoutUrlFor(
+        cart: cart,
+        delivery: delivery,
+        profile: profile,
+      )!.queryParameters;
+      expect(q['checkout[shipping_address][address1]'], home().address1);
+      final pin = home().area;
+      expect(
+        q['attributes[Delivery pin]'],
+        '${pin.lat.toStringAsFixed(5)},${pin.lng.toStringAsFixed(5)}',
+      );
+    });
+  });
+}
+
+/// A vault whose read waits until [open] (a slow phone at start-up).
+class _GatedVault extends MemoryProfileVault {
+  _GatedVault(super.value);
+
+  final Completer<void> _gate = Completer<void>();
+
+  void open() => _gate.complete();
+
+  @override
+  Future<String?> read() async {
+    await _gate.future;
+    return super.read();
+  }
 }

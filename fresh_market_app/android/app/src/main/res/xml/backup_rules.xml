@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower (android:fullBackupContent). The shopper's details
+     are kept by flutter_secure_storage under a key in the Android Keystore,
+     which is never backed up: a restored copy could not be decrypted, so it
+     stays on this phone. The cart, favourites and delivery area are still
+     backed up. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml"/>
+    <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml"/>
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml"/>
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml"/>
+</full-backup-content>
