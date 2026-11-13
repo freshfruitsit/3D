@@ -59,6 +59,9 @@ class PromoEntry {
 
 abstract final class Catalog {
   static const String logoAsset = 'assets/images/logo.png';
+
+  /// The logo cropped to the wordmark and flag ribbon, for the Home header.
+  static const String logoWideAsset = 'assets/images/logo_wide.png';
   static const String localAsset = 'assets/images/local.jpg';
 
   /// The 12 category tiles, in grid order.

@@ -88,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _rail(HomeRail rail) => _ProductRail(
         rail: rail,
+        style: _railStyles[rail.handle] ?? _defaultRailStyle,
         data: _rails[rail.handle] ?? const _RailData(loading: true),
         onRetry: () => _loadRail(rail),
       );
@@ -96,6 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
+        // The white header runs up behind the status bar.
+        top: false,
         bottom: false,
         child: RefreshIndicator(
           color: AppColors.brand,
@@ -104,24 +107,20 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(
-              top: 8,
               // Extra room so the last card can scroll clear of the Ask
               // button, which floats above the bottom bar.
               bottom: AppDims.floatingSpace(context),
             ),
             children: [
               const _Header(),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
-                child: SearchFieldButton(
-                  onTap: () => AppNav.openSearch(context),
-                ),
-              ),
               const SizedBox(height: 16),
               const _BannerCarousel(),
               const SizedBox(height: 20),
-              const SectionHeader(title: 'Shop By Category'),
+              const SectionHeader(
+                title: 'Shop By Category',
+                tone: SectionTone.green,
+                icon: Icons.grid_view_rounded,
+              ),
               const SizedBox(height: 4),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
@@ -129,7 +128,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               for (final rail in Catalog.railsBeforeBrands) _rail(rail),
               const SizedBox(height: 20),
-              const SectionHeader(title: 'Brands We Love'),
+              const SectionHeader(
+                title: 'Brands We Love',
+                tone: SectionTone.red,
+                icon: Icons.favorite,
+              ),
               const SizedBox(height: 4),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
@@ -137,7 +140,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               for (final rail in Catalog.railsAfterBrands) _rail(rail),
               const SizedBox(height: 20),
-              const SectionHeader(title: 'Offers'),
+              const SectionHeader(
+                title: 'Offers',
+                tone: SectionTone.black,
+                icon: Icons.campaign,
+              ),
               const SizedBox(height: 4),
               const PromoRow(),
               for (final rail in Catalog.railsAfterOffers) _rail(rail),
@@ -154,84 +161,177 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Logo, the (static) delivery area and the "1Hr Express" chip.
+/// Heading tag colour and icon of each Home rail, by collection handle.
+/// The tones alternate through the logo's flag colours down the page.
+const Map<String, ({SectionTone tone, IconData icon})> _railStyles = {
+  'fresh-meat': (tone: SectionTone.red, icon: Icons.local_fire_department),
+  'best-deals': (tone: SectionTone.black, icon: Icons.sell),
+  'best-sellers': (tone: SectionTone.green, icon: Icons.eco),
+  'berries': (tone: SectionTone.red, icon: Icons.spa),
+  'ambrosia-flowers': (tone: SectionTone.green, icon: Icons.local_florist),
+};
+
+const ({SectionTone tone, IconData icon}) _defaultRailStyle =
+    (tone: SectionTone.green, icon: Icons.eco);
+
+/// The white header that runs up behind the status bar: the logo, the
+/// (static) delivery area, the "1Hr Express" button and the search field,
+/// finished with a stripe in the colours of the logo's flag ribbon.
 class _Header extends StatelessWidget {
   const _Header();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: AppDims.controlBorderRadius,
-              border: Border.all(color: AppColors.border),
+    final top = MediaQuery.paddingOf(context).top;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ColoredBox(
+          color: AppColors.surface,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppDims.gutter,
+              top + 10,
+              AppDims.gutter,
+              14,
             ),
-            child: Image.asset(
-              Catalog.logoAsset,
-              fit: BoxFit.contain,
-              semanticLabel: 'Fresh Market',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Deliver to', style: AppText.caption),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.location_on_outlined,
-                      size: 18,
-                      color: AppColors.ink,
+                    Image.asset(
+                      Catalog.logoWideAsset,
+                      height: 48,
+                      fit: BoxFit.contain,
+                      semanticLabel: 'Fresh Market',
                     ),
-                    const SizedBox(width: 2),
-                    Flexible(
-                      child: Text(
-                        'Choose your area',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.cardHeading,
-                      ),
-                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(child: _DeliverTo()),
+                    const SizedBox(width: 8),
+                    const _ExpressButton(),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.fromLTRB(8, 7, 12, 7),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.bolt, size: 18, color: AppColors.brand),
-                const SizedBox(width: 2),
-                Text(
-                  '1Hr Express',
-                  style: AppText.caption.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.brand,
-                  ),
+                const SizedBox(height: 12),
+                SearchFieldButton(
+                  onTap: () => AppNav.openSearch(context),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+        const FlagStripe(),
+      ],
+    );
+  }
+}
+
+/// "Deliver to / Choose your area". Static in this version.
+class _DeliverTo extends StatelessWidget {
+  const _DeliverTo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Deliver to', style: AppText.caption),
+        const SizedBox(height: 1),
+        Row(
+          children: [
+            const Icon(Icons.location_on, size: 17, color: AppColors.red),
+            const SizedBox(width: 2),
+            Flexible(
+              child: Text(
+                'Choose your area',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.cardHeading.copyWith(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Green "1Hr Express" button; opens that collection.
+class _ExpressButton extends StatelessWidget {
+  const _ExpressButton();
+
+  static const String _handle = 'express';
+  static const String _title = '1Hr Express';
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Open $_title',
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.brand,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () =>
+              AppNav.openCollection(context, handle: _handle, title: _title),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: AppDims.touch),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bolt, size: 18, color: Color(0xFFFFD54A)),
+                  const SizedBox(width: 3),
+                  Text(
+                    _title,
+                    style: AppText.caption.copyWith(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A thin stripe in the colours of the UAE flag ribbon in the logo: a red
+/// block, then green, white and black bands.
+class FlagStripe extends StatelessWidget {
+  const FlagStripe({super.key});
+
+  static const double height = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    return const ExcludeSemantics(
+      child: SizedBox(
+        height: height,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(width: 72, child: ColoredBox(color: AppColors.red)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: ColoredBox(color: AppColors.brand)),
+                  Expanded(child: ColoredBox(color: AppColors.surface)),
+                  Expanded(child: ColoredBox(color: AppColors.ink)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -371,11 +471,13 @@ class _BannerCarouselState extends State<_BannerCarousel> {
 class _ProductRail extends StatelessWidget {
   const _ProductRail({
     required this.rail,
+    required this.style,
     required this.data,
     required this.onRetry,
   });
 
   final HomeRail rail;
+  final ({SectionTone tone, IconData icon}) style;
   final _RailData data;
   final VoidCallback onRetry;
 
@@ -422,6 +524,8 @@ class _ProductRail extends StatelessWidget {
         children: [
           SectionHeader(
             title: rail.title,
+            tone: style.tone,
+            icon: style.icon,
             onViewAll: () => AppNav.openCollection(
               context,
               handle: rail.handle,

@@ -67,7 +67,9 @@ class PriceRow extends StatelessWidget {
           Text(
             formatMoney(priceCents),
             maxLines: 1,
-            style: large ? AppText.title : AppText.price,
+            // A sale price is red, like the sale pill.
+            style: (large ? AppText.title : AppText.price)
+                .copyWith(color: showOld ? AppColors.red : null),
           ),
           if (showOld) ...[
             SizedBox(width: large ? 8 : 6),
