@@ -171,6 +171,48 @@ void main() {
       expect(tester.getSize(find.byKey(IntroScreen.startKey)).width, 390 - 32);
     });
 
+    testWidgets('the wordmark on a white rounded rectangle, a dark '
+        'translucent Skip pill and the green Start shopping', (tester) async {
+      await pumpIntro(tester, player: FakeIntroPlayer(), onDone: () {});
+
+      final logo = find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is AssetImage &&
+            (w.image as AssetImage).assetName ==
+                'assets/images/logo_wide.png',
+      );
+      expect(logo, findsOneWidget);
+      final plate =
+          find.ancestor(of: logo, matching: find.byType(Container)).first;
+      final decoration =
+          tester.widget<Container>(plate).decoration! as BoxDecoration;
+      expect(decoration.color, Colors.white);
+      expect(decoration.borderRadius, AppDims.buttonBorderRadius);
+      expect(tester.getSize(plate).height, 44);
+      // Left of Mute and Skip, on the same row.
+      expect(tester.getCenter(plate).dy,
+          closeTo(tester.getCenter(find.byKey(IntroScreen.skipKey)).dy, 0.5));
+      expect(tester.getTopLeft(plate).dx, 16);
+
+      final skip = tester.widget<Material>(find
+          .ancestor(
+            of: find.byKey(IntroScreen.skipKey),
+            matching: find.byType(Material),
+          )
+          .first);
+      expect(skip.shape, isA<StadiumBorder>());
+      expect(skip.color!.a, lessThan(1));
+
+      final start = tester.widget<Material>(find
+          .descendant(
+            of: find.byKey(IntroScreen.startKey),
+            matching: find.byType(Material),
+          )
+          .first);
+      expect(start.color, AppColors.green);
+    });
+
     testWidgets('Skip finishes once, even when tapped twice', (tester) async {
       var done = 0;
       final player = FakeIntroPlayer();

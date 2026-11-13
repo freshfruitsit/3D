@@ -17,6 +17,7 @@ import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_control.dart';
 import '../widgets/circle_icon_button.dart';
+import '../widgets/delivery_widgets.dart' show ExpressCollection;
 import '../widgets/price_widgets.dart';
 import '../widgets/product_image.dart';
 
@@ -422,6 +423,11 @@ String spokenMoney(String text) => text.contains(dirhamSign)
     ? text.replaceAll('$dirhamSign ', 'AED ').replaceAll(dirhamSign, 'AED ')
     : text;
 
+/// [text] with a no-break space after each Dirham sign, so a sentence
+/// never wraps between the sign and its amount.
+String keepMoneyTogether(String text) =>
+    text.replaceAll('$dirhamSign ', '$dirhamSign\u00A0');
+
 /// "a", "a and b", "a, b and c".
 String _joinNames(List<String> names) => names.length < 2
     ? names.join()
@@ -645,6 +651,15 @@ class _AssistantBlock extends StatelessWidget {
           onTap: onTap,
           icon: Icons.location_on_outlined,
         ),
+      // Express is the one place green marks a non-buying button.
+      OpenCollectionAction(:final handle)
+          when handle == ExpressCollection.handle =>
+        _ActionButton(
+          label: action.label,
+          onTap: onTap,
+          icon: Icons.bolt,
+          iconColor: AppColors.green,
+        ),
       _ => _ActionButton(label: action.label, onTap: onTap),
     };
   }
@@ -657,7 +672,7 @@ class _AssistantBlock extends StatelessWidget {
       children: [
         _AssistantBubble(
           child: Text(
-            reply.text,
+            keepMoneyTogether(reply.text),
             // Prices are heard as "AED 12.50", like everywhere else.
             semanticsLabel: spokenMoney(reply.text),
             style: AppText.body,
@@ -978,6 +993,7 @@ class _ActionButton extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.icon,
+    this.iconColor,
     this.look = _ActionLook.outlined,
     this.done = false,
   });
@@ -989,6 +1005,9 @@ class _ActionButton extends StatelessWidget {
 
   /// Shown before the label.
   final IconData? icon;
+
+  /// The icon's colour while enabled; the label's colour when null.
+  final Color? iconColor;
   final _ActionLook look;
 
   /// Already carried out: screen readers hear so, not just "disabled".
@@ -1038,7 +1057,11 @@ class _ActionButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (icon != null) ...[
-                    Icon(icon, size: 18, color: ink),
+                    Icon(
+                      icon,
+                      size: 18,
+                      color: enabled ? iconColor ?? ink : ink,
+                    ),
                     const SizedBox(width: 6),
                   ],
                   Flexible(

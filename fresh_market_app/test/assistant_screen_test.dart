@@ -20,6 +20,7 @@ import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:fresh_market_app/widgets/ask_button.dart';
+import 'package:fresh_market_app/widgets/product_image.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'support/test_app.dart';
@@ -192,8 +193,9 @@ void main() {
 
     expect(
         find.text(
-            'Done. I added 2 × Cucumber (500 GM) to your cart at \u20C3 2.50 '
-            'each.'),
+            // A no-break space keeps the sign with its amount.
+            'Done. I added 2 × Cucumber (500 GM) to your cart at '
+            '\u20C3\u00A02.50 each.'),
         findsOneWidget);
     expect(cart.quantityOf(2004), 2);
     expect(find.byType(QuantityStepper), findsOneWidget);
@@ -278,7 +280,10 @@ void main() {
 
     await ask(tester, 'Open my cart');
     await settleReply(tester);
-    expect(find.text('Your cart has 1 item, subtotal \u20C3 19.95.'),
+    expect(find.text('Your cart has 1 item, subtotal \u20C3\u00A019.95.'),
+        findsOneWidget);
+    // Screen readers hear the amount in AED.
+    expect(find.bySemanticsLabel('Your cart has 1 item, subtotal AED 19.95.'),
         findsOneWidget);
 
     await tapVisible(tester, find.text('Open cart'));
@@ -961,6 +966,131 @@ void main() {
       );
       expect(tester.getSize(caption).height, greaterThan(40));
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('design', () {
+    /// The bubble around [text].
+    BoxDecoration bubbleOf(WidgetTester tester, String text) => tester
+        .widget<Container>(find
+            .ancestor(of: find.text(text), matching: find.byType(Container))
+            .first)
+        .decoration! as BoxDecoration;
+
+    testWidgets('a white page: ink bubble for the shopper, off-white bubble '
+        'for the assistant', (tester) async {
+      await pumpScreen(tester, AssistantScreen(session: newSession()));
+      await ask(tester, 'Find kiwi');
+      await settleReply(tester);
+
+      expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+          AppColors.canvas);
+      expect(bubbleOf(tester, 'Find kiwi').color, AppColors.ink);
+      expect(tester.widget<Text>(find.text('Find kiwi')).style?.color,
+          AppColors.onDark);
+      final answer = bubbleOf(tester, 'I found this for "kiwi".');
+      expect(answer.color, AppColors.subtle);
+      expect(answer.border, isNull);
+      expect(tester.widget<Text>(find.text('I found this for "kiwi".'))
+          .style?.color, AppColors.ink);
+    });
+
+    testWidgets('product rows: white card with a hairline, the photo in an '
+        'off-white well, name, size line and the green add control',
+        (tester) async {
+      await pumpScreen(tester, AssistantScreen(session: newSession()));
+      await ask(tester, 'Find kiwi');
+      await settleReply(tester);
+
+      final row = find
+          .ancestor(
+            of: find.text('Zespri Kiwi Sungold'),
+            matching: find.byType(Material),
+          )
+          .first;
+      final card = tester.widget<Material>(row);
+      expect(card.color, AppColors.surface);
+      expect((card.shape! as RoundedRectangleBorder).side.color,
+          AppColors.hairline);
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.byWidgetPredicate(
+            (w) => w is ProductImage && w.wellColor == AppColors.subtle,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.descendant(of: row, matching: find.text('500 GM')),
+          findsOneWidget);
+      expect(tester.widget<Text>(find.text('500 GM')).style?.color,
+          AppColors.secondary);
+      expect(find.descendant(of: row, matching: find.byType(AddControl)),
+          findsOneWidget);
+    });
+
+    testWidgets('the composer: an off-white pill holding the options button '
+        'and the field, an ink Send button, the demo label under them',
+        (tester) async {
+      await pumpScreen(tester, AssistantScreen(session: newSession()));
+
+      final pill = find.ancestor(
+        of: find.byType(TextField),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is DecoratedBox &&
+              w.decoration is ShapeDecoration &&
+              (w.decoration as ShapeDecoration).color == AppColors.subtle,
+        ),
+      );
+      expect(pill, findsOneWidget);
+      expect(find.descendant(of: pill, matching: find.byTooltip('Show options')),
+          findsOneWidget);
+      expect(tester.getSize(find.byTooltip('Send')), const Size(44, 44));
+      expect(
+        tester
+            .widget<Material>(find
+                .ancestor(
+                  of: find.byIcon(Icons.arrow_upward),
+                  matching: find.byType(Material),
+                )
+                .first)
+            .color,
+        AppColors.ink,
+      );
+      final caption = find.text(AssistantScreen.caption);
+      expect(tester.getTopLeft(caption).dy,
+          greaterThan(tester.getBottomLeft(pill).dy));
+      expect(tester.getCenter(caption).dx, closeTo(195, 0.5));
+    });
+
+    testWidgets('"Shop Express items" carries the green Express bolt',
+        (tester) async {
+      final session = newSession()
+        ..note(const AssistantReply(
+          'Express is open.',
+          actions: [AssistantBrain.shopExpressAction],
+        ));
+      await pumpScreen(tester, AssistantScreen(session: session));
+
+      final pill = pillMaterial(tester, 'Shop Express items');
+      final bolt = find.descendant(of: pill, matching: find.byIcon(Icons.bolt));
+      expect(tester.widget<Icon>(bolt).color, AppColors.green);
+      expect(tester.widget<Text>(find.text('Shop Express items')).style?.color,
+          AppColors.ink);
+      expect(
+          (tester.widget<Material>(pill).shape! as StadiumBorder).side.color,
+          AppColors.ink);
+    });
+
+    test('prices in sentences are heard as AED and never split from their '
+        'amount', () {
+      expect(spokenMoney('Avocado under \u20C3 30.00:'),
+          'Avocado under AED 30.00:');
+      expect(spokenMoney('-\u20C3 5.00'), '-AED 5.00');
+      expect(spokenMoney('No price here.'), 'No price here.');
+      expect(keepMoneyTogether('It is \u20C3 75.00, down from \u20C3 87.00.'),
+          'It is \u20C3\u00A075.00, down from \u20C3\u00A087.00.');
     });
   });
 
