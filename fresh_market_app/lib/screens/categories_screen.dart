@@ -29,6 +29,7 @@ class CategoriesScreen extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: SectionTag(
                   title: 'Categories',
+                  tone: SectionTone.lime,
                   icon: Icons.grid_view_rounded,
                 ),
               ),

@@ -530,14 +530,15 @@ void main() {
       await pumpScreen(tester, AssistantScreen(session: session), cart: cart);
 
       final pill = pillMaterial(tester, 'Add all to cart');
-      expect(tester.widget<Material>(pill).color, AppColors.brand);
+      // Lime with ink text: white on lime would be unreadable.
+      expect(tester.widget<Material>(pill).color, AppColors.lime);
       expect(find.byIcon(Icons.add_shopping_cart), findsOneWidget);
       expect(
         tester
             .widget<Text>(find.text('Add all to cart'))
             .style
             ?.color,
-        Colors.white,
+        AppColors.ink,
       );
 
       await tapVisible(tester, find.text('Add all to cart'));
@@ -581,8 +582,8 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('Empty my cart is red, clears the cart once per message and '
-        'says when it is already empty', (tester) async {
+    testWidgets('Empty my cart is an ink outline, clears the cart once per '
+        'message and says when it is already empty', (tester) async {
       final kiwi = sampleProducts().first;
       final cart = CartStore()..add(kiwi, kiwi.variants.first);
       final session = newSession();
@@ -600,8 +601,10 @@ void main() {
       expect(buttons, findsNWidgets(2));
       final shape = tester.widget<Material>(pillMaterial(tester,
           'Yes, empty my cart')).shape! as StadiumBorder;
-      expect(shape.side.color, AppColors.red);
-      expect(tester.widget<Text>(buttons.first).style?.color, AppColors.red);
+      expect(shape.side.color, AppColors.ink);
+      expect(tester.widget<Text>(buttons.first).style?.color, AppColors.ink);
+      expect(tester.widget<Material>(pillMaterial(tester,
+          'Yes, empty my cart')).color, AppColors.surface);
 
       // The newest message comes first in the reversed list.
       await tapVisible(tester, buttons.first);

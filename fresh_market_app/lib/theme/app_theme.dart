@@ -1,36 +1,43 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Colour tokens of the approved design.
+/// Colour tokens of the approved design. Every colour comes from THE
+/// FRESH MARKET logo: a black wordmark on a lime half-circle, on white.
 abstract final class AppColors {
-  /// Page background on every screen.
-  static const Color page = Color(0xFFDCEBDD);
+  /// Page background on every screen: a mild tint of the logo's lime.
+  static const Color page = Color(0xFFEFF5DA);
 
-  /// Deeper green used by category tiles and quiet controls.
-  static const Color tile = Color(0xFFC5DEC8);
+  /// Deeper lime tint used by category tiles and quiet controls.
+  static const Color tile = Color(0xFFDDEBB0);
 
   /// 1px border of cards, tiles and the bottom bar.
-  static const Color border = Color(0xFFB4D1B8);
+  static const Color border = Color(0xFFCCDD98);
 
   /// Cards, inputs and the bottom bar.
   static const Color surface = Color(0xFFFFFFFF);
 
+  /// The logo's black: text, black heading tags, sale pills, the Ask
+  /// button. Also the text and icons on [lime].
   static const Color ink = Color(0xFF111111);
-  static const Color secondary = Color(0xFF4F5B52);
-  static const Color body = Color(0xFF33402F);
+  static const Color secondary = Color(0xFF4E5641);
+  static const Color body = Color(0xFF33392A);
 
-  /// Primary buttons, links, add button, active tab.
-  static const Color brand = Color(0xFF00732F);
+  /// The logo's lime: primary buttons, add buttons, the active tab, lime
+  /// heading tags and the cart badge. Never put white on it: text and
+  /// icons on lime are [ink].
+  static const Color lime = Color(0xFFB8D432);
 
-  /// Sale pills, cart badge, favourite heart when on.
-  static const Color red = Color(0xFFCE1126);
+  /// Dark olive (the store website's own pin colour) for green text and
+  /// small accent icons on white or light backgrounds: links, "View all",
+  /// sale prices. Lime itself is too light for text.
+  static const Color olive = Color(0xFF4F6B00);
 
   /// Category tile label.
-  static const Color tileLabel = Color(0xFF14361F);
+  static const Color tileLabel = Color(0xFF2E3B00);
 
   /// Disabled fills and text.
-  static const Color disabledFill = Color(0xFFE6EBE6);
-  static const Color disabledText = Color(0xFF8A938C);
+  static const Color disabledFill = Color(0xFFE8EBE0);
+  static const Color disabledText = Color(0xFF8A9080);
 }
 
 /// Spacing, radii and sizes shared by every screen.
@@ -157,13 +164,13 @@ abstract final class AppText {
     fontWeight: FontWeight.w700,
   );
 
-  /// 14/700 green text link ("View all").
+  /// 14/700 olive text link ("View all").
   static const TextStyle link = TextStyle(
     fontFamily: family,
     fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w700,
-    color: AppColors.brand,
+    color: AppColors.olive,
   );
 
   /// 11/700 uppercase category tile label.
@@ -188,11 +195,11 @@ abstract final class AppDecor {
 
   /// Soft shadow under floating white surfaces (bottom bar, cart summary).
   static const List<BoxShadow> floatShadow = [
-    BoxShadow(color: Color(0x1F14361F), blurRadius: 20, offset: Offset(0, 6)),
+    BoxShadow(color: Color(0x1F2E3B00), blurRadius: 20, offset: Offset(0, 6)),
   ];
 }
 
-/// Status bar style for the light green page background.
+/// Status bar style for the light lime page background.
 const SystemUiOverlayStyle appOverlayStyle = SystemUiOverlayStyle(
   statusBarColor: Color(0x00000000),
   statusBarIconBrightness: Brightness.dark,
@@ -203,17 +210,27 @@ const SystemUiOverlayStyle appOverlayStyle = SystemUiOverlayStyle(
 
 ThemeData buildAppTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.brand,
+    seedColor: AppColors.lime,
     brightness: Brightness.light,
   ).copyWith(
-    primary: AppColors.brand,
-    onPrimary: Colors.white,
-    secondary: AppColors.brand,
+    primary: AppColors.lime,
+    onPrimary: AppColors.ink,
+    primaryContainer: AppColors.tile,
+    onPrimaryContainer: AppColors.ink,
+    secondary: AppColors.olive,
     onSecondary: Colors.white,
+    secondaryContainer: AppColors.tile,
+    onSecondaryContainer: AppColors.ink,
+    tertiary: AppColors.ink,
+    onTertiary: Colors.white,
     surface: AppColors.surface,
     onSurface: AppColors.ink,
-    error: AppColors.red,
+    onSurfaceVariant: AppColors.secondary,
+    // No red anywhere: errors are said in ink.
+    error: AppColors.ink,
     onError: Colors.white,
+    errorContainer: AppColors.tile,
+    onErrorContainer: AppColors.ink,
     outline: AppColors.border,
   );
   const buttonShape = RoundedRectangleBorder(
@@ -254,8 +271,8 @@ ThemeData buildAppTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.brand,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.lime,
+        foregroundColor: AppColors.ink,
         disabledBackgroundColor: AppColors.disabledFill,
         disabledForegroundColor: AppColors.disabledText,
         minimumSize: const Size(64, 52),
@@ -277,7 +294,7 @@ ThemeData buildAppTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.brand,
+        foregroundColor: AppColors.olive,
         minimumSize: const Size(AppDims.touch, AppDims.touch),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         shape: buttonShape,
@@ -297,15 +314,16 @@ ThemeData buildAppTheme() {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: inputBorder(AppColors.border),
       enabledBorder: inputBorder(AppColors.border),
-      focusedBorder: inputBorder(AppColors.brand, 1.5),
+      focusedBorder: inputBorder(AppColors.olive, 1.5),
     ),
+    // Olive, not lime: a spinner must stand out on white and the page.
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: AppColors.brand,
+      color: AppColors.olive,
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.ink,
       contentTextStyle: AppText.body.copyWith(color: Colors.white),
-      actionTextColor: Colors.white,
+      actionTextColor: AppColors.lime,
       behavior: SnackBarBehavior.floating,
       shape: buttonShape,
     ),

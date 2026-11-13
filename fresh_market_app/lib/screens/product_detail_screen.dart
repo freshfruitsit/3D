@@ -271,8 +271,9 @@ class _PhotoPanelState extends State<_PhotoPanel> {
                           width: i == _page ? 16 : 6,
                           height: 6,
                           decoration: BoxDecoration(
+                            // Ink when current, as on the Home banners.
                             color:
-                                i == _page ? AppColors.brand : AppColors.border,
+                                i == _page ? AppColors.ink : AppColors.border,
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(3)),
                           ),
@@ -294,7 +295,8 @@ class _PhotoPanelState extends State<_PhotoPanel> {
                 children: [
                   CircleIconButton(
                     icon: isFavourite ? Icons.favorite : Icons.favorite_border,
-                    iconColor: isFavourite ? AppColors.red : AppColors.ink,
+                    // Ink either way: filled when on, outlined when off.
+                    iconColor: AppColors.ink,
                     tooltip: isFavourite
                         ? 'Remove from favourites'
                         : 'Add to favourites',
@@ -423,7 +425,7 @@ class _FactChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_icon, size: 14, color: AppColors.brand),
+          Icon(_icon, size: 14, color: AppColors.olive),
           const SizedBox(width: 5),
           Text(
             fact.label,
@@ -536,7 +538,7 @@ class _AddedBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, size: 20, color: AppColors.brand),
+          const Icon(Icons.check_circle, size: 20, color: AppColors.olive),
           const SizedBox(width: 8),
           Expanded(
             child: Semantics(

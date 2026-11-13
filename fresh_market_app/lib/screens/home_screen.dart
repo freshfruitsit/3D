@@ -101,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
         top: false,
         bottom: false,
         child: RefreshIndicator(
-          color: AppColors.brand,
+          color: AppColors.olive,
           backgroundColor: AppColors.surface,
           onRefresh: _refresh,
           child: ListView(
@@ -118,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               const SectionHeader(
                 title: 'Shop By Category',
-                tone: SectionTone.green,
+                tone: SectionTone.lime,
                 icon: Icons.grid_view_rounded,
               ),
               const SizedBox(height: 4),
@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               const SectionHeader(
                 title: 'Brands We Love',
-                tone: SectionTone.red,
+                tone: SectionTone.ink,
                 icon: Icons.favorite,
               ),
               const SizedBox(height: 4),
@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               const SectionHeader(
                 title: 'Offers',
-                tone: SectionTone.black,
+                tone: SectionTone.ink,
                 icon: Icons.campaign,
               ),
               const SizedBox(height: 4),
@@ -162,21 +162,24 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// Heading tag colour and icon of each Home rail, by collection handle.
-/// The tones alternate through the logo's flag colours down the page.
+/// Together with the fixed headings, the tones alternate lime and ink down
+/// the page: Shop By Category lime, Today's Top Deals ink, Best Deals
+/// lime, Brands We Love ink, Fresh Pick lime, Offers ink, Berries lime,
+/// Seasonal Blooms ink.
 const Map<String, ({SectionTone tone, IconData icon})> _railStyles = {
-  'fresh-meat': (tone: SectionTone.red, icon: Icons.local_fire_department),
-  'best-deals': (tone: SectionTone.black, icon: Icons.sell),
-  'best-sellers': (tone: SectionTone.green, icon: Icons.eco),
-  'berries': (tone: SectionTone.red, icon: Icons.spa),
-  'ambrosia-flowers': (tone: SectionTone.green, icon: Icons.local_florist),
+  'fresh-meat': (tone: SectionTone.ink, icon: Icons.local_fire_department),
+  'best-deals': (tone: SectionTone.lime, icon: Icons.sell),
+  'best-sellers': (tone: SectionTone.lime, icon: Icons.eco),
+  'berries': (tone: SectionTone.lime, icon: Icons.spa),
+  'ambrosia-flowers': (tone: SectionTone.ink, icon: Icons.local_florist),
 };
 
 const ({SectionTone tone, IconData icon}) _defaultRailStyle =
-    (tone: SectionTone.green, icon: Icons.eco);
+    (tone: SectionTone.lime, icon: Icons.eco);
 
 /// The white header that runs up behind the status bar: the logo, the
 /// (static) delivery area, the "1Hr Express" button and the search field,
-/// finished with a stripe in the colours of the logo's flag ribbon.
+/// finished with a thin lime bar.
 class _Header extends StatelessWidget {
   const _Header();
 
@@ -220,7 +223,7 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
-        const FlagStripe(),
+        const LimeBar(),
       ],
     );
   }
@@ -240,7 +243,7 @@ class _DeliverTo extends StatelessWidget {
         const SizedBox(height: 1),
         Row(
           children: [
-            const Icon(Icons.location_on, size: 17, color: AppColors.red),
+            const Icon(Icons.location_on, size: 17, color: AppColors.olive),
             const SizedBox(width: 2),
             Flexible(
               child: Text(
@@ -257,7 +260,8 @@ class _DeliverTo extends StatelessWidget {
   }
 }
 
-/// Green "1Hr Express" button; opens that collection.
+/// Lime "1Hr Express" button with ink text and bolt; opens that
+/// collection.
 class _ExpressButton extends StatelessWidget {
   const _ExpressButton();
 
@@ -271,7 +275,7 @@ class _ExpressButton extends StatelessWidget {
       label: 'Open $_title',
       excludeSemantics: true,
       child: Material(
-        color: AppColors.brand,
+        color: AppColors.lime,
         shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -284,14 +288,14 @@ class _ExpressButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.bolt, size: 18, color: Color(0xFFFFD54A)),
+                  const Icon(Icons.bolt, size: 18, color: AppColors.ink),
                   const SizedBox(width: 3),
                   Text(
                     _title,
                     style: AppText.caption.copyWith(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      color: AppColors.ink,
                     ),
                   ),
                 ],
@@ -304,34 +308,18 @@ class _ExpressButton extends StatelessWidget {
   }
 }
 
-/// A thin stripe in the colours of the UAE flag ribbon in the logo: a red
-/// block, then green, white and black bands.
-class FlagStripe extends StatelessWidget {
-  const FlagStripe({super.key});
+/// The thin bar in the logo's lime under the white Home header.
+class LimeBar extends StatelessWidget {
+  const LimeBar({super.key});
 
-  static const double height = 6;
+  static const double height = 4;
 
   @override
   Widget build(BuildContext context) {
     return const ExcludeSemantics(
       child: SizedBox(
         height: height,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(width: 72, child: ColoredBox(color: AppColors.red)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: ColoredBox(color: AppColors.brand)),
-                  Expanded(child: ColoredBox(color: AppColors.surface)),
-                  Expanded(child: ColoredBox(color: AppColors.ink)),
-                ],
-              ),
-            ),
-          ],
-        ),
+        child: ColoredBox(color: AppColors.lime),
       ),
     );
   }
@@ -624,7 +612,7 @@ class _LocalCard extends StatelessWidget {
                 Text(
                   'MADE IN UAE',
                   style: AppText.caption.copyWith(
-                    color: AppColors.brand,
+                    color: AppColors.olive,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
                   ),

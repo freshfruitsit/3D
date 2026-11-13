@@ -257,7 +257,7 @@ void main() {
     final label = tester.widget<Text>(find.text('CHIQUITA'));
     expect(label.style!.fontSize, 11);
     expect(label.style!.fontWeight, FontWeight.w700);
-    expect(label.style!.color, const Color(0xFF14361F));
+    expect(label.style!.color, AppColors.tileLabel);
     expect(tester.takeException(), isNull);
   });
 
@@ -322,7 +322,7 @@ void main() {
       material.shape,
       const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
-        side: BorderSide(color: Color(0xFFB4D1B8)),
+        side: BorderSide(color: AppColors.border),
       ),
     );
     expect(tester.takeException(), isNull);

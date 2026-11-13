@@ -2,35 +2,37 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 
-/// The colour of a section's heading tag. All three come from the logo's
-/// UAE flag ribbon.
+/// The colour of a section's heading tag: the two colours of the logo.
+/// Home alternates them down the page.
 enum SectionTone {
-  green(AppColors.brand, AppColors.red),
-  red(AppColors.red, AppColors.brand),
-  black(AppColors.ink, AppColors.brand);
+  /// Lime tag, ink text and icon, ink stripe.
+  lime(AppColors.lime, AppColors.ink, AppColors.ink),
 
-  const SectionTone(this.fill, this.accent);
+  /// Ink tag, white text and icon, lime stripe.
+  ink(AppColors.ink, Colors.white, AppColors.lime);
 
-  /// The tag itself; its text is white.
+  const SectionTone(this.fill, this.foreground, this.accent);
+
+  /// The tag itself.
   final Color fill;
+
+  /// The title and icon on the tag.
+  final Color foreground;
 
   /// The thin slanted stripe after the tag, and nothing else.
   final Color accent;
-
-  /// Colour of the "View all" link next to a tag of this tone.
-  Color get link => this == SectionTone.black ? AppColors.ink : fill;
 }
 
 /// A section heading drawn as a coloured tag that runs in from the left
 /// edge of the screen and ends in a slant, followed by a thin slanted
-/// stripe in a second flag colour. An optional "View all" link sits on
-/// the right.
+/// stripe in the other logo colour. An optional olive "View all" link
+/// sits on the right.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
     required this.title,
     this.onViewAll,
-    this.tone = SectionTone.green,
+    this.tone = SectionTone.lime,
     this.icon,
     this.padding = const EdgeInsets.only(right: 8),
   });
@@ -39,7 +41,7 @@ class SectionHeader extends StatelessWidget {
   final VoidCallback? onViewAll;
   final SectionTone tone;
 
-  /// White icon before the title.
+  /// Icon before the title, in the tone's [SectionTone.foreground].
   final IconData? icon;
 
   /// Around the whole row. The tag itself always starts at the left edge
@@ -62,9 +64,9 @@ class SectionHeader extends StatelessWidget {
             ),
             if (onViewAll != null) ...[
               const SizedBox(width: 8),
+              // Olive, from the theme, next to either tone.
               TextButton(
                 onPressed: onViewAll,
-                style: TextButton.styleFrom(foregroundColor: tone.link),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -87,7 +89,7 @@ class SectionTag extends StatelessWidget {
   const SectionTag({
     super.key,
     required this.title,
-    this.tone = SectionTone.green,
+    this.tone = SectionTone.lime,
     this.icon,
   });
 
@@ -124,7 +126,7 @@ class SectionTag extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 19, color: Colors.white),
+                  Icon(icon, size: 19, color: tone.foreground),
                   const SizedBox(width: 7),
                 ],
                 Flexible(
@@ -133,7 +135,7 @@ class SectionTag extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppText.cardHeading.copyWith(
-                      color: Colors.white,
+                      color: tone.foreground,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.2,

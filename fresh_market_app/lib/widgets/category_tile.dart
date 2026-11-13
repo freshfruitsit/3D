@@ -4,7 +4,7 @@ import '../app_nav.dart';
 import '../data/catalog.dart';
 import '../theme/app_theme.dart';
 
-/// A category tile: deeper green, the cut-out photo straight on the tile,
+/// A category tile: deeper lime tint, the cut-out photo straight on the tile,
 /// uppercase label.
 class CategoryTile extends StatelessWidget {
   const CategoryTile({super.key, required this.category, this.onTap});

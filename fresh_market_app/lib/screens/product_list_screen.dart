@@ -416,7 +416,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          color: AppColors.brand,
+          color: AppColors.olive,
           backgroundColor: AppColors.surface,
           onRefresh: _refresh,
           child: scrollView,

@@ -241,8 +241,8 @@ const SystemUiOverlayStyle _introOverlayStyle = SystemUiOverlayStyle(
   systemNavigationBarIconBrightness: Brightness.light,
 );
 
-/// Dark translucent fill of the mute button and the Skip pill.
-const Color _controlFill = Color(0x8C000000);
+/// Translucent ink fill of the mute button and the Skip pill.
+const Color _controlFill = Color(0x99111111);
 
 /// Darkens the top and the bottom of the picture so the white text and
 /// the controls stay readable on any frame.
@@ -286,7 +286,7 @@ class _ProgressLine extends StatelessWidget {
           value: value,
           minHeight: 3,
           backgroundColor: const Color(0x59FFFFFF),
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lime),
         ),
       ),
     );
@@ -313,10 +313,12 @@ class _Header extends StatelessWidget {
     final muteLabel = muted ? 'Unmute' : 'Mute';
     return Row(
       children: [
+        // The square logo (white background) inside a white disc; the
+        // padding keeps the logo's corners inside the circle.
         Container(
-          width: 40,
-          height: 40,
-          padding: const EdgeInsets.all(5),
+          width: 44,
+          height: 44,
+          padding: const EdgeInsets.all(7),
           decoration: const BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
@@ -324,7 +326,7 @@ class _Header extends StatelessWidget {
           child: Image.asset(
             IntroScreen.logoAsset,
             fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
           ),
         ),
         const SizedBox(width: 10),

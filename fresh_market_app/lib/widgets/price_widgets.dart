@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../models/money.dart';
 import '../theme/app_theme.dart';
 
-/// Red sale pill: "-46%".
+/// Ink sale pill with lime text: "-46%".
 class SalePill extends StatelessWidget {
   const SalePill({super.key, required this.percent});
 
@@ -14,7 +14,7 @@ class SalePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: const BoxDecoration(
-        color: AppColors.red,
+        color: AppColors.ink,
         borderRadius: BorderRadius.all(Radius.circular(6)),
       ),
       child: Text(
@@ -25,7 +25,7 @@ class SalePill extends StatelessWidget {
           fontSize: 12,
           height: 1.2,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: AppColors.lime,
         ),
       ),
     );
@@ -67,9 +67,10 @@ class PriceRow extends StatelessWidget {
           Text(
             formatMoney(priceCents),
             maxLines: 1,
-            // A sale price is red, like the sale pill.
+            // A sale price is olive, the logo's green dark enough for
+            // text on white.
             style: (large ? AppText.title : AppText.price)
-                .copyWith(color: showOld ? AppColors.red : null),
+                .copyWith(color: showOld ? AppColors.olive : null),
           ),
           if (showOld) ...[
             SizedBox(width: large ? 8 : 6),

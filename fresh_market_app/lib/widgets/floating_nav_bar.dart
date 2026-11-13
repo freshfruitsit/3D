@@ -111,13 +111,14 @@ class _NavItem extends StatelessWidget {
                   width: 52,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: active ? AppColors.brand : const Color(0x0000732F),
+                    // Lime when active; fades from transparent lime.
+                    color: active ? AppColors.lime : const Color(0x00B8D432),
                     borderRadius: const BorderRadius.all(Radius.circular(15)),
                   ),
                   child: Icon(
                     active ? tab.activeIcon : tab.icon,
                     size: 21,
-                    color: active ? Colors.white : AppColors.secondary,
+                    color: active ? AppColors.ink : AppColors.secondary,
                   ),
                 ),
                 if (badge > 0)
@@ -155,7 +156,7 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// Red count badge (cart). Shows "99+" above 99.
+/// Lime count badge with ink text (cart). Shows "99+" above 99.
 class CountBadge extends StatelessWidget {
   const CountBadge({super.key, required this.count});
 
@@ -176,7 +177,7 @@ class _Badge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: const ShapeDecoration(
-        color: AppColors.red,
+        color: AppColors.lime,
         shape: StadiumBorder(
           side: BorderSide(color: AppColors.surface, width: 1.5),
         ),
@@ -189,8 +190,8 @@ class _Badge extends StatelessWidget {
           fontFamily: AppText.family,
           fontSize: 10,
           height: 1.1,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          color: AppColors.ink,
         ),
       ),
     );

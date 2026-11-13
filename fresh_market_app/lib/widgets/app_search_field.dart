@@ -64,7 +64,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       style: AppText.body.copyWith(color: AppColors.ink, fontSize: 15),
-      cursorColor: AppColors.brand,
+      cursorColor: AppColors.olive,
       decoration: InputDecoration(
         hintText: widget.hintText,
         contentPadding: const EdgeInsets.symmetric(vertical: 13),

@@ -335,7 +335,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
             if (_openingCheckout)
               const LinearProgressIndicator(
                 minHeight: 2,
-                color: AppColors.brand,
+                color: AppColors.olive,
                 backgroundColor: AppColors.border,
               ),
             Expanded(
@@ -446,13 +446,13 @@ class _Header extends StatelessWidget {
           const ExcludeSemantics(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.brand,
+                color: AppColors.lime,
                 shape: BoxShape.circle,
               ),
               child: SizedBox(
                 width: 40,
                 height: 40,
-                child: Icon(Icons.auto_awesome, size: 20, color: Colors.white),
+                child: Icon(Icons.auto_awesome, size: 20, color: AppColors.ink),
               ),
             ),
           ),
@@ -490,7 +490,7 @@ class _Header extends StatelessWidget {
           const SizedBox(width: 4),
           IconButton(
             tooltip: 'New chat',
-            color: AppColors.brand,
+            color: AppColors.olive,
             icon: const Icon(Icons.add_comment_outlined, size: 22),
             onPressed: onNewChat,
           ),
@@ -521,7 +521,7 @@ class _UserBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: const BoxDecoration(
-                color: AppColors.brand,
+                color: AppColors.lime,
                 borderRadius: _bubbleRadius,
               ),
               child: Text(
@@ -529,7 +529,7 @@ class _UserBubble extends StatelessWidget {
                 style: AppText.body.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white,
+                  color: AppColors.ink,
                 ),
               ),
             ),
@@ -670,7 +670,7 @@ class _AssistantBlock extends StatelessWidget {
   }
 }
 
-/// The 8 [AssistantBrain.quickOptions] in 4 columns, as mild-green tiles
+/// The 8 [AssistantBrain.quickOptions] in 4 columns, as lime-tint tiles
 /// like the category tiles. Each row is as tall as its tallest tile, so a
 /// large font grows the tiles instead of cutting labels off.
 class _OptionsGrid extends StatelessWidget {
@@ -835,7 +835,7 @@ class _OptionTile extends StatelessWidget {
                   Icon(
                     iconFor(option.kind),
                     size: 26,
-                    color: enabled ? AppColors.brand : AppColors.disabledText,
+                    color: enabled ? AppColors.olive : AppColors.disabledText,
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -920,13 +920,13 @@ class _ProductRow extends StatelessWidget {
 }
 
 enum _ActionLook {
-  /// White pill, green border and text, chevron.
+  /// White pill, olive border and text, chevron.
   outlined,
 
-  /// Green pill, white text ("Add all to cart").
+  /// Lime pill, ink text ("Add all to cart").
   filled,
 
-  /// White pill, red border and text ("Yes, empty my cart").
+  /// White pill, ink border and text ("Yes, empty my cart").
   danger,
 }
 
@@ -959,11 +959,11 @@ class _ActionButton extends StatelessWidget {
         ? (AppColors.disabledFill, AppColors.border, AppColors.disabledText)
         : switch (look) {
             _ActionLook.outlined =>
-              (AppColors.surface, AppColors.brand, AppColors.brand),
+              (AppColors.surface, AppColors.olive, AppColors.olive),
             _ActionLook.filled =>
-              (AppColors.brand, AppColors.brand, Colors.white),
+              (AppColors.lime, AppColors.lime, AppColors.ink),
             _ActionLook.danger =>
-              (AppColors.surface, AppColors.red, AppColors.red),
+              (AppColors.surface, AppColors.ink, AppColors.ink),
           };
     final chevron = look == _ActionLook.outlined;
     return Semantics(
@@ -1257,7 +1257,7 @@ class _InputBar extends StatelessWidget {
               icon: Icons.apps,
               size: AppDims.touch,
               fill: AppColors.tile,
-              iconColor: AppColors.brand,
+              iconColor: AppColors.olive,
               onTap: enabled ? onOptions : null,
             ),
             const SizedBox(width: 8),
@@ -1294,8 +1294,8 @@ class _InputBar extends StatelessWidget {
               label: 'Send',
               icon: Icons.arrow_upward,
               size: 46,
-              fill: AppColors.brand,
-              iconColor: Colors.white,
+              fill: AppColors.lime,
+              iconColor: AppColors.ink,
               onTap: enabled ? () => onSend(controller.text) : null,
             ),
           ],

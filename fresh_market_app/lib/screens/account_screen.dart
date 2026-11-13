@@ -50,8 +50,8 @@ class AccountScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _AccountRow(
+              // Ink either way: filled when something is saved.
               icon: favourites > 0 ? Icons.favorite : Icons.favorite_border,
-              iconColor: favourites > 0 ? AppColors.red : AppColors.ink,
               label: 'Favourites',
               onTap: () => AppNav.openFavourites(context),
               trailing: Text(
@@ -93,12 +93,10 @@ class _AccountRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.iconColor = AppColors.ink,
     this.trailing,
   });
 
   final IconData icon;
-  final Color iconColor;
   final String label;
   final VoidCallback onTap;
   final Widget? trailing;
@@ -116,7 +114,7 @@ class _AccountRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Row(
               children: [
-                Icon(icon, size: 22, color: iconColor),
+                Icon(icon, size: 22, color: AppColors.ink),
                 const SizedBox(width: 12),
                 Expanded(child: Text(label, style: AppText.cardHeading)),
                 if (trailing != null) ...[

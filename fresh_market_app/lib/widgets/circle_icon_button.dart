@@ -5,7 +5,7 @@ import 'floating_nav_bar.dart';
 
 /// A 44px white round button with a border: back arrows, the favourite
 /// heart and the cart button on product detail. [badgeCount] above 0 adds
-/// the red count badge.
+/// the lime count badge.
 class CircleIconButton extends StatelessWidget {
   const CircleIconButton({
     super.key,

@@ -316,7 +316,8 @@ class _SummaryCardState extends State<_SummaryCard> {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: Colors.white,
+                        // On the lime button.
+                        color: AppColors.ink,
                       ),
                     )
                   : const Text('Checkout'),

@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../screens/assistant_screen.dart';
 import '../theme/app_theme.dart';
 
-/// The black "Ask" pill that opens the demo assistant, full screen (it
+/// The ink "Ask" pill (lime sparkle, white label) that opens the demo assistant, full screen (it
 /// covers the bottom bar, like product detail).
 ///
 /// It hugs its content: 48px high, about 104px wide. The shell places it
@@ -55,7 +55,7 @@ class AskButton extends StatelessWidget {
                     const Icon(
                       Icons.auto_awesome,
                       size: 20,
-                      color: Colors.white,
+                      color: AppColors.lime,
                     ),
                     const SizedBox(width: 8),
                     Text(

@@ -6,10 +6,10 @@ import '../state/cart_store.dart';
 import '../theme/app_theme.dart';
 
 enum QuantityStepperStyle {
-  /// Green fill, white icons: the in-cart state of the add control.
+  /// Lime fill, ink icons: the in-cart state of the add control.
   solid,
 
-  /// Soft green fill, dark icons: cart rows and product detail.
+  /// Soft lime-tint fill, ink icons: cart rows and product detail.
   soft,
 }
 
@@ -40,7 +40,8 @@ class QuantityStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final solid = style == QuantityStepperStyle.solid;
-    final foreground = solid ? Colors.white : AppColors.ink;
+    // Ink on both fills: white on lime would be unreadable.
+    const foreground = AppColors.ink;
     final showBin = binAtOne && quantity <= 1;
 
     Widget button(IconData icon, String label, VoidCallback? onTap) {
@@ -93,7 +94,7 @@ class QuantityStepper extends StatelessWidget {
             bottom: 4,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: solid ? AppColors.brand : AppColors.tile,
+                color: solid ? AppColors.lime : AppColors.tile,
                 borderRadius: const BorderRadius.all(Radius.circular(18)),
               ),
             ),
@@ -125,8 +126,8 @@ class QuantityStepper extends StatelessWidget {
 
 /// The add-to-cart control of cards and rows, wired to the [CartStore].
 ///
-/// Not in the cart: a 36px green circle with a white plus in a 44px touch
-/// target. In the cart: a compact green stepper (bin at quantity 1).
+/// Not in the cart: a 36px lime circle with an ink plus in a 44px touch
+/// target. In the cart: a compact lime stepper (bin at quantity 1).
 /// Sold out: a grey "Sold out" label.
 ///
 /// [variant] defaults to the product's first available variant.
@@ -168,13 +169,13 @@ class AddControl extends StatelessWidget {
           child: Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.brand,
+                color: AppColors.lime,
                 shape: BoxShape.circle,
               ),
               child: SizedBox(
                 width: 36,
                 height: 36,
-                child: Icon(Icons.add, size: 22, color: Colors.white),
+                child: Icon(Icons.add, size: 22, color: AppColors.ink),
               ),
             ),
           ),
