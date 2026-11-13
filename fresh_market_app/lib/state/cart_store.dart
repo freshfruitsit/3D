@@ -24,6 +24,8 @@ class CartLine {
     this.imageUrl,
     this.origin,
     this.express,
+    this.size,
+    this.available = true,
   });
 
   factory CartLine.of(Product product, Variant variant, int quantity) =>
@@ -38,6 +40,8 @@ class CartLine {
         imageUrl: product.imageUrl,
         origin: product.origin,
         express: DeliveryRules.isExpressEligible(product),
+        size: product.sizeText(variant),
+        available: variant.available,
         quantity: quantity,
       );
 
@@ -63,7 +67,19 @@ class CartLine {
   /// null for a line saved before the app knew, until the cart is checked
   /// against the store again.
   final bool? express;
+
+  /// The size as shown ("500 g", "1 kg"): the variant's, or one the store
+  /// wrote in the product's title or description. Null when there is none.
+  final String? size;
+
+  /// False once the store says this variant is sold out (it is still
+  /// listed). Such a line is left out of the subtotal and of checkout.
+  final bool available;
   final int quantity;
+
+  /// [size], or for a line saved before the app kept it, the variant's
+  /// title written the shop-floor way.
+  String? get sizeLabel => size ?? formatSize(variantTitle);
 
   bool get onSale => compareAtCents != null && compareAtCents! > priceCents;
 
@@ -73,12 +89,19 @@ class CartLine {
   /// sale.
   int? get oldLineTotalCents => onSale ? compareAtCents! * quantity : null;
 
-  /// "500 GM · \u20C3 4.75 each", or just "\u20C3 300.00 each" (the
-  /// Dirham sign, see formatMoney).
+  /// The size, and the unit price once there is more than one: "500 g",
+  /// "500 g · \u20C3 4.75 each", "\u20C3 300.00 each" (the Dirham sign, see
+  /// formatMoney). At one unit the line total already says the price.
   String get detailLine => [
-        ?variantTitle,
-        '${formatMoney(priceCents)} each',
+        ?sizeLabel,
+        if (quantity > 1) '${formatMoney(priceCents)} each',
       ].join(' · ');
+
+  /// What screen readers hear for [detailLine] ("500 g, AED 4.75 each").
+  String get detailSemantics => [
+        ?sizeLabel,
+        if (quantity > 1) '${moneySemantics(priceCents)} each',
+      ].join(', ');
 
   CartLine withQuantity(int quantity) => CartLine(
         variantId: variantId,
@@ -91,6 +114,8 @@ class CartLine {
         imageUrl: imageUrl,
         origin: origin,
         express: express,
+        size: size,
+        available: available,
         quantity: quantity,
       );
 
@@ -105,6 +130,8 @@ class CartLine {
         imageUrl: json['imageUrl'] as String?,
         origin: json['origin'] as String?,
         express: json['express'] as bool?,
+        size: json['size'] as String?,
+        available: json['available'] as bool? ?? true,
         quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       );
 
@@ -119,6 +146,8 @@ class CartLine {
         'imageUrl': imageUrl,
         'origin': origin,
         'express': express,
+        'size': size,
+        'available': available,
         'quantity': quantity,
       };
 }
@@ -151,8 +180,17 @@ class CartStore extends ChangeNotifier {
   int get itemCount =>
       _lines.values.fold(0, (sum, line) => sum + line.quantity);
 
-  int get subtotalCents =>
-      _lines.values.fold(0, (sum, line) => sum + line.lineTotalCents);
+  /// The total of the lines that can be bought: a line the store has
+  /// marked sold out since it was added is not counted.
+  int get subtotalCents => _lines.values
+      .where((line) => line.available)
+      .fold(0, (sum, line) => sum + line.lineTotalCents);
+
+  /// Lines the store has marked sold out since they were added.
+  int get soldOutLines => _lines.values.where((l) => !l.available).length;
+
+  /// True when at least one line can be checked out.
+  bool get hasAvailableLines => _lines.values.any((l) => l.available);
 
   /// Units of one variant in the cart (0 when absent).
   int quantityOf(int variantId) => _lines[variantId]?.quantity ?? 0;
@@ -199,6 +237,25 @@ class CartStore extends ChangeNotifier {
     if (_lines.remove(variantId) != null) _changed();
   }
 
+  /// Puts back a [line] that was just removed ("Undo"), at [index] in the
+  /// cart's order (the end when out of range). Does nothing when the
+  /// variant is back in the cart already.
+  void restoreLine(CartLine line, {int? index}) {
+    if (_lines.containsKey(line.variantId) || line.quantity <= 0) return;
+    final entries = _lines.entries.toList();
+    final at = index == null || index < 0 || index > entries.length
+        ? entries.length
+        : index;
+    entries.insert(at, MapEntry(line.variantId, line));
+    _lines
+      ..clear()
+      ..addEntries(entries);
+    _changed();
+  }
+
+  /// Where the line of [variantId] sits in the cart's order, or -1.
+  int indexOf(int variantId) => _lines.keys.toList().indexOf(variantId);
+
   void clear() {
     if (_lines.isEmpty) return;
     _lines.clear();
@@ -207,8 +264,10 @@ class CartStore extends ChangeNotifier {
 
   /// Checks every line against the store: a line whose product or variant
   /// no longer exists is removed (Shopify refuses a checkout containing
-  /// one), the others get today's name, price and photo. A product that
-  /// cannot be loaded right now (offline) is left as it is.
+  /// one), the others get today's name, price, photo and availability (a
+  /// sold-out variant stays listed, marked [CartLine.available] false, and
+  /// is left out of the subtotal and of checkout). A product that cannot
+  /// be loaded right now (offline) is left as it is.
   ///
   /// Returns how many lines were removed.
   Future<int> revalidate(ShopifyApi api) async {
@@ -260,8 +319,12 @@ class CartStore extends ChangeNotifier {
 
   /// [checkoutUrl] carrying the order's cart [attributes] (the website's
   /// "Delivery mode", "Delivery area", ...).
+  /// Sold-out lines are left out.
   Uri? checkoutUrlWith(Map<String, String> attributes) => buildCheckoutUrl(
-        {for (final line in _lines.values) line.variantId: line.quantity},
+        {
+          for (final line in _lines.values)
+            if (line.available) line.variantId: line.quantity,
+        },
         attributes: attributes,
       );
 

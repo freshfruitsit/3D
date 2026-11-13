@@ -15,6 +15,7 @@ import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
 import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/a11y.dart' as a11y;
 import '../widgets/add_control.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/delivery_widgets.dart' show ExpressCollection;
@@ -787,32 +788,7 @@ class _OptionTile extends StatelessWidget {
     TextStyle style,
     TextScaler scaler,
     double width,
-  ) {
-    double widestWord(double fontSize) {
-      var widest = 0.0;
-      for (final word in label.split(' ')) {
-        final painter = TextPainter(
-          text: TextSpan(text: word, style: style.copyWith(fontSize: fontSize)),
-          textScaler: scaler,
-          textDirection: TextDirection.ltr,
-          maxLines: 1,
-        )..layout();
-        if (painter.width > widest) widest = painter.width;
-        painter.dispose();
-      }
-      return widest;
-    }
-
-    var fontSize = style.fontSize!;
-    if (width <= 0) return fontSize;
-    // A few rounds, as large-font scaling is not always linear.
-    for (var round = 0; round < 4; round++) {
-      final widest = widestWord(fontSize);
-      if (widest <= width) break;
-      fontSize = fontSize * width / widest * 0.98;
-    }
-    return fontSize;
-  }
+  ) => a11y.fittingFontSize(label, style, scaler, width);
 
   static IconData iconFor(QuickOptionKind kind) => switch (kind) {
         QuickOptionKind.offers => Icons.local_offer_outlined,
@@ -902,7 +878,7 @@ class _ProductRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final variant = product.defaultVariant;
-    final size = variant?.label;
+    final size = product.sizeText(variant);
     return DecoratedBox(
       decoration: const ShapeDecoration(
         shape: AppDecor.cardShape,

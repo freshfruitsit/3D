@@ -86,6 +86,24 @@ class SectionTag extends StatelessWidget {
 
   static const double height = 38;
 
+  /// Vertical padding around the title inside the tag.
+  static const double verticalPadding = 7;
+
+  /// The style of the title.
+  static final TextStyle titleStyle = AppText.heading.copyWith(
+    color: AppColors.onDark,
+    letterSpacing: 0,
+    height: 1.2,
+  );
+
+  /// The height of a one-line tag at the current text size.
+  static double heightOf(BuildContext context) {
+    final text = MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
+        titleStyle.height!;
+    final h = text + 2 * verticalPadding;
+    return h < height ? height : h;
+  }
+
   /// The tag's fill and the stripe's colour.
   static const Color fill = AppColors.ink;
   static const Color accent = AppColors.green;
@@ -103,9 +121,9 @@ class SectionTag extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDims.gutter,
-              7,
+              verticalPadding,
               slant + accentSpace + 12,
-              7,
+              verticalPadding,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -115,15 +133,13 @@ class SectionTag extends StatelessWidget {
                   const SizedBox(width: 8),
                 ],
                 Flexible(
+                  // Two lines (a taller tag) at a large font size rather
+                  // than "Today's Top…".
                   child: Text(
                     title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.heading.copyWith(
-                      color: AppColors.onDark,
-                      letterSpacing: 0,
-                      height: 1.2,
-                    ),
+                    style: titleStyle,
                   ),
                 ),
               ],

@@ -24,6 +24,22 @@ TextSpan _spans(List<DeliveryTextPart> parts) => TextSpan(
   ],
 );
 
+/// [text] as spans with [green] (when it occurs in it) drawn in
+/// [greenStyle]: "Get it in **30–40 min** to Business Bay". The words stay
+/// exactly the rules'.
+TextSpan greenPart(String text, String? green, TextStyle greenStyle) {
+  final at = green == null || green.isEmpty ? -1 : text.indexOf(green);
+  if (at < 0) return TextSpan(text: text);
+  return TextSpan(
+    children: [
+      if (at > 0) TextSpan(text: text.substring(0, at)),
+      TextSpan(text: green, style: greenStyle),
+      if (at + green!.length < text.length)
+        TextSpan(text: text.substring(at + green.length)),
+    ],
+  );
+}
+
 /// The Home header's location chip, for the right end of the header:
 /// "Deliver to" and a chevron, then a green pin and the area name (or
 /// "Choose your area"), right-aligned and ellipsized. It never takes more
@@ -44,6 +60,7 @@ class LocationChip extends StatelessWidget {
       label: area == null
           ? 'Choose your delivery area'
           : '${DeliveryCopy.chipHint(area)}. Change delivery location',
+      onTap: () => AppNav.openLocationPicker(context),
       excludeSemantics: true,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
@@ -130,7 +147,7 @@ class DeliveryModeSwitch extends StatelessWidget {
     final mode = store.mode;
     final expressOff = DeliveryCopy.expressOff(area);
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: const BoxDecoration(
         color: AppColors.subtle,
         borderRadius: AppDims.cardBorderRadius,
@@ -143,7 +160,11 @@ class DeliveryModeSwitch extends StatelessWidget {
               child: _ModeSegment(
                 key: const ValueKey('mode-market'),
                 icon: Icons.storefront,
-                iconColor: AppColors.ink,
+                // Ink when chosen, grey otherwise (the Express bolt keeps
+                // its own colour: it says whether Express is live).
+                iconColor: mode == DeliveryMode.market
+                    ? AppColors.ink
+                    : AppColors.secondary,
                 title: DeliveryMode.market.label,
                 subtitle: DeliveryCopy.modeSubtitle(
                   DeliveryMode.market,
@@ -157,7 +178,7 @@ class DeliveryModeSwitch extends StatelessWidget {
                     AppNav.chooseDeliveryMode(context, DeliveryMode.market),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 3),
             Expanded(
               child: _ModeSegment(
                 key: const ValueKey('mode-express'),
@@ -212,12 +233,18 @@ class _ModeSegment extends StatelessWidget {
 
   static const BorderRadius _radius = BorderRadius.all(Radius.circular(10));
 
+  /// The title's colour: ink when chosen, grey otherwise, so the choice
+  /// reads without colour (white on the off-white track is only 1.09:1).
+  static Color titleColor({required bool selected, required bool off}) =>
+      selected && !off ? AppColors.ink : AppColors.secondary;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
       selected: selected,
       label: '$title delivery, $subtitle',
+      onTap: onTap,
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -234,9 +261,9 @@ class _ModeSegment extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
+              constraints: const BoxConstraints(minHeight: AppDims.touch),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+                padding: const EdgeInsets.fromLTRB(10, 4, 8, 4),
                 child: Row(
                   children: [
                     Icon(icon, size: 20, color: iconColor),
@@ -248,11 +275,15 @@ class _ModeSegment extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            maxLines: 1,
+                            // Two lines at a large font size rather than
+                            // "Fresh Mar…".
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.productName.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: off ? AppColors.secondary : AppColors.ink,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: titleColor(selected: selected, off: off),
                             ),
                           ),
                           Text(
@@ -419,21 +450,28 @@ class DeliveryLine extends StatelessWidget {
       fontWeight: FontWeight.w500,
       color: AppColors.secondary,
     );
+    // Non-breaking spaces: a wrapped line never splits "8h 0m", "30–40
+    // min" or "by 4:15 PM".
+    String keep(String text) =>
+        ProductDeliveryInfo.keepTogether(text, area?.name);
     final Widget text;
     if (stacked && area != null && parts.length > 1 && parts.first.bold) {
+      final first = parts.first.text;
+      final rest = _restLine(parts.skip(1));
       text = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            parts.first.text,
+            keep(first),
+            semanticsLabel: first,
             style: base.copyWith(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: boldColor,
             ),
           ),
-          Text(_restLine(parts.skip(1)), style: base),
+          Text(keep(rest), semanticsLabel: rest, style: base),
         ],
       );
     } else {
@@ -442,13 +480,14 @@ class DeliveryLine extends StatelessWidget {
           children: [
             for (final p in parts)
               TextSpan(
-                text: p.text,
+                text: keep(p.text),
                 style: p.bold
                     ? TextStyle(fontWeight: FontWeight.w700, color: boldColor)
                     : null,
               ),
           ],
         ),
+        semanticsLabel: parts.map((p) => p.text).join(),
         style: base,
       );
     }
@@ -461,7 +500,10 @@ class DeliveryLine extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: iconColor),
             const SizedBox(width: 8),
-            Expanded(child: Semantics(liveRegion: true, child: text)),
+            // Not a live region: the countdown changes every minute, and
+            // screen readers would read it out unasked. Mode changes are
+            // announced by AppNav.chooseDeliveryMode.
+            Expanded(child: text),
             if (actionLabel != null && action != null) ...[
               const SizedBox(width: 4),
               // At most half the line; a long label wraps instead.
@@ -486,7 +528,8 @@ class DeliveryLine extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          actionLabel,
+                          keep(actionLabel),
+                          semanticsLabel: actionLabel,
                           maxLines: 2,
                           textAlign: TextAlign.end,
                         ),
@@ -584,12 +627,9 @@ class DeliveryBarView extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text.rich(
-                    _spans(bar.message),
-                    style: AppText.bodySmall,
-                  ),
+                child: Text.rich(
+                  _spans(bar.message),
+                  style: AppText.bodySmall,
                 ),
               ),
             ],
@@ -666,6 +706,7 @@ class _BarButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: express ? AppColors.greenSoft : AppColors.surface,
@@ -820,7 +861,9 @@ class ProductDeliveryInfo extends StatelessWidget {
   static String keepTogether(String text, String? areaName) {
     var out = text
         .replaceAllMapped(RegExp(r'\b(by|in) (?=\d)'), (m) => '${m[1]}\u00A0')
-        .replaceAllMapped(RegExp(r'(\d) (?=[A-Za-z])'), (m) => '${m[1]}\u00A0');
+        .replaceAllMapped(RegExp(r'(\d) (?=[A-Za-z])'), (m) => '${m[1]}\u00A0')
+        // "8h 0m"
+        .replaceAllMapped(RegExp(r'(\d[hm]) (?=\d)'), (m) => '${m[1]}\u00A0');
     if (areaName != null && areaName.contains(' ')) {
       out = out.replaceAll(areaName, areaName.replaceAll(' ', '\u00A0'));
     }
@@ -833,31 +876,46 @@ class ProductDeliveryInfo extends StatelessWidget {
     final area = store.area;
     final now = store.now();
 
+    // [green]: the Express time inside [text] ("30–40 min"). Only it and
+    // the bolt are green; the rest of the sentence stays ink.
     Widget row(
       IconData icon,
       String text, {
       bool strong = false,
-      bool green = false,
-    }) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: green ? AppColors.green : AppColors.ink),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              keepTogether(text, area?.name),
-              semanticsLabel: text,
-              style: AppText.bodySmall.copyWith(
-                color: green ? AppColors.green : AppColors.ink,
-                fontWeight: strong || green ? FontWeight.w700 : FontWeight.w500,
+      String? green,
+    }) {
+      final style = AppText.bodySmall.copyWith(
+        fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
+      );
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: green != null ? AppColors.green : AppColors.ink,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text.rich(
+                greenPart(
+                  keepTogether(text, area?.name),
+                  green == null ? null : keepTogether(green, null),
+                  const TextStyle(
+                    color: AppColors.green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                semanticsLabel: text,
+                style: style,
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
 
     final List<Widget> rows;
     Widget? footer;
@@ -876,6 +934,7 @@ class ProductDeliveryInfo extends StatelessWidget {
     } else {
       final eligible = store.isExpressEligible(product);
       final expressLive = DeliveryCopy.expressLive(area, now);
+      final eta = expressLive ? store.express?.range : null;
       final marketLine = DeliveryCopy.productMarketLine(area, now);
       final expressLine = DeliveryCopy.productExpressLine(area, now);
       if (store.isExpress && !eligible) {
@@ -896,7 +955,7 @@ class ProductDeliveryInfo extends StatelessWidget {
         );
       } else if (store.isExpress) {
         rows = [
-          row(Icons.bolt, expressLine, strong: true, green: expressLive),
+          row(Icons.bolt, expressLine, strong: true, green: eta),
           row(Icons.local_shipping_outlined, marketLine),
         ];
       } else {
@@ -906,7 +965,7 @@ class ProductDeliveryInfo extends StatelessWidget {
             row(
               Icons.bolt,
               DeliveryCopy.productExpressLabelled(area, now),
-              green: expressLive,
+              green: eta,
             ),
         ];
       }
@@ -994,8 +1053,11 @@ class CartDeliveryCard extends StatelessWidget {
     final market = store.market!;
     final express = store.express!;
     final String promise;
+    String? eta;
+    final closed = store.isExpress ? store.expressClosedNotice : null;
     if (store.isExpress) {
-      promise = store.expressClosedNotice ?? 'Express in ${express.range}';
+      promise = closed ?? 'Express in ${express.range}';
+      if (closed == null && express.open) eta = express.range;
     } else {
       // Non-breaking spaces keep "by 7:45 PM" from splitting across lines.
       final by = market.by;
@@ -1009,21 +1071,43 @@ class CartDeliveryCard extends StatelessWidget {
 
     return _card(
       icon: store.isExpress ? Icons.bolt : Icons.local_shipping_outlined,
-      green: store.isExpress && express.open,
+      green: eta,
       title: '${store.mode.label} delivery',
       lines: [area.label, promise],
       action: TextButton(onPressed: change, child: const Text('Change')),
       note: mismatch,
+      // Express closed, or items that cannot come by Express: the way
+      // back to Fresh Market, on the cart itself.
+      footer: closed != null || mismatch != null
+          ? Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                key: const ValueKey('cart-switch-market'),
+                onPressed: () => AppNav.chooseDeliveryMode(
+                  context,
+                  DeliveryMode.market,
+                ),
+                icon: const Icon(Icons.storefront_outlined, size: 18),
+                label: const Text(switchToMarket),
+              ),
+            )
+          : null,
     );
   }
 
+  /// The way back from Express on the cart.
+  static const String switchToMarket = 'Switch to Fresh Market';
+
+  /// [green]: the Express time in the promise line; only it, and the bolt,
+  /// are green.
   Widget _card({
     required IconData icon,
     required String title,
     required List<String> lines,
     required Widget action,
-    bool green = false,
+    String? green,
     String? note,
+    Widget? footer,
   }) {
     return Container(
       key: const ValueKey('cart-delivery'),
@@ -1047,7 +1131,7 @@ class CartDeliveryCard extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 20,
-                  color: green ? AppColors.green : AppColors.ink,
+                  color: green != null ? AppColors.green : AppColors.ink,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1060,15 +1144,17 @@ class CartDeliveryCard extends StatelessWidget {
                       style: AppText.cardHeading.copyWith(fontSize: 15),
                     ),
                     for (final (i, line) in lines.indexed)
-                      Text(
-                        line,
+                      Text.rich(
+                        greenPart(
+                          line,
+                          i == 0 ? null : green,
+                          const TextStyle(
+                            color: AppColors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         style: AppText.bodySmall.copyWith(
-                          color: i == 0
-                              ? AppColors.ink
-                              : (green ? AppColors.green : AppColors.secondary),
-                          fontWeight: i == 0 || !green
-                              ? FontWeight.w400
-                              : FontWeight.w600,
+                          color: i == 0 ? AppColors.ink : AppColors.secondary,
                         ),
                       ),
                   ],
@@ -1104,6 +1190,13 @@ class CartDeliveryCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          if (footer != null)
+            Padding(
+              // Under the text column (the 36px icon and its 10px gap,
+              // less the button's own 8px padding).
+              padding: const EdgeInsetsDirectional.only(start: 38, top: 2),
+              child: footer,
             ),
         ],
       ),

@@ -12,6 +12,7 @@ import 'screens/search_screen.dart';
 import 'services/shopify_api.dart';
 import 'state/cart_store.dart';
 import 'theme/app_theme.dart';
+import 'widgets/a11y.dart';
 
 /// Every way of moving between screens. Screens call these instead of
 /// building routes themselves, so the bottom bar rules stay in one place:
@@ -62,11 +63,14 @@ abstract final class AppNav {
       'Some items are no longer available and were removed.';
 
   /// Says [message] above the floating bottom bar and the Ask button, or
-  /// [bottomMargin] above the bottom of a screen that has neither.
+  /// [bottomMargin] above the bottom of a screen that has neither. With
+  /// [actionLabel] and [onAction] the notice carries a button ("Undo").
   static void showNotice(
     BuildContext context,
     String message, {
     double? bottomMargin,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
@@ -75,6 +79,9 @@ abstract final class AppNav {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
+          action: actionLabel == null || onAction == null
+              ? null
+              : SnackBarAction(label: actionLabel, onPressed: onAction),
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.fromLTRB(
             AppDims.gutter,
@@ -132,9 +139,16 @@ abstract final class AppNav {
       if (closed != null) say(closed);
     }
 
+    final before = store.mode;
     final refusal = store.setMode(mode);
     if (refusal == null) {
-      sayIfClosed();
+      // The closed notice is read out by itself; otherwise say the switch
+      // once (the delivery line is not a live region, as it counts down).
+      if (store.expressClosedNotice != null) {
+        sayIfClosed();
+      } else if (store.mode != before && context.mounted) {
+        announce(context, '${store.mode.label} delivery selected');
+      }
       return;
     }
     if (store.hasArea) {
@@ -192,12 +206,54 @@ abstract final class AppNav {
       );
       return;
     }
+    // Express is chosen but closed: say so before the order goes to the
+    // store as Express, and offer Fresh Market.
+    final closed = delivery.isExpress ? delivery.expressClosedNotice : null;
+    if (closed != null) {
+      final choice = await showDialog<_ClosedChoice>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text(expressClosedTitle),
+          content: Text(closed),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_ClosedChoice.express),
+              child: const Text(keepExpress),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_ClosedChoice.market),
+              child: const Text(switchToMarket),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || !context.mounted) return;
+      if (choice == _ClosedChoice.market) {
+        delivery.setMode(DeliveryMode.market);
+      }
+    }
     final url = cart.checkoutUrlWith(delivery.cartAttributes ?? const {});
-    if (url == null) return;
+    if (url == null) {
+      if (cart.soldOutLines > 0) {
+        showNotice(context, soldOutOnly, bottomMargin: noticeBottomMargin);
+      }
+      return;
+    }
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(builder: (_) => CheckoutScreen(url: url)),
     );
   }
+
+  /// The checkout question while Express is chosen but closed.
+  static const String expressClosedTitle = 'Express is closed';
+  static const String keepExpress = 'Keep Express';
+  static const String switchToMarket = 'Switch to Fresh Market';
+
+  /// Checkout with nothing but sold-out lines.
+  static const String soldOutOnly =
+      'Everything in your cart is sold out. Remove it to check out.';
 
   /// Closes any full-screen page (product detail, checkout) and shows
   /// [tab]. Choosing the tab that is already showing returns it to its
@@ -209,3 +265,5 @@ abstract final class AppNav {
     shell.select(tab);
   }
 }
+
+enum _ClosedChoice { express, market }

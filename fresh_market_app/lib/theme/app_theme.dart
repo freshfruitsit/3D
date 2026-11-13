@@ -89,6 +89,11 @@ abstract final class AppDims {
   /// Minimum touch target.
   static const double touch = 44;
 
+  /// Touch target of the controls shoppers hit most on cards and lines:
+  /// the add (+) circle, the stepper's buttons and the favourite heart
+  /// (Android's 48dp; the visible circles stay 36 and 32).
+  static const double controlTarget = 48;
+
   /// Height of primary buttons and of the search field.
   static const double buttonHeight = 52;
   static const double fieldHeight = 48;
@@ -193,6 +198,9 @@ abstract final class AppText {
     height: 1.3,
     fontWeight: FontWeight.w700,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 15/400: body text.
@@ -203,6 +211,9 @@ abstract final class AppText {
     height: 1.45,
     fontWeight: FontWeight.w400,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 14/400: dense body text (rows, info cards, notes).
@@ -213,6 +224,9 @@ abstract final class AppText {
     height: 1.4,
     fontWeight: FontWeight.w400,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 14/500: card titles (product names), two lines at most.
@@ -223,6 +237,9 @@ abstract final class AppText {
     height: 1.3,
     fontWeight: FontWeight.w500,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// Same as [productName]: the spec's "card title 14/500".
@@ -236,6 +253,9 @@ abstract final class AppText {
     height: 1.35,
     fontWeight: FontWeight.w500,
     color: AppColors.secondary,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 13/600: chip and pill labels, small buttons.
@@ -246,6 +266,9 @@ abstract final class AppText {
     height: 1.25,
     fontWeight: FontWeight.w600,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 16/800, tabular figures: prices on cards and rows.
@@ -257,6 +280,9 @@ abstract final class AppText {
     fontWeight: FontWeight.w800,
     color: AppColors.ink,
     fontFeatures: _tabular,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 24/800, tabular figures: the price on product detail.
@@ -283,6 +309,9 @@ abstract final class AppText {
     decoration: TextDecoration.lineThrough,
     decorationColor: AppColors.secondary,
     fontFeatures: _tabular,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 16/700 label of primary buttons (colour from the button).
@@ -292,6 +321,9 @@ abstract final class AppText {
     fontSize: 16,
     height: 1.25,
     fontWeight: FontWeight.w700,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 14/600 label of secondary and small buttons (colour from the button).
@@ -301,6 +333,9 @@ abstract final class AppText {
     fontSize: 14,
     height: 1.25,
     fontWeight: FontWeight.w600,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 14/600 ink text link ("See all", "Change").
@@ -311,6 +346,9 @@ abstract final class AppText {
     height: 1.3,
     fontWeight: FontWeight.w600,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 12/600 ink label under category and brand tiles (sentence case, two
@@ -322,6 +360,9 @@ abstract final class AppText {
     height: 1.25,
     fontWeight: FontWeight.w600,
     color: AppColors.ink,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 11/700 bottom bar label (colour from the bar).
@@ -331,6 +372,9 @@ abstract final class AppText {
     fontSize: 11,
     height: 1.2,
     fontWeight: FontWeight.w700,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 
   /// 11/700 small tags and badges ("Express", "−46%"; colour from the tag).
@@ -340,6 +384,9 @@ abstract final class AppText {
     fontSize: 11,
     height: 1.2,
     fontWeight: FontWeight.w700,
+    // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
+    // tracking through the inherited text style.
+    letterSpacing: 0,
   );
 }
 
@@ -388,10 +435,12 @@ abstract final class AppDecor {
 abstract final class AppButtons {
   /// Green filled, white label: the buying CTAs (theme default for
   /// FilledButton).
+  ///
+  /// Pressed, hovered and focused fills are the [AppColors.greenPressed]
+  /// token rather than a white overlay (which would make an off-palette
+  /// green).
   static ButtonStyle get primary => FilledButton.styleFrom(
-        backgroundColor: AppColors.green,
         foregroundColor: AppColors.onDark,
-        disabledBackgroundColor: AppColors.disabledFill,
         disabledForegroundColor: AppColors.disabledText,
         minimumSize: const Size(64, AppDims.buttonHeight),
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -399,6 +448,19 @@ abstract final class AppButtons {
           borderRadius: AppDims.buttonBorderRadius,
         ),
         textStyle: AppText.button,
+      ).copyWith(
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return AppColors.disabledFill;
+          }
+          if (states.contains(WidgetState.pressed) ||
+              states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return AppColors.greenPressed;
+          }
+          return AppColors.green;
+        }),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       );
 
   /// Ink filled, white label: strong actions that are not buying (send).
@@ -518,6 +580,10 @@ ThemeData buildAppTheme() {
 
   return ThemeData(
     useMaterial3: true,
+    // Standard on every platform: Flutter web on desktop would otherwise
+    // pick compact density and draw every button 8pt shorter than on the
+    // phone.
+    visualDensity: VisualDensity.standard,
     colorScheme: scheme,
     fontFamily: AppText.family,
     // Applied to every text theme, so plain Text widgets (and the

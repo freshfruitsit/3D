@@ -212,15 +212,25 @@ class Product {
         if (isByAir) ProductFact.byAir,
       ];
 
-  /// The 12px secondary line under a product name: origin and variant
-  /// title joined with " · " ("UAE · 500 GM"). Empty when neither exists.
-  String sizeLine([Variant? variant]) {
+  /// The size of [variant] (the default variant when null) the way a shop
+  /// floor writes it ("500 g", "1 kg"): its title when it has one,
+  /// otherwise a size the store wrote in the product's title, or in its
+  /// description when that names only one. Null when the store gives none
+  /// (nothing is guessed).
+  String? sizeText([Variant? variant]) {
     final v = variant ?? defaultVariant;
-    return [
-      ?origin,
-      ?v?.label,
-    ].join(' · ');
+    final label = v?.label;
+    if (label != null) return formatSize(label);
+    return sizeIn(title) ?? _onlySizeIn(description);
   }
+
+  /// The 12px secondary line under a product name: the size first, then
+  /// the origin, joined with " · " ("500 g · New Zealand"), so an ellipsis
+  /// only ever cuts the origin. Empty when neither exists.
+  String sizeLine([Variant? variant]) => [
+        ?sizeText(variant),
+        ?origin,
+      ].join(' · ');
 
   /// The description as plain text with the HTML removed.
   String get description => stripHtml(descriptionHtml);
@@ -304,6 +314,56 @@ class Product {
         for (final p in (json['products'] as List? ?? const []))
           if (p is Map<String, dynamic>) Product.fromJson(p),
       ];
+}
+
+/// A quantity and unit as the store writes them ("500 GM", "1 KG",
+/// "750ML", "6 PCS"), at the end of a variant title or anywhere in a
+/// product title.
+final RegExp _sizePattern = RegExp(
+  r'(\d+(?:\.\d+)?)\s*(kgs?|kilos?|gms?|grams?|g|ml|ltrs?|litres?|liters?|lt|l|'
+  r'pcs|pieces?|pc|packs?|bunch(?:es)?)(?![a-z])',
+  caseSensitive: false,
+);
+
+String? _unit(String raw) => switch (raw.toLowerCase()) {
+      'kg' || 'kgs' || 'kilo' || 'kilos' => 'kg',
+      'g' || 'gm' || 'gms' || 'gram' || 'grams' => 'g',
+      'ml' => 'ml',
+      'l' || 'lt' || 'ltr' || 'ltrs' || 'litre' || 'litres' || 'liter' ||
+      'liters' =>
+        'L',
+      'pc' || 'pcs' || 'piece' || 'pieces' => 'pcs',
+      'pack' || 'packs' => 'pack',
+      'bunch' || 'bunches' => 'bunch',
+      _ => null,
+    };
+
+String _sizeOf(RegExpMatch m) => '${m[1]} ${_unit(m[2]!)}';
+
+/// A variant title written the shop-floor way: "500 GM" -> "500 g",
+/// "1 KG" -> "1 kg", "750ML" -> "750 ml", "1.5 LTR" -> "1.5 L". Anything
+/// that is not just a quantity and a unit ("Large", "Pack of 6") comes back
+/// unchanged; null stays null. For display only: match and look up with
+/// the store's own value.
+String? formatSize(String? raw) {
+  if (raw == null) return null;
+  final text = raw.trim();
+  final m = _sizePattern.firstMatch(text);
+  if (m == null || m.start != 0 || m.end != text.length) return raw;
+  return _sizeOf(m);
+}
+
+/// The first size written in [text] ("Mango 500 GM" -> "500 g"), or null.
+String? sizeIn(String text) {
+  final m = _sizePattern.firstMatch(text);
+  return m == null ? null : _sizeOf(m);
+}
+
+/// The size [text] names, only when every size in it is the same one (a
+/// description that mentions two weights says nothing certain).
+String? _onlySizeIn(String text) {
+  final sizes = {for (final m in _sizePattern.allMatches(text)) _sizeOf(m)};
+  return sizes.length == 1 ? sizes.first : null;
 }
 
 String _absoluteUrl(String src) => src.startsWith('//') ? 'https:$src' : src;
