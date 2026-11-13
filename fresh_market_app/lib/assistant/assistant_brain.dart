@@ -3,6 +3,7 @@ import '../models/money.dart';
 import '../models/product.dart';
 import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
+import '../state/favourites_store.dart';
 import 'assistant_intent.dart';
 
 /// Something the shopper can tap under an assistant reply.
@@ -37,9 +38,70 @@ final class OpenCollectionAction extends AssistantAction {
 
 /// Opens Search filled with [query].
 final class OpenSearchAction extends AssistantAction {
-  const OpenSearchAction(this.query) : super('See all results');
+  const OpenSearchAction(this.query, [super.label = 'See all results']);
 
   final String query;
+}
+
+/// Shows the Categories tab.
+final class OpenCategoriesAction extends AssistantAction {
+  const OpenCategoriesAction([super.label = 'All categories']);
+}
+
+/// Opens the favourites list.
+final class OpenFavouritesAction extends AssistantAction {
+  const OpenFavouritesAction([super.label = 'Open favourites']);
+}
+
+/// Sends [message] to the assistant as if the shopper had typed it.
+final class SendMessageAction extends AssistantAction {
+  const SendMessageAction(super.label, {required this.message});
+
+  final String message;
+}
+
+/// Adds one unit of the first available variant of each of [products] to
+/// the cart. The screen does the adding and then calls
+/// [AssistantSession.note] with what happened.
+final class AddProductsAction extends AssistantAction {
+  const AddProductsAction(super.label, {required this.products});
+
+  final List<Product> products;
+}
+
+/// Empties the cart, after the shopper confirmed. The screen clears the
+/// cart and then calls [AssistantSession.note].
+final class ClearCartAction extends AssistantAction {
+  const ClearCartAction([super.label = 'Yes, empty my cart']);
+}
+
+/// Opens [uri] outside the app: `tel:`, `mailto:` or a store web page.
+final class OpenLinkAction extends AssistantAction {
+  const OpenLinkAction(super.label, {required this.uri});
+
+  final String uri;
+}
+
+/// Which icon a [QuickOption] card shows. The screen maps it to an icon.
+enum QuickOptionKind {
+  offers,
+  categories,
+  recipes,
+  local,
+  gifts,
+  popular,
+  cart,
+  contact,
+}
+
+/// A card in the options grid under the greeting: tapping it sends
+/// [message].
+class QuickOption {
+  const QuickOption(this.label, this.message, this.kind);
+
+  final String label;
+  final String message;
+  final QuickOptionKind kind;
 }
 
 /// One assistant answer: text, then optional product rows and buttons.
@@ -48,13 +110,24 @@ class AssistantReply {
     this.text, {
     this.products = const [],
     this.actions = const [],
+    this.suggestions = const [],
+    this.showOptions = false,
   });
 
   final String text;
 
-  /// Real store products, at most [AssistantBrain.maxProducts].
+  /// Real store products, at most [AssistantBrain.maxProducts] (recipe
+  /// ideas may show up to [AssistantBrain.maxRecipeProducts]).
   final List<Product> products;
   final List<AssistantAction> actions;
+
+  /// Follow-up questions for the chip row above the input while this is
+  /// the latest reply. Empty: the row shows
+  /// [AssistantBrain.defaultSuggestions].
+  final List<String> suggestions;
+
+  /// Show the [AssistantBrain.quickOptions] grid under this reply.
+  final bool showOptions;
 }
 
 /// Answers a message with scripted replies built from live store data.
@@ -64,11 +137,16 @@ class AssistantBrain {
   const AssistantBrain({
     required this.api,
     required this.cart,
+    this.favourites,
     this.retryDelay = const Duration(seconds: 1),
   });
 
   final ShopifyApi api;
   final CartStore cart;
+
+  /// For "show my favourites"; null answers that favourites are not
+  /// available.
+  final FavouritesStore? favourites;
 
   /// Wait before the one retry after the store answers 429 (too many
   /// requests).
@@ -76,6 +154,44 @@ class AssistantBrain {
 
   /// The most product rows under one reply.
   static const int maxProducts = 3;
+
+  /// The most product rows under a recipe idea.
+  static const int maxRecipeProducts = 4;
+
+  /// The options grid under the greeting, in order.
+  static const List<QuickOption> quickOptions = [
+    QuickOption("Today's offers", 'What is on offer?', QuickOptionKind.offers),
+    QuickOption('Categories', 'Show all categories',
+        QuickOptionKind.categories),
+    QuickOption('Recipe ideas', 'Ideas for a fruit salad',
+        QuickOptionKind.recipes),
+    QuickOption('Local UAE', 'Show local UAE produce', QuickOptionKind.local),
+    QuickOption('Gifts & flowers', 'Gift ideas', QuickOptionKind.gifts),
+    QuickOption('Best sellers', 'What is popular?', QuickOptionKind.popular),
+    QuickOption('My cart', 'Open my cart', QuickOptionKind.cart),
+    QuickOption('Customer care', 'Contact customer service',
+        QuickOptionKind.contact),
+  ];
+
+  /// The reply that shows the options grid again.
+  static const AssistantReply optionsReply = AssistantReply(
+    'Here is what I can help with. Tap an option or type your question.',
+    showOptions: true,
+  );
+
+  /// The chip row when the latest reply has no suggestions of its own.
+  static const List<String> defaultSuggestions = [
+    'What is on offer?',
+    'Show me berries',
+    'Add 2 cucumbers',
+    'Ideas for a fruit salad',
+    'Cheapest avocado',
+    'Show local UAE produce',
+    'Gift ideas',
+    "What's new?",
+    'Contact customer service',
+    'Open my cart',
+  ];
 
   static const String greeting =
       'Hi, I am your Fresh Market assistant. Ask me to find a product, '

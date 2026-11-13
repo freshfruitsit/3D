@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/shopify_api.dart';
 import '../state/cart_store.dart';
+import '../state/favourites_store.dart';
 import 'assistant_brain.dart';
 
 /// One bubble of the conversation.
@@ -35,9 +36,11 @@ class AssistantSession extends ChangeNotifier {
   /// seen even when the store answers at once.
   final Duration minReplyDelay;
 
-  final List<AssistantMessage> _messages = [
-    AssistantMessage.assistant(const AssistantReply(AssistantBrain.greeting)),
-  ];
+  static AssistantMessage _greeting() => AssistantMessage.assistant(
+        const AssistantReply(AssistantBrain.greeting, showOptions: true),
+      );
+
+  final List<AssistantMessage> _messages = [_greeting()];
   bool _busy = false;
 
   /// Oldest first; starts with the greeting.
@@ -53,6 +56,7 @@ class AssistantSession extends ChangeNotifier {
     String text, {
     required ShopifyApi api,
     required CartStore cart,
+    FavouritesStore? favourites,
   }) async {
     final message = text.trim();
     if (message.isEmpty || _busy) return;
@@ -60,13 +64,39 @@ class AssistantSession extends ChangeNotifier {
     _busy = true;
     notifyListeners();
 
-    final brain = AssistantBrain(api: api, cart: cart);
+    final brain = AssistantBrain(api: api, cart: cart, favourites: favourites);
     final results = await Future.wait<Object?>([
       brain.reply(message),
       Future<void>.delayed(minReplyDelay),
     ]);
     _messages.add(AssistantMessage.assistant(results.first! as AssistantReply));
     _busy = false;
+    notifyListeners();
+  }
+
+  /// The latest assistant reply, for the suggestion chips.
+  AssistantReply? get lastReply =>
+      _messages.lastWhere((m) => !m.fromUser).reply;
+
+  /// Adds an assistant message without asking the store, for example
+  /// after the screen carried out an [AddProductsAction]. Ignored while
+  /// [busy].
+  void note(AssistantReply reply) {
+    if (_busy) return;
+    _messages.add(AssistantMessage.assistant(reply));
+    notifyListeners();
+  }
+
+  /// Shows the options grid again. Ignored while [busy].
+  void showOptions() => note(AssistantBrain.optionsReply);
+
+  /// Starts a new conversation: only the greeting is left. Ignored while
+  /// [busy].
+  void reset() {
+    if (_busy) return;
+    _messages
+      ..clear()
+      ..add(_greeting());
     notifyListeners();
   }
 }
