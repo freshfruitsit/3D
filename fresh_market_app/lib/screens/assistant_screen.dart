@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/semantics.dart' show SemanticsService;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -51,15 +52,20 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// True while "Go to checkout" checks the cart against the store.
   bool _openingCheckout = false;
 
-  /// "Add all" and "empty my cart" buttons already carried out, with the
-  /// message they belong to: a second tap does nothing.
-  final Set<(AssistantMessage, AssistantAction)> _done = {};
+  /// True while a phone, email or store link is being opened: a double
+  /// tap opens it once.
+  bool _launching = false;
+
+  /// How many messages there were when the screen last looked, to tell
+  /// screen readers about a new answer.
+  late int _seenMessages;
 
   AssistantSession get _session => widget.session ?? AssistantSession.shared;
 
   @override
   void initState() {
     super.initState();
+    _seenMessages = _session.messages.length;
     _session.addListener(_onSessionChanged);
   }
 
@@ -70,7 +76,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     if (!identical(old, _session)) {
       old.removeListener(_onSessionChanged);
       _session.addListener(_onSessionChanged);
-      _done.clear();
+      _seenMessages = _session.messages.length;
     }
   }
 
@@ -86,6 +92,28 @@ class _AssistantScreenState extends State<AssistantScreen> {
     if (!mounted) return;
     setState(() {});
     _scrollToNewest();
+    _announceNewAnswer();
+  }
+
+  /// Screen readers say a new answer (focus stays on what was tapped, so
+  /// it would go unnoticed), with how many product rows came with it.
+  void _announceNewAnswer() {
+    final messages = _session.messages;
+    final grew = messages.length > _seenMessages;
+    _seenMessages = messages.length;
+    final last = messages.last;
+    if (!grew || last.fromUser) return;
+    final rows = last.reply!.products.length;
+    final text = switch (rows) {
+      0 => last.text,
+      1 => '${last.text} 1 product below.',
+      _ => '${last.text} $rows products below.',
+    };
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      text,
+      Directionality.of(context),
+    );
   }
 
   /// The list is reversed, so offset 0 is the newest message.
@@ -103,7 +131,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// Sends [text] to the assistant. Only text typed in the field is
   /// cleared from it; a chip or option leaves a draft alone.
   void _send(String text, {bool fromInput = false}) {
-    if (text.trim().isEmpty || _session.busy) return;
+    if (text.trim().isEmpty) return;
+    if (_session.busy) {
+      // The keyboard's Send key cannot be greyed out like the button.
+      if (fromInput) {
+        AppNav.showNotice(
+          context,
+          'One moment, I am still answering.',
+          bottomMargin: 12,
+        );
+      }
+      return;
+    }
     if (fromInput) _input.clear();
     _session.send(
       text,
@@ -115,7 +154,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   void _newChat() {
     if (_session.busy) return;
-    _done.clear();
     _session.reset();
   }
 
@@ -139,7 +177,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     }
     setState(() => _openingCheckout = true);
     try {
-      await AppNav.openCheckout(context);
+      await AppNav.openCheckout(context, noticeBottomMargin: 12);
     } finally {
       if (mounted) setState(() => _openingCheckout = false);
     }
@@ -163,20 +201,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
       case SendMessageAction(:final message):
         _send(message);
       case AddProductsAction(:final products):
-        if (_markDone(source, action)) _addAll(products);
+        if (_session.markDone(source, action)) _addAll(products);
       case ClearCartAction():
-        if (_markDone(source, action)) _clearCart();
+        _clearCart(source, action);
       case OpenLinkAction(:final uri):
         _openLink(uri);
     }
-  }
-
-  /// False when [action] of [source] was already carried out, or cannot
-  /// be now because a reply is loading (its answer could not be added).
-  bool _markDone(AssistantMessage source, AssistantAction action) {
-    if (_session.busy || !_done.add((source, action))) return false;
-    setState(() {});
-    return true;
   }
 
   /// One unit of the first variant in stock of each product; sold-out
@@ -229,8 +259,23 @@ class _AssistantScreenState extends State<AssistantScreen> {
     );
   }
 
-  void _clearCart() {
+  /// Empties the cart only while it holds what the shopper confirmed
+  /// removing: items added since then were never confirmed.
+  void _clearCart(AssistantMessage source, ClearCartAction action) {
+    if (_session.busy || _session.isDone(source, action)) return;
     final cart = context.read<CartStore>();
+    if (cart.isNotEmpty && !action.matches(cart)) {
+      // Not marked done: asking again gives a new, current question.
+      _session.note(
+        const AssistantReply(
+          'Your cart changed since you asked, so I left it as it is. Ask '
+          '"Empty my cart" again if you still want it empty.',
+          suggestions: ['Empty my cart', 'Open my cart', 'Checkout'],
+        ),
+      );
+      return;
+    }
+    if (!_session.markDone(source, action)) return;
     if (cart.isEmpty) {
       _session.note(const AssistantReply('Your cart is already empty.'));
       return;
@@ -251,14 +296,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// Opens a `tel:`, `mailto:` or `https:` link outside the app; any
   /// other kind is never launched. Says so when nothing opened it.
   Future<void> _openLink(String link) async {
+    if (_launching) return;
     final launch = widget.launcher ?? AssistantScreen.launchExternally;
     final uri = Uri.tryParse(link);
     var opened = false;
     if (uri != null && _linkSchemes.contains(uri.scheme.toLowerCase())) {
+      _launching = true;
       try {
         opened = await launch(uri);
       } catch (_) {
         // No app for it, or the platform refused: said below.
+      } finally {
+        _launching = false;
       }
     }
     if (opened || !mounted) return;
@@ -310,7 +359,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                             reply: message.reply!,
                             busy: busy,
                             isDone: (action) =>
-                                _done.contains((message, action)),
+                                _session.isDone(message, action),
                             onAction: (action) => _run(message, action),
                             onOption: _send,
                           );
@@ -429,10 +478,10 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Never cut off: the label must stay readable at any font
+                // size, so it wraps to as many lines as it needs.
                 const Text(
                   AssistantScreen.caption,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: AppText.caption,
                 ),
               ],
@@ -557,12 +606,14 @@ class _AssistantBlock extends StatelessWidget {
           onTap: onTap,
           icon: done ? Icons.check : Icons.add_shopping_cart,
           look: _ActionLook.filled,
+          done: done,
         ),
       ClearCartAction() => _ActionButton(
           label: action.label,
           onTap: onTap,
           icon: done ? Icons.check : Icons.remove_shopping_cart,
           look: _ActionLook.danger,
+          done: done,
         ),
       OpenLinkAction(:final uri) => _ActionButton(
           label: action.label,
@@ -828,7 +879,7 @@ class _ProductRow extends StatelessWidget {
           AppNav.openProduct(context, product);
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
           child: Row(
             children: [
               SizedBox(
@@ -886,6 +937,7 @@ class _ActionButton extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.look = _ActionLook.outlined,
+    this.done = false,
   });
 
   final String label;
@@ -896,6 +948,9 @@ class _ActionButton extends StatelessWidget {
   /// Shown before the label.
   final IconData? icon;
   final _ActionLook look;
+
+  /// Already carried out: screen readers hear so, not just "disabled".
+  final bool done;
 
   @override
   Widget build(BuildContext context) {
@@ -914,7 +969,7 @@ class _ActionButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      label: label,
+      label: done ? '$label, done' : label,
       onTap: onTap,
       excludeSemantics: true,
       child: Material(
@@ -1209,6 +1264,9 @@ class _InputBar extends StatelessWidget {
                 textInputAction: TextInputAction.send,
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: onSend,
+                // Keeps the keyboard up after sending, for a follow-up
+                // question.
+                onEditingComplete: () {},
                 style: AppText.body.copyWith(
                   fontSize: 15,
                   color: AppColors.ink,

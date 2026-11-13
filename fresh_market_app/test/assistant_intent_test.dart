@@ -651,7 +651,7 @@ void main() {
       final expected = {
         QuickOptionKind.offers: 'Offers',
         QuickOptionKind.categories: 'AllCategories',
-        QuickOptionKind.recipes: 'Recipe(fruit salad)',
+        QuickOptionKind.recipes: 'RecipeIdeas',
         QuickOptionKind.local: 'Collection(local-uae)',
         QuickOptionKind.gifts: 'Category(hampers)',
         QuickOptionKind.popular: 'Collection(best-sellers)',

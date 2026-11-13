@@ -43,6 +43,11 @@ class AssistantSession extends ChangeNotifier {
   final List<AssistantMessage> _messages = [_greeting()];
   bool _busy = false;
 
+  /// "Add all" and "empty my cart" buttons already carried out, with the
+  /// message they belong to. Kept here, not in the screen, so leaving the
+  /// assistant and coming back does not make them work again.
+  final Set<(AssistantMessage, AssistantAction)> _done = {};
+
   /// Oldest first; starts with the greeting.
   List<AssistantMessage> get messages => List.unmodifiable(_messages);
 
@@ -60,17 +65,28 @@ class AssistantSession extends ChangeNotifier {
   }) async {
     final message = text.trim();
     if (message.isEmpty || _busy) return;
+    // What the message answers: an "Are you sure?" or a product chip.
+    final previous = lastReply;
     _messages.add(AssistantMessage.user(message));
     _busy = true;
     notifyListeners();
 
     final brain = AssistantBrain(api: api, cart: cart, favourites: favourites);
-    final results = await Future.wait<Object?>([
-      brain.reply(message),
-      Future<void>.delayed(minReplyDelay),
-    ]);
-    _messages.add(AssistantMessage.assistant(results.first! as AssistantReply));
-    _busy = false;
+    AssistantReply reply;
+    try {
+      final results = await Future.wait<Object?>([
+        brain.reply(message, previous: previous),
+        Future<void>.delayed(minReplyDelay),
+      ]);
+      reply = results.first! as AssistantReply;
+    } catch (_) {
+      // The brain turns store failures into replies; anything else must
+      // not leave the assistant busy for good.
+      reply = const AssistantReply(AssistantBrain.unexpectedError);
+    } finally {
+      _busy = false;
+    }
+    _messages.add(AssistantMessage.assistant(reply));
     notifyListeners();
   }
 
@@ -90,6 +106,19 @@ class AssistantSession extends ChangeNotifier {
   /// Shows the options grid again. Ignored while [busy].
   void showOptions() => note(AssistantBrain.optionsReply);
 
+  /// True when [action] of [message] was already carried out.
+  bool isDone(AssistantMessage message, AssistantAction action) =>
+      _done.contains((message, action));
+
+  /// Marks [action] of [message] as carried out. False when it already
+  /// was, or while [busy] (the note saying what happened could not be
+  /// added): then it must not be carried out.
+  bool markDone(AssistantMessage message, AssistantAction action) {
+    if (_busy || !_done.add((message, action))) return false;
+    notifyListeners();
+    return true;
+  }
+
   /// Starts a new conversation: only the greeting is left. Ignored while
   /// [busy].
   void reset() {
@@ -97,6 +126,7 @@ class AssistantSession extends ChangeNotifier {
     _messages
       ..clear()
       ..add(_greeting());
+    _done.clear();
     notifyListeners();
   }
 }

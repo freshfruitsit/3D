@@ -59,7 +59,7 @@ final class CheckoutIntent extends AssistantIntent {
   const CheckoutIntent();
 }
 
-/// "Open my cart", "basket".
+/// "Open my cart", "my basket".
 final class CartIntent extends AssistantIntent {
   const CartIntent();
 }
@@ -257,15 +257,17 @@ class Recipe {
 ///     `put ... in my cart`) -> [AddIntent]. A question ("Where can I buy
 ///     ...?"), a negation ("Don't add ...") or `buy` in the middle of a
 ///     sentence is not a command and falls through to the rules below;
-///     with an offer word ("Buy 1 get 1 free offers") it is
+///     with only offer words ("Buy 1 get 1 free offers") it is
 ///     [OffersIntent], with a favourites word [FavouritesIntent]
-///  4. customer service, phone, email, complaint, a late or missing order
-///     -> [ContactIntent]
+///  4. customer service, phone, email, complaint, a late or missing order,
+///     "where is my order" -> [ContactIntent]
 ///  5. payment methods, card, cash on delivery, Apple Pay, "how can I
 ///     pay" -> [PaymentIntent]
-///  6. delivery / shipping / "when will it arrive" -> [DeliveryIntent]
+///  6. delivery / shipping / "when will it arrive" / "minimum order" ->
+///     [DeliveryIntent]
 ///  7. `checkout` / `pay` -> [CheckoutIntent]
-///  8. `cart` / `basket` -> [CartIntent]
+///  8. `cart`, or `basket` when it is not a product ("my basket", not
+///     "fruit basket") -> [CartIntent]
 ///  9. favourites / wishlist / saved / "my list" -> [FavouritesIntent]
 /// 10. `offer(s)` / `deal(s)` / `sale` / `discount(s)` -> [OffersIntent]
 /// 11. store address, location, opening hours, "where are you" with
@@ -292,6 +294,8 @@ abstract final class AssistantIntentParser {
   /// Before a leading "buy" these still leave it a command.
   static const Set<String> _polite = {
     'please',
+    'pls',
+    'plz',
     'can',
     'could',
     'would',
@@ -331,7 +335,6 @@ abstract final class AssistantIntentParser {
     ..._removeWords,
     ..._clearWords,
     'cart',
-    'basket',
     'bag',
     'trolley',
     'all',
@@ -373,7 +376,33 @@ abstract final class AssistantIntentParser {
   static final RegExp _timesAfter = RegExp(r'^x(\d+)$');
 
   static const Set<String> _checkoutWords = {'checkout', 'pay'};
-  static const Set<String> _cartWords = {'cart', 'basket'};
+
+  /// "basket" counts only where [_cartTokens] turned it into "cart".
+  static const Set<String> _cartWords = {'cart'};
+
+  /// Before "basket" these make it the shopping cart ("my basket", "add it
+  /// to the basket"); after a product word it is a product ("fruit
+  /// basket").
+  static const Set<String> _basketLead = {
+    'my',
+    'the',
+    'your',
+    'shopping',
+    'to',
+    'in',
+    'into',
+    'from',
+    'of',
+    'open',
+    'show',
+    'view',
+    'see',
+    'check',
+    'empty',
+    'clear',
+    'whole',
+    'entire',
+  };
   static const Set<String> _offerWords = {
     'offer',
     'offers',
@@ -416,6 +445,16 @@ abstract final class AssistantIntentParser {
     'eight': 8,
     'nine': 9,
     'ten': 10,
+    'eleven': 11,
+    'twelve': 12,
+    'thirteen': 13,
+    'fourteen': 14,
+    'fifteen': 15,
+    'sixteen': 16,
+    'seventeen': 17,
+    'eighteen': 18,
+    'nineteen': 19,
+    'twenty': 20,
   };
 
   /// Words that say nothing about which product is wanted.
@@ -484,12 +523,30 @@ abstract final class AssistantIntentParser {
     'okay',
     'yes',
     'no',
+    'pls',
+    'plz',
+    // Courtesy words of Gulf English.
+    'habibi',
+    'habibti',
+    'yalla',
+    'yallah',
+    'wallah',
+    'wallahi',
+    'inshallah',
+    'mashallah',
+    'khalas',
+    'salam',
+    'salaam',
+    'ahlan',
+    // "Do you sell / carry chiquita bananas?"
+    'sell',
+    'selling',
+    'carry',
   };
 
   /// Left out of an "add" message on top of [stopWords].
   static const Set<String> _addFiller = {
     'cart',
-    'basket',
     'bag',
     'order',
     'into',
@@ -1159,6 +1216,7 @@ abstract final class AssistantIntentParser {
     'byebye',
     'cya',
     'goodnight',
+    'khalas',
   };
   static const Set<String> _thanksFiller = {
     ..._thanksWords,
@@ -1485,6 +1543,7 @@ abstract final class AssistantIntentParser {
     ..._byeWords,
     ..._greetWords,
     ..._helpWords,
+    'basket',
     'free',
     'add',
     'buy',
@@ -1525,8 +1584,114 @@ abstract final class AssistantIntentParser {
       .where((w) => w.isNotEmpty)
       .toList();
 
+  /// [tokens] with each "basket" that means the shopping cart turned into
+  /// "cart": the first word, or after [_basketLead] ("my basket", "to a
+  /// basket"). "fruit basket" and "gift basket" stay products.
+  static List<String> _cartTokens(List<String> tokens) => [
+    for (var i = 0; i < tokens.length; i++)
+      tokens[i] == 'basket' && _basketIsCart(tokens, i) ? 'cart' : tokens[i],
+  ];
+
+  static bool _basketIsCart(List<String> tokens, int at) {
+    if (at == 0) return true;
+    final before = tokens[at - 1];
+    if (_basketLead.contains(before)) return true;
+    return before == 'a' &&
+        at >= 2 &&
+        const {'to', 'in', 'into'}.contains(tokens[at - 2]);
+  }
+
+  /// "Buy 1 get 1 free (offers)": only offer words, numbers and stop
+  /// words besides the command.
+  static bool _onlyOffer(String word) =>
+      stopWords.contains(word) ||
+      _offerWords.contains(word) ||
+      const {'add', 'buy', 'get', 'free', 'order'}.contains(word) ||
+      _quantity(word) != null;
+
+  static const Set<String> _yesWords = {
+    'yes',
+    'yeah',
+    'yea',
+    'yep',
+    'yup',
+    'ya',
+    'sure',
+    'ok',
+    'okay',
+    'confirm',
+    'confirmed',
+    'absolutely',
+    'definitely',
+  };
+  static const Set<String> _noWords = {
+    'no',
+    'nope',
+    'nah',
+    'cancel',
+    'dont',
+    'stop',
+    'keep',
+    'wait',
+  };
+
+  /// Around a yes or a no to "Are you sure?" ("yes, empty it", "no, keep
+  /// my cart").
+  static const Set<String> _answerFiller = {
+    ..._clearFiller,
+    'please',
+    'pls',
+    'it',
+    'my',
+    'the',
+    'i',
+    'am',
+    'im',
+    'do',
+    'go',
+    'ahead',
+    'of',
+    'course',
+    'thanks',
+    'thank',
+    'you',
+    'that',
+    'them',
+    'mind',
+    'never',
+    'now',
+    'not',
+    'just',
+    'want',
+    'to',
+  };
+
+  /// The shopper's answer to "Are you sure?": true for yes ("yes", "ok,
+  /// empty it", "go ahead"), false for no ("no", "cancel", "keep it"),
+  /// null for anything else (a new request).
+  static bool? confirmation(String text) {
+    final tokens = _cartTokens(words(text));
+    if (tokens.isEmpty) return null;
+    final yes =
+        tokens.any(_yesWords.contains) ||
+        _hasPhrase(tokens, 'do it') ||
+        _hasPhrase(tokens, 'go ahead');
+    final no =
+        tokens.any(_noWords.contains) ||
+        _hasPhrase(tokens, 'never mind') ||
+        _hasPhrase(tokens, 'not now');
+    if (yes == no) return null;
+    final onlyAnswer = tokens.every(
+      (w) =>
+          _answerFiller.contains(w) ||
+          _yesWords.contains(w) ||
+          _noWords.contains(w),
+    );
+    return onlyAnswer ? yes : null;
+  }
+
   static AssistantIntent parse(String text) {
-    final tokens = words(text);
+    final tokens = _cartTokens(words(text));
     final hasCart = tokens.any(_cartWords.contains);
     final named = tokens.where((w) => !stopWords.contains(w)).toList();
     final firstNamed = named.firstOrNull;
@@ -1567,7 +1732,10 @@ abstract final class AssistantIntentParser {
     // 3. a command to add
     final addAt = _addTrigger(tokens);
     if (addAt >= 0) {
-      if (tokens.any(_offerWords.contains) || tokens.contains('free')) {
+      // "Buy 1 get 1 free" asks for offers; "add 2 cucumbers and show me
+      // offers" still adds.
+      if ((tokens.any(_offerWords.contains) || tokens.contains('free')) &&
+          tokens.every(_onlyOffer)) {
         return const OffersIntent();
       }
       final command =
@@ -1607,9 +1775,21 @@ abstract final class AssistantIntentParser {
     // 5. payment methods
     if (_isPayment(tokens)) return const PaymentIntent();
 
-    // 6. delivery
+    // 6. delivery ("is there a minimum order?": checkout shows any fees)
     if (tokens.any(_deliveryWords.contains) ||
         _hasPhrase(tokens, 'same day') ||
+        (tokens.contains('minimum') &&
+            tokens.any(
+              const {
+                'order',
+                'orders',
+                'spend',
+                'purchase',
+                'amount',
+                'cart',
+                'value',
+              }.contains,
+            )) ||
         (tokens.contains('address') &&
             tokens.any(
               const {'my', 'change', 'update', 'new', 'different'}.contains,
@@ -1760,7 +1940,7 @@ abstract final class AssistantIntentParser {
     // Weights are taken out first: "1.5 kg" must not become 1 or 5 units.
     final lower = text.toLowerCase();
     var measure = _measure.hasMatch(lower);
-    final tokens = words(lower.replaceAll(_measure, ' '));
+    final tokens = _cartTokens(words(lower.replaceAll(_measure, ' ')));
     final rest = tokens.sublist(_addTrigger(tokens) + 1);
 
     var quantity = 1;
@@ -1789,12 +1969,28 @@ abstract final class AssistantIntentParser {
                 next != null &&
                 (_quantity(next) != null ||
                     const {'a', 'an', 'some'}.contains(next)));
-        if (secondItem) {
+        // Another request: "... and show me offers", "... and checkout".
+        final otherRequest =
+            word == 'and' &&
+            rest
+                .skip(i + 1)
+                .any(
+                  (w) =>
+                      _offerWords.contains(w) ||
+                      _cartWords.contains(w) ||
+                      _checkoutWords.contains(w) ||
+                      w == 'check',
+                );
+        if (secondItem || otherRequest) {
           moreItems = true;
           break;
         }
       }
-      if (stopWords.contains(word) || _addFiller.contains(word)) continue;
+      if (stopWords.contains(word) ||
+          _addFiller.contains(word) ||
+          _offerWords.contains(word)) {
+        continue;
+      }
       product.add(word);
     }
     return AddIntent(
@@ -1814,7 +2010,6 @@ abstract final class AssistantIntentParser {
     'off',
     'rid',
     'cart',
-    'basket',
     'bag',
     'trolley',
     'all',
@@ -1832,7 +2027,9 @@ abstract final class AssistantIntentParser {
 
   static RemoveIntent _parseRemove(String text) {
     // "the 1 kg strawberries" names a size, not a number of units.
-    final tokens = words(text.toLowerCase().replaceAll(_measure, ' '));
+    final tokens = _cartTokens(
+      words(text.toLowerCase().replaceAll(_measure, ' ')),
+    );
     int? quantity;
     final product = <String>[];
     for (final word in tokens) {
@@ -1856,6 +2053,17 @@ abstract final class AssistantIntentParser {
     if (tokens.any(_contactWords.contains)) return true;
     if (_contactPhrases.any((p) => _hasPhrase(tokens, p))) return true;
     if (tokens.contains('track') && tokens.contains('order')) return true;
+    // "Where is my order?", "order status", "when will my parcel come?"
+    final asksWhere = tokens.any(const {'where', 'status', 'when'}.contains);
+    if (asksWhere &&
+        tokens.any(const {'order', 'orders', 'parcel', 'package'}.contains)) {
+      return true;
+    }
+    if (tokens.contains('delivery') &&
+        (tokens.contains('status') ||
+            (tokens.contains('where') && tokens.contains('my')))) {
+      return true;
+    }
     if (tokens.any(_issueWords.contains) && tokens.any(_orderWords.contains)) {
       return true;
     }

@@ -84,11 +84,11 @@ void main() {
     // The chip and the new user bubble.
     expect(find.text('Show me berries'), findsNWidgets(2));
     expect(find.bySemanticsLabel('The assistant is typing'), findsOneWidget);
-    expect(find.text('Here is Berries.'), findsNothing);
+    expect(find.text('A few products from Berries:'), findsNothing);
 
     await settleReply(tester);
     expect(find.bySemanticsLabel('The assistant is typing'), findsNothing);
-    expect(find.text('Here is Berries.'), findsOneWidget);
+    expect(find.text('A few products from Berries:'), findsOneWidget);
     expect(find.text('Zespri Kiwi Sungold 500 GM'), findsOneWidget);
     expect(find.text('Dhs. 19.95'), findsOneWidget);
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
     // Back returns to the conversation.
     await tapVisible(tester, find.byTooltip('Back').last);
     expect(find.byType(ProductListScreen), findsNothing);
-    expect(find.text('Here is Berries.'), findsOneWidget);
+    expect(find.text('A few products from Berries:'), findsOneWidget);
   });
 
   testWidgets('Enter sends; add puts the product in the cart and the row '
@@ -580,7 +580,7 @@ void main() {
       // The same reply twice: each message's button is its own.
       const reply = AssistantReply(
         'Empty your cart?',
-        actions: [ClearCartAction()],
+        actions: [ClearCartAction({2001: 1})],
       );
       session
         ..note(reply)
@@ -717,7 +717,7 @@ void main() {
         products: [products[0], products[2], products[3], products[5]],
         actions: [
           AddProductsAction('Add all 4 to cart', products: products),
-          const ClearCartAction(),
+          const ClearCartAction({2001: 12}),
           const OpenLinkAction('Call customer care', uri: 'tel:+971000000000'),
           const OpenLinkAction('Email customer care',
               uri: 'mailto:care@example.com'),

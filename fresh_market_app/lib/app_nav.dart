@@ -89,8 +89,13 @@ abstract final class AppNav {
   ///
   /// The cart is first checked against the store, because Shopify refuses
   /// a checkout that contains a variant it no longer has. If lines had to
-  /// be removed the shopper stays on the cart and is told so.
-  static Future<void> openCheckout(BuildContext context) async {
+  /// be removed the shopper stays on the cart and is told so, above the
+  /// bottom bar, or [noticeBottomMargin] above the bottom of a screen that
+  /// has none (see [showNotice]).
+  static Future<void> openCheckout(
+    BuildContext context, {
+    double? noticeBottomMargin,
+  }) async {
     final cart = context.read<CartStore>();
     if (cart.isEmpty) return;
     final removed = await cart
@@ -98,7 +103,11 @@ abstract final class AppNav {
         .timeout(const Duration(seconds: 8), onTimeout: () => 0);
     if (!context.mounted) return;
     if (removed > 0) {
-      showNotice(context, removedItemsMessage);
+      showNotice(
+        context,
+        removedItemsMessage,
+        bottomMargin: noticeBottomMargin,
+      );
       return;
     }
     final url = cart.checkoutUrl;

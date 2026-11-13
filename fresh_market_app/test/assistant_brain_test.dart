@@ -85,6 +85,7 @@ final Map<String, Matcher> fixedChips = {
   ),
   "What's new?": isA<CollectionIntent>()
       .having((i) => i.collection.handle, 'handle', 'new-arrivals'),
+  'Recipe ideas': isA<RecipeIdeasIntent>(),
   'Gift ideas': isA<CategoryIntent>().having(
     (i) => i.category.handle,
     'handle',
@@ -398,7 +399,7 @@ void main() {
   group('category', () {
     test('first three products and an Open action', () async {
       final reply = await brain.reply('Show me berries');
-      expect(reply.text, 'Here is Berries.');
+      expect(reply.text, 'A few products from Berries:');
       expect(reply.products.map((p) => p.title), [
         'Zespri Kiwi Sungold',
         'Australian Beef Cubes',
@@ -412,7 +413,7 @@ void main() {
 
     test('an alias uses the tile title and handle', () async {
       final reply = await brain.reply('butchery');
-      expect(reply.text, 'Here is Meat.');
+      expect(reply.text, 'A few products from Meat:');
       expect(
         (reply.actions.single as OpenCollectionAction).handle,
         'fresh-meat',
@@ -548,7 +549,7 @@ void main() {
   group('collections', () {
     test('a shortcut opens its collection like a category', () async {
       final reply = await brain.reply('Show local UAE produce');
-      expect(reply.text, 'Here is Local UAE.');
+      expect(reply.text, 'A few products from Local UAE:');
       expect(api.calls, ['collectionProducts(local-uae, page 1)']);
       expect(reply.products, hasLength(3));
       final action = reply.actions.single as OpenCollectionAction;
@@ -563,7 +564,7 @@ void main() {
 
     test('popular is Best Sellers', () async {
       final reply = await brain.reply('What is popular?');
-      expect(reply.text, 'Here is Best Sellers.');
+      expect(reply.text, 'A few products from Best Sellers:');
       expect(
         (reply.actions.single as OpenCollectionAction).handle,
         'best-sellers',
@@ -595,7 +596,7 @@ void main() {
         api: api,
         cart: cart,
       ).reply('Gift ideas');
-      expect(reply.text, 'Here is Hampers.');
+      expect(reply.text, startsWith('A few gift ideas from Hampers.'));
       final actions = reply.actions.cast<OpenCollectionAction>();
       expect(actions.map((a) => a.label), [
         'Open Hampers',
@@ -698,6 +699,51 @@ void main() {
       expect(reply.text, contains('Tell me what to look for'));
       expect(log.calls, isEmpty);
       expectGoodChips(reply);
+    });
+
+    test('related products the store suggests are not ranked', () async {
+      // The live store's search for "avocado" also returns Guava, Plums
+      // and Mango; the cheapest of those is not an avocado.
+      final related = _FixedSearch([
+        priced(21, 'Avocado Hass Periban', 2700),
+        priced(22, 'Guava', 600),
+        priced(23, 'Avocado Unripe', 1695),
+        priced(24, 'Red Plums', 1195),
+        Product(
+          id: 25,
+          title: 'Eat Me Ready To Eat',
+          handle: 'p25',
+          tags: const ['Avocados'],
+          variants: const [
+            Variant(id: 5025, title: 'Default Title', priceCents: 1795),
+          ],
+        ),
+      ]);
+      var reply = await AssistantBrain(
+        api: related,
+        cart: cart,
+      ).reply('Cheapest avocado');
+      expect(reply.text, 'The cheapest avocado right now:');
+      expect(reply.products.map((p) => p.title), [
+        'Avocado Unripe',
+        'Eat Me Ready To Eat',
+        'Avocado Hass Periban',
+      ]);
+      expectGoodChips(reply);
+
+      // Nothing names the query: the store's results, said honestly.
+      reply = await AssistantBrain(
+        api: related,
+        cart: cart,
+      ).reply('Cheapest kiwano');
+      expect(reply.text, 'The cheapest of what I found for "kiwano":');
+      expect(reply.products.first.title, 'Guava');
+      reply = await AssistantBrain(
+        api: related,
+        cart: cart,
+      ).reply('kiwano under 15');
+      expect(reply.text, 'What I found for "kiwano" under Dhs. 15.00:');
+      expect(reply.products.map((p) => p.title), ['Guava', 'Red Plums']);
     });
   });
 
@@ -1407,4 +1453,16 @@ class _CountingApi extends _SearchLog {
       inFlight--;
     }
   }
+}
+
+/// A search that always answers with the same products, like the live
+/// store's search, which also suggests related products.
+class _FixedSearch extends FakeShopifyApi {
+  _FixedSearch(this.results);
+
+  final List<Product> results;
+
+  @override
+  Future<List<Product>> search(String query, {int limit = 10}) async =>
+      results.take(limit).toList();
 }

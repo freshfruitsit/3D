@@ -69,10 +69,20 @@ final class AddProductsAction extends AssistantAction {
   final List<Product> products;
 }
 
-/// Empties the cart, after the shopper confirmed. The screen clears the
-/// cart and then calls [AssistantSession.note].
+/// Empties the cart, after the shopper confirmed. [expected] is what the
+/// cart held when the shopper was asked (variant id -> quantity): the
+/// screen clears the cart only while it still [matches], then calls
+/// [AssistantSession.note].
 final class ClearCartAction extends AssistantAction {
-  const ClearCartAction([super.label = 'Yes, empty my cart']);
+  const ClearCartAction(this.expected, [super.label = 'Yes, empty my cart']);
+
+  final Map<int, int> expected;
+
+  /// True while [cart] holds exactly what it held when the shopper was
+  /// asked, so the confirmation still covers every item in it.
+  bool matches(CartStore cart) =>
+      cart.lines.length == expected.length &&
+      cart.lines.every((line) => expected[line.variantId] == line.quantity);
 }
 
 /// Opens [uri] outside the app: `tel:`, `mailto:` or a store web page.
@@ -112,6 +122,7 @@ class AssistantReply {
     this.actions = const [],
     this.suggestions = const [],
     this.showOptions = false,
+    this.chipProducts = const {},
   });
 
   final String text;
@@ -128,6 +139,11 @@ class AssistantReply {
 
   /// Show the [AssistantBrain.quickOptions] grid under this reply.
   final bool showOptions;
+
+  /// The product each product chip of [suggestions] is about ("Add 1
+  /// Kiwi", "How much is Kiwi?"), so tapping it acts on that row's product
+  /// instead of searching again (a search can find another size or box).
+  final Map<String, Product> chipProducts;
 }
 
 /// Answers a message with scripted replies built from live store data.
@@ -169,11 +185,7 @@ class AssistantBrain {
       'Show all categories',
       QuickOptionKind.categories,
     ),
-    QuickOption(
-      'Recipe ideas',
-      'Ideas for a fruit salad',
-      QuickOptionKind.recipes,
-    ),
+    QuickOption('Recipe ideas', 'Recipe ideas', QuickOptionKind.recipes),
     QuickOption('Local UAE', 'Show local UAE produce', QuickOptionKind.local),
     QuickOption('Gifts & flowers', 'Gift ideas', QuickOptionKind.gifts),
     QuickOption('Best sellers', 'What is popular?', QuickOptionKind.popular),
@@ -211,6 +223,10 @@ class AssistantBrain {
 
   static const String networkError =
       'I could not reach the store. Check your connection and try again.';
+
+  /// Any other failure while answering.
+  static const String unexpectedError =
+      'Sorry, something went wrong. Please try again.';
 
   /// Customer service, exactly as the store's website footer gives it.
   static const String contactText =
@@ -284,17 +300,30 @@ class AssistantBrain {
   ];
 
   /// Never throws: a store failure becomes a reply that says so.
-  Future<AssistantReply> reply(String message) async {
+  ///
+  /// [previous] is the reply [message] answers: a yes or no to its "Are
+  /// you sure?", or one of its product chips, which acts on the product
+  /// it was made from.
+  Future<AssistantReply> reply(
+    String message, {
+    AssistantReply? previous,
+  }) async {
+    final pending = previous?.actions.whereType<ClearCartAction>().firstOrNull;
+    if (pending != null) {
+      final yes = AssistantIntentParser.confirmation(message);
+      if (yes != null) return _answerClear(pending, yes: yes);
+    }
+    final target = previous?.chipProducts[message.trim()];
     final intent = AssistantIntentParser.parse(message);
     try {
       try {
-        return await _answer(intent);
+        return await _answer(intent, target);
       } on HttpStatusException catch (e) {
         if (e.statusCode != 429) rethrow;
         // Nothing has been changed yet: every reply reads before it
         // writes.
         await Future<void>.delayed(retryDelay);
-        return await _answer(intent);
+        return await _answer(intent, target);
       }
     } on NetworkException {
       return const AssistantReply(networkError);
@@ -303,9 +332,12 @@ class AssistantBrain {
     }
   }
 
-  Future<AssistantReply> _answer(AssistantIntent intent) async =>
-      switch (intent) {
-        final AddIntent add => await _add(add),
+  /// [target]: the product of the chip that was tapped, if any.
+  Future<AssistantReply> _answer(
+    AssistantIntent intent,
+    Product? target,
+  ) async => switch (intent) {
+        final AddIntent add => await _add(add, target: target),
         final RemoveIntent remove => _remove(remove),
         ClearCartIntent() => _clearCart(),
         CheckoutIntent() => _checkout(),
@@ -322,7 +354,7 @@ class AssistantBrain {
         ),
         AllCategoriesIntent() => _allCategories(),
         final CheapestIntent cheapest => await _cheapest(cheapest),
-        PriceIntent(:final query) => await _price(query),
+        PriceIntent(:final query) => await _price(query, target: target),
         StockIntent(:final query) => await _stock(query),
         RecipeIntent(:final recipe) => await _recipe(recipe),
         RecipeIdeasIntent() => _recipeIdeas(),
@@ -422,6 +454,20 @@ class AssistantBrain {
     return name == null ? null : 'How much is $name?';
   }
 
+  /// The chips of [chips] made from [product] by [_addChip] and
+  /// [_priceChip], each with [product], for [AssistantReply.chipProducts].
+  static Map<String, Product> _chipsFor(List<String> chips, Product? product) =>
+      product == null
+      ? const {}
+      : {
+          for (final chip in [
+            _addChip(product),
+            _addChip(product, more: true),
+            _priceChip(product),
+          ])
+            if (chip != null && chips.contains(chip)) chip: product,
+        };
+
   static String? _cheapestChip(String query) {
     final plain = _plainQuery(query);
     return plain == null ? null : 'Cheapest $plain';
@@ -439,6 +485,36 @@ class AssistantBrain {
 
   static Product? _firstAvailable(Iterable<Product> products) =>
       products.where((p) => p.available).firstOrNull;
+
+  /// The cheapest of [products] in stock, by the price its row shows;
+  /// equal prices keep the store's order. Null when none is in stock.
+  static Product? _cheapestAvailable(Iterable<Product> products) {
+    Product? best;
+    for (final product in products) {
+      if (!product.available) continue;
+      if (best == null ||
+          product.defaultVariant!.priceCents <
+              best.defaultVariant!.priceCents) {
+        best = product;
+      }
+    }
+    return best;
+  }
+
+  /// True when every word of [query] is a word of [title], singular or
+  /// plural ("Avocado Hass" names "avocados", "Pineapple" does not name
+  /// "apple").
+  static bool _titleNames(String title, String query) =>
+      AssistantIntentParser.words(query).every((w) => _titleHas(title, w));
+
+  /// The product to add for [query]: the cheapest in stock whose title
+  /// names it, so "add an avocado" is not a 10 kg box the store lists
+  /// first; then the cheapest that names it in its type, brand or tags;
+  /// then the store's first in stock.
+  static Product? _pickToAdd(List<Product> results, String query) =>
+      _cheapestAvailable(results.where((p) => _titleNames(p.title, query))) ??
+      _cheapestAvailable(_naming(results, query)) ??
+      _firstAvailable(results);
 
   /// "Cucumber (500 GM)", or the title alone without options.
   static String _name(Product product, Variant variant) => variant.label == null
@@ -472,7 +548,7 @@ class AssistantBrain {
 
   // ---- cart --------------------------------------------------------------
 
-  Future<AssistantReply> _add(AddIntent intent) async {
+  Future<AssistantReply> _add(AddIntent intent, {Product? target}) async {
     final query = intent.query;
     if (query.isEmpty) {
       return const AssistantReply(
@@ -480,34 +556,42 @@ class AssistantBrain {
         suggestions: _startChips,
       );
     }
-    // The first product in stock is the one added, so a short list is
-    // enough; the wider search is only for when all of it is sold out.
-    var results = await _find(query, limit: 4);
-    if (results.isEmpty) {
-      return AssistantReply(
-        'I could not find "$query" in the store, so nothing was added. '
-        'Try another name, for example "Add 2 cucumbers".',
-        suggestions: [_categoriesChip, _offersChip, _fruitSaladChip],
-      );
-    }
-    if (intent.measureAsked) {
-      final shown = results.take(maxProducts).toList();
-      return AssistantReply(
-        'I can only add whole packs, so nothing was added. Choose the '
-        'size you want below.',
-        products: shown,
-        actions: [OpenSearchAction(query)],
-        suggestions: _chips([
-          _addChip(_firstAvailable(shown)),
+    final List<Product> results;
+    final Product? product;
+    if (target != null && !intent.measureAsked) {
+      // A chip under a product row adds that very product, as the store
+      // has it now.
+      final fresh = await _fresh(target);
+      results = [fresh];
+      product = fresh.available ? fresh : null;
+    } else {
+      results = await _find(query, limit: 10);
+      if (results.isEmpty) {
+        return AssistantReply(
+          'I could not find "$query" in the store, so nothing was added. '
+          'Try another name, for example "Add 2 cucumbers".',
+          suggestions: [_categoriesChip, _offersChip, _fruitSaladChip],
+        );
+      }
+      if (intent.measureAsked) {
+        final shown = results.take(maxProducts).toList();
+        final pick = _firstAvailable(shown);
+        final suggestions = _chips([
+          _addChip(pick),
           _cheapestChip(query),
           _cartChip,
-        ]),
-      );
+        ]);
+        return AssistantReply(
+          'I can only add whole packs, so nothing was added. Choose the '
+          'size you want below.',
+          products: shown,
+          actions: [OpenSearchAction(query)],
+          suggestions: suggestions,
+          chipProducts: _chipsFor(suggestions, pick),
+        );
+      }
+      product = _pickToAdd(results, query);
     }
-    if (results.length == 4 && !results.any((p) => p.available)) {
-      results = await _find(query, limit: 10);
-    }
-    final product = _firstAvailable(results);
     if (product == null) {
       return AssistantReply(
         '${results.first.title} is sold out right now, so nothing was added.',
@@ -524,20 +608,24 @@ class AssistantBrain {
     final onlyFirst = intent.moreItems
         ? ' I add one product per message, so ask again for the rest.'
         : '';
+    // The price is said, so a box or a large pack is plain to see.
+    final price = '${variant.priceText}${added > 1 ? ' each' : ''}';
+    final suggestions = _chips([
+      if (added > 0) _addChip(product, more: true),
+      _cartChip,
+      _checkoutChip,
+      _fruitSaladChip,
+    ]);
     return AssistantReply(
       (added > 0
-              ? 'Done. I added $added × $name to your cart.'
+              ? 'Done. I added $added × $name to your cart at $price.'
               : 'Your cart already holds the most it can of $name '
                     '(${CartStore.maxQuantity}).') +
           onlyFirst,
       products: [product],
       actions: const [OpenCartAction()],
-      suggestions: _chips([
-        if (added > 0) _addChip(product, more: true),
-        _cartChip,
-        _checkoutChip,
-        _fruitSaladChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, product),
     );
   }
 
@@ -559,8 +647,10 @@ class AssistantBrain {
       ))
         AssistantIntentParser.singular(word),
     ];
+    // Only berries match by ending ("berry" in "Blueberry"): "apple" must
+    // not remove Pineapple, nor "melon" Watermelon.
     return wanted.every(
-      (w) => have.any((h) => h == w || (w.length >= 4 && h.endsWith(w))),
+      (w) => have.any((h) => h == w || (w == 'berry' && h.endsWith(w))),
     );
   }
 
@@ -647,8 +737,37 @@ class AssistantBrain {
     return AssistantReply(
       count == 1
           ? 'This will remove the 1 item in your cart. Are you sure?'
-          : 'This will remove all $count items. Are you sure?',
-      actions: const [ClearCartAction(), OpenCartAction('Review cart')],
+          : 'This will remove all $count items from your cart. Are you '
+                'sure?',
+      actions: [
+        ClearCartAction({
+          for (final line in cart.lines) line.variantId: line.quantity,
+        }),
+        const OpenCartAction('Review cart'),
+      ],
+      suggestions: const [_cartChip, _checkoutChip, _offersChip],
+    );
+  }
+
+  /// A typed yes or no to "Are you sure?". Only the button empties the
+  /// cart, so a yes points to it.
+  AssistantReply _answerClear(ClearCartAction pending, {required bool yes}) {
+    if (!yes) {
+      return const AssistantReply(
+        'OK, I left your cart as it is.',
+        actions: [OpenCartAction()],
+        suggestions: [_cartChip, _checkoutChip, _offersChip],
+      );
+    }
+    if (cart.isEmpty) {
+      return const AssistantReply(
+        'Your cart is already empty.',
+        suggestions: _startChips,
+      );
+    }
+    return AssistantReply(
+      'To empty your cart, tap "${pending.label}" below.',
+      actions: [pending, const OpenCartAction('Review cart')],
       suggestions: const [_cartChip, _checkoutChip, _offersChip],
     );
   }
@@ -758,6 +877,11 @@ class AssistantBrain {
       for (final (rail, _) in shown) {
         if (!shownRails.contains(rail)) shownRails.add(rail);
       }
+      final suggestions = _chips([
+        _addChip(best.$2),
+        _popularChip,
+        _cartChip,
+      ]);
       return AssistantReply(
         'These are on sale today.$saving',
         products: [for (final entry in shown) entry.$2],
@@ -769,7 +893,8 @@ class AssistantBrain {
               title: rail.title,
             ),
         ],
-        suggestions: _chips([_addChip(best.$2), _popularChip, _cartChip]),
+        suggestions: suggestions,
+        chipProducts: _chipsFor(suggestions, best.$2),
       );
     }
 
@@ -781,16 +906,19 @@ class AssistantBrain {
         suggestions: [_popularChip, _categoriesChip, _fruitSaladChip],
       );
     }
+    final pick = _firstAvailable(shown);
+    final suggestions = _chips([
+      _addChip(pick),
+      _popularChip,
+      _categoriesChip,
+    ]);
     return AssistantReply(
       'Nothing is marked down right now. Here are products from '
       '${_deals.title}.',
       products: shown,
       actions: const [action],
-      suggestions: _chips([
-        _addChip(_firstAvailable(shown)),
-        _popularChip,
-        _categoriesChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, pick),
     );
   }
 
@@ -827,16 +955,22 @@ class AssistantBrain {
       );
     }
     final shown = products.take(maxProducts).toList();
+    final pick = _firstAvailable(shown);
+    final suggestions = _chips([
+      if (category != null) _cheapestChip(category.label),
+      _addChip(pick),
+      _offersChip,
+      _categoriesChip,
+    ]);
     return AssistantReply(
-      'Here is $title.',
+      handle == 'hampers'
+          ? 'A few gift ideas from Hampers. You can also open Flowers, '
+                'Fruit Bouquets or Special Occasions below.'
+          : 'A few products from $title:',
       products: shown,
       actions: [action, ...extra],
-      suggestions: _chips([
-        if (category != null) _cheapestChip(category.label),
-        _addChip(_firstAvailable(shown)),
-        _offersChip,
-        _categoriesChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, pick),
     );
   }
 
@@ -864,6 +998,29 @@ class AssistantBrain {
     suggestions: const [_popularChip, _categoriesChip, _offersChip],
   );
 
+  /// Words about orders and accounts, which the store's search would
+  /// answer with unrelated products.
+  static const Set<String> _serviceWords = {
+    'order',
+    'orders',
+    'minimum',
+    'account',
+    'accounts',
+    'login',
+    'logout',
+    'signin',
+    'signup',
+    'password',
+    'refund',
+    'refunds',
+    'invoice',
+    'invoices',
+    'receipt',
+    'receipts',
+    'history',
+    'status',
+  };
+
   Future<AssistantReply> _search(String query) async {
     if (query.isEmpty) {
       return const AssistantReply(
@@ -871,22 +1028,33 @@ class AssistantBrain {
         '$_tryHint',
       );
     }
+    if (AssistantIntentParser.words(query).every(_serviceWords.contains)) {
+      return const AssistantReply(
+        'I cannot look up orders or accounts here. Customer service can '
+        'help with that.',
+        actions: contactActions,
+        suggestions: [_deliveryChip, _paymentChip, _offersChip],
+      );
+    }
     // Only [maxProducts] rows are shown; "See all results" has the rest.
     final results = await _find(query, limit: maxProducts);
     if (results.isEmpty) return _notFound(query);
     final count = results.length;
     final shown = results.take(maxProducts).toList();
+    final pick = _firstAvailable(shown);
+    final suggestions = _chips([
+      _cheapestChip(query),
+      _stockChip(query),
+      _addChip(pick),
+    ]);
     return AssistantReply(
       count == 1
           ? 'I found this for "$query".'
           : 'Here is what I found for "$query".',
       products: shown,
       actions: [OpenSearchAction(query)],
-      suggestions: _chips([
-        _cheapestChip(query),
-        _stockChip(query),
-        _addChip(_firstAvailable(shown)),
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, pick),
     );
   }
 
@@ -904,9 +1072,15 @@ class AssistantBrain {
         suggestions: const ['Cheapest avocado', _offersChip, _categoriesChip],
       );
     }
-    final results = await _find(query, limit: 20);
-    if (results.isEmpty) return _notFound(query);
+    final found = await _find(query, limit: 20);
+    if (found.isEmpty) return _notFound(query);
     final action = OpenSearchAction(query);
+    // The store's search also suggests related products ("Guava" for
+    // avocado): only the ones that name what was asked are ranked, unless
+    // none does.
+    final named = _naming(found, query);
+    final exact = named.isNotEmpty;
+    final results = exact ? named : found;
 
     int price(Product p) => p.defaultVariant!.priceCents;
     // Lowest price first; equal prices keep the store's order.
@@ -932,40 +1106,81 @@ class AssistantBrain {
         : sorted.where((p) => price(p) <= max).toList();
     if (fitting.isEmpty) {
       final cheapest = sorted.first;
+      final suggestions = _chips([
+        _addChip(cheapest),
+        _offersChip,
+        _categoriesChip,
+      ]);
       return AssistantReply(
         'Nothing for "$query" is under ${formatMoney(max!)} right now. The '
         'cheapest is ${_name(cheapest, cheapest.defaultVariant!)} at '
         '${cheapest.defaultVariant!.priceText}.',
         products: [cheapest],
         actions: [action],
-        suggestions: _chips([_addChip(cheapest), _offersChip, _categoriesChip]),
+        suggestions: suggestions,
+        chipProducts: _chipsFor(suggestions, cheapest),
       );
     }
     final shown = fitting.take(maxProducts).toList();
     final label = '${query[0].toUpperCase()}${query.substring(1)}';
+    final suggestions = _chips([
+      _addChip(shown.first),
+      _priceChip(shown.first),
+      _stockChip(query),
+      _offersChip,
+    ]);
     return AssistantReply(
-      max == null
-          ? 'The cheapest $query right now:'
-          : '$label under ${formatMoney(max)}:',
+      switch ((max, exact)) {
+        (null, true) => 'The cheapest $query right now:',
+        (null, false) => 'The cheapest of what I found for "$query":',
+        (final int max, true) => '$label under ${formatMoney(max)}:',
+        (final int max, false) =>
+          'What I found for "$query" under ${formatMoney(max)}:',
+      },
       products: shown,
       actions: [action],
-      suggestions: _chips([
-        _addChip(shown.first),
-        _priceChip(shown.first),
-        _stockChip(query),
-        _offersChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, shown.first),
     );
   }
 
-  Future<AssistantReply> _price(String query) async {
+  /// [products] whose title, type, brand or tags contain every word of
+  /// [query], as typed or made singular.
+  static List<Product> _naming(List<Product> products, String query) {
+    final wanted = AssistantIntentParser.words(query);
+    if (wanted.isEmpty) return products;
+    return [
+      for (final product in products)
+        if (_names(product, wanted)) product,
+    ];
+  }
+
+  static bool _names(Product product, List<String> words) {
+    final text = [
+      product.title,
+      product.productType,
+      product.vendor,
+      ...product.tags,
+    ].join(' ').toLowerCase();
+    return words.every(
+      (word) =>
+          text.contains(word) ||
+          text.contains(AssistantIntentParser.singular(word)),
+    );
+  }
+
+  /// [target]: the product of a "How much is ...?" chip, answered for
+  /// itself instead of searching again.
+  Future<AssistantReply> _price(String query, {Product? target}) async {
     if (query.isEmpty) {
       return const AssistantReply(
         'Tell me which product, for example "How much is avocado?".',
         suggestions: ['Cheapest avocado', _offersChip, _categoriesChip],
       );
     }
-    final results = await _find(query, limit: maxProducts);
+    final results = target != null
+        ? [await _fresh(target)]
+        : await _find(query, limit: maxProducts);
     if (results.isEmpty) return _notFound(query);
     final product = results.first;
     final variant = product.defaultVariant;
@@ -986,16 +1201,18 @@ class AssistantBrain {
       ];
       if (others.isNotEmpty) text.write(' ${_join(others.take(2).toList())}.');
     }
+    final suggestions = _chips([
+      if (product.available) _addChip(product),
+      _stockChip(query),
+      _cheapestChip(query),
+      _offersChip,
+    ]);
     return AssistantReply(
       text.toString(),
       products: results.take(maxProducts).toList(),
       actions: [OpenSearchAction(query)],
-      suggestions: _chips([
-        if (product.available) _addChip(product),
-        _stockChip(query),
-        _cheapestChip(query),
-        _offersChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, product),
     );
   }
 
@@ -1026,17 +1243,19 @@ class AssistantBrain {
           : '${product.title} is sold out right now. ${other.title} is in '
                 'stock.';
     }
+    final suggestions = product.available
+        ? _chips([
+            _addChip(product),
+            _priceChip(product),
+            _cheapestChip(query),
+          ])
+        : _chips([_cheapestChip(query), _offersChip, _categoriesChip]);
     return AssistantReply(
       text,
       products: results.take(maxProducts).toList(),
       actions: [OpenSearchAction(query)],
-      suggestions: product.available
-          ? _chips([
-              _addChip(product),
-              _priceChip(product),
-              _cheapestChip(query),
-            ])
-          : _chips([_cheapestChip(query), _offersChip, _categoriesChip]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, product),
     );
   }
 
@@ -1084,10 +1303,12 @@ class AssistantBrain {
     final found = await _pooled<String, Product>(recipe.ingredients, (
       ingredient,
     ) async {
-      final results = await _find(ingredient, limit: 4);
-      return results
-          .where((p) => p.available && _titleHas(p.title, ingredient))
-          .firstOrNull;
+      // The cheapest in stock that names the ingredient: the store often
+      // lists a box first.
+      final results = await _find(ingredient, limit: 10);
+      return _cheapestAvailable(
+        results.where((p) => _titleHas(p.title, ingredient)),
+      );
     });
     final products = <Product>[];
     final missing = <String>[];
@@ -1112,6 +1333,12 @@ class AssistantBrain {
       );
     }
     final shown = products.take(maxRecipeProducts).toList();
+    final suggestions = _chips([
+      _addChip(shown.first),
+      _cartChip,
+      others[2].message,
+      _offersChip,
+    ]);
     return AssistantReply(
       missing.isEmpty
           ? 'For ${recipe.dish}, you could use:'
@@ -1122,12 +1349,8 @@ class AssistantBrain {
         AddProductsAction('Add all to cart', products: shown),
         ...otherButtons,
       ],
-      suggestions: _chips([
-        _addChip(shown.first),
-        _cartChip,
-        others[2].message,
-        _offersChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, shown.first),
     );
   }
 
@@ -1172,6 +1395,8 @@ class AssistantBrain {
     }
     final shown = await Future.wait(saved.take(maxProducts).map(_fresh));
     final count = saved.length;
+    final pick = _firstAvailable(shown);
+    final suggestions = _chips([_addChip(pick), _cartChip, _popularChip]);
     return AssistantReply(
       count == 1
           ? 'You have 1 favourite.'
@@ -1181,11 +1406,8 @@ class AssistantBrain {
                 '$maxProducts.',
       products: shown,
       actions: const [OpenFavouritesAction()],
-      suggestions: _chips([
-        _addChip(_firstAvailable(shown)),
-        _cartChip,
-        _popularChip,
-      ]),
+      suggestions: suggestions,
+      chipProducts: _chipsFor(suggestions, pick),
     );
   }
 }
