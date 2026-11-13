@@ -1,6 +1,10 @@
-/// Formats an amount held in minor units (fils) the way the store shows it:
-/// `Dhs. 12.50`, `Dhs. 1,250.00`.
-String formatMoney(int cents) {
+/// The official UAE Dirham sign (U+20C3). It is drawn by the bundled
+/// "Dirham" font, which every app text style lists as its fallback.
+const String dirhamSign = '\u20C3';
+
+/// The amount alone, grouped with commas: `12.50`, `1,250.00` (`-5.00`
+/// below zero).
+String formatAmount(int cents) {
   final negative = cents < 0;
   final abs = cents.abs();
   final whole = (abs ~/ 100).toString();
@@ -10,8 +14,18 @@ String formatMoney(int cents) {
     if (i > 0 && (whole.length - i) % 3 == 0) grouped.write(',');
     grouped.write(whole[i]);
   }
-  return '${negative ? '-' : ''}Dhs. $grouped.$fraction';
+  return '${negative ? '-' : ''}$grouped.$fraction';
 }
+
+/// Formats an amount held in minor units (fils) with the Dirham sign:
+/// `\u20C3 12.50`, `\u20C3 1,250.00` (sign, space, amount).
+String formatMoney(int cents) =>
+    '${cents < 0 ? '-' : ''}$dirhamSign ${formatAmount(cents.abs())}';
+
+/// What a screen reader says for an amount: `AED 12.50`. Use it as the
+/// `semanticsLabel` of any Text that shows [formatMoney].
+String moneySemantics(int cents) =>
+    '${cents < 0 ? '-' : ''}AED ${formatAmount(cents.abs())}';
 
 /// Parses a price from any storefront shape into minor units.
 ///

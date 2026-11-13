@@ -73,7 +73,8 @@ class CartLine {
   /// sale.
   int? get oldLineTotalCents => onSale ? compareAtCents! * quantity : null;
 
-  /// "500 GM · Dhs. 4.75 each", or just "Dhs. 300.00 each".
+  /// "500 GM · \u20C3 4.75 each", or just "\u20C3 300.00 each" (the
+  /// Dirham sign, see formatMoney).
   String get detailLine => [
         ?variantTitle,
         '${formatMoney(priceCents)} each',

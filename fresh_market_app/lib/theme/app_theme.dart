@@ -1,55 +1,97 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Colour tokens of the approved design. Every colour comes from THE
-/// FRESH MARKET logo: a black wordmark on a lime half-circle, on white.
+/// Colour tokens. A calm white canvas, black (ink) type and ONE accent,
+/// green, used with discipline.
+///
+/// Green is only for: add (+) buttons and quantity steppers, the buying
+/// calls to action (Add to cart, Checkout, Deliver to <area>, Start
+/// shopping, Add all to cart), Express (bolt icon, ETA text),
+/// delivery-promise highlights, success notices, the cart badge and the
+/// active-tab indicator. Everything else is ink, grey or white.
+///
+/// Contrast (WCAG): ink on canvas 18.9:1; [secondary] on canvas 6.4:1 and
+/// on [subtle] 5.9:1; white on [green] 5.3:1; [green] text on canvas 5.3:1,
+/// on [subtle] 4.9:1 and on [greenSoft] 4.7:1; white on [saving] 5.2:1 and
+/// [saving] text on canvas 5.2:1; [navInactive] on ink 8.3:1. [tertiary]
+/// (3.3:1) is for icons, decoration and large text only.
 abstract final class AppColors {
-  /// Page background on every screen: a mild tint of the logo's lime.
-  static const Color page = Color(0xFFEFF5DA);
+  /// The page background on every screen.
+  static const Color canvas = Color(0xFFFFFFFF);
 
-  /// Deeper lime tint used by category tiles and quiet controls.
-  static const Color tile = Color(0xFFDDEBB0);
-
-  /// 1px border of cards, tiles and the bottom bar.
-  static const Color border = Color(0xFFCCDD98);
-
-  /// Cards, inputs and the bottom bar.
+  /// White surfaces on the canvas: cards, sheets, inputs that sit on
+  /// [subtle], round buttons. The same white as [canvas].
   static const Color surface = Color(0xFFFFFFFF);
 
-  /// The logo's black: text, black heading tags, sale pills, the Ask
-  /// button. Also the text and icons on [lime].
+  /// Warm off-white: image wells, category tiles, the search field,
+  /// segmented-control track, info cards, assistant bubbles.
+  static const Color subtle = Color(0xFFF5F6F2);
+
+  /// 1px card borders and dividers.
+  static const Color hairline = Color(0xFFE8E9E4);
+
+  /// Text, the brand, heading tags, selected states, the bottom bar.
   static const Color ink = Color(0xFF111111);
-  static const Color secondary = Color(0xFF4E5641);
-  static const Color body = Color(0xFF33392A);
 
-  /// The logo's lime: primary buttons, add buttons, the active tab, lime
-  /// heading tags and the cart badge. Never put white on it: text and
-  /// icons on lime are [ink].
-  static const Color lime = Color(0xFFB8D432);
+  /// Secondary text (size lines, captions, hints). 6.4:1 on canvas.
+  static const Color secondary = Color(0xFF5C6159);
 
-  /// Dark olive (the store website's own pin colour) for green text and
-  /// small accent icons on white or light backgrounds: links, "View all",
-  /// sale prices. Lime itself is too light for text.
-  static const Color olive = Color(0xFF4F6B00);
+  /// Icons, decoration and large text only (3.3:1 on canvas).
+  static const Color tertiary = Color(0xFF8A8F86);
 
-  /// Category tile label.
-  static const Color tileLabel = Color(0xFF2E3B00);
+  /// THE accent. White text on it is 5.3:1. See the class comment for the
+  /// only places it may be used.
+  static const Color green = Color(0xFF0E7C3A);
 
-  /// Disabled fills and text.
-  static const Color disabledFill = Color(0xFFE8EBE0);
-  static const Color disabledText = Color(0xFF8A9080);
+  /// Pressed / hover state of [green] fills.
+  static const Color greenPressed = Color(0xFF0A6830);
+
+  /// Behind small green text (an "Express" tag).
+  static const Color greenSoft = Color(0xFFE8F4EC);
+
+  /// Deep orange for the discount badge and the sale price (not red).
+  /// White text on it is 5.2:1.
+  static const Color saving = Color(0xFFC2410C);
+
+  /// Text and icons on [ink], [green] and [saving] fills.
+  static const Color onDark = Color(0xFFFFFFFF);
+
+  /// Inactive icons and labels on the ink bottom bar (8.3:1 on ink).
+  static const Color navInactive = Color(0xFFA9ADA4);
+
+  /// Disabled fills (buttons, tiles) and their text / icons.
+  static const Color disabledFill = Color(0xFFEDEEE9);
+  static const Color disabledText = Color(0xFF8A8F86);
+
+  /// Loading skeleton blocks.
+  static const Color skeleton = Color(0xFFEDEEE9);
 }
 
-/// Spacing, radii and sizes shared by every screen.
+/// Spacing, radii and sizes shared by every screen (8pt grid).
 abstract final class AppDims {
   /// The one page gutter.
   static const double gutter = 16;
 
-  static const double cardRadius = 12;
-  static const double controlRadius = 10;
+  /// Vertical space between Home sections.
+  static const double sectionGap = 28;
+
+  /// Space between a section heading and its content.
+  static const double headingGap = 12;
+
+  /// Radii: cards 14, image wells 12, buttons and inputs 12, banners and
+  /// the map 16, chips and pills fully round.
+  static const double cardRadius = 14;
+  static const double wellRadius = 12;
+  static const double buttonRadius = 12;
+  static const double controlRadius = 12;
+  static const double bannerRadius = 16;
 
   /// Minimum touch target.
   static const double touch = 44;
+
+  /// Height of primary buttons and of the search field.
+  static const double buttonHeight = 52;
+  static const double fieldHeight = 48;
 
   /// Space the floating bottom bar needs below scrollable content, before
   /// the device's own bottom inset.
@@ -72,17 +114,59 @@ abstract final class AppDims {
 
   static const BorderRadius cardBorderRadius =
       BorderRadius.all(Radius.circular(cardRadius));
+  static const BorderRadius wellBorderRadius =
+      BorderRadius.all(Radius.circular(wellRadius));
+  static const BorderRadius buttonBorderRadius =
+      BorderRadius.all(Radius.circular(buttonRadius));
   static const BorderRadius controlBorderRadius =
       BorderRadius.all(Radius.circular(controlRadius));
+  static const BorderRadius bannerBorderRadius =
+      BorderRadius.all(Radius.circular(bannerRadius));
+  static const BorderRadius pillBorderRadius =
+      BorderRadius.all(Radius.circular(999));
 }
 
-/// Type scale. All styles use the bundled Inter family.
+/// Shadows. Cards get a barely-there lift; floating things a soft one.
+abstract final class AppShadows {
+  /// Cards: 0 1 3 rgba(0,0,0,.05).
+  static const List<BoxShadow> card = [
+    BoxShadow(color: Color(0x0D000000), blurRadius: 3, offset: Offset(0, 1)),
+  ];
+
+  /// Small raised controls on a tinted track (the selected segment of the
+  /// mode switch, round white buttons on an image).
+  static const List<BoxShadow> raised = [
+    BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2)),
+  ];
+
+  /// Floating surfaces: the bottom bar and the Ask pill.
+  static const List<BoxShadow> float = [
+    BoxShadow(color: Color(0x29000000), blurRadius: 24, offset: Offset(0, 8)),
+  ];
+
+  /// Sticky bottom bars (product detail, location picker): a soft shadow
+  /// cast upwards.
+  static const List<BoxShadow> sticky = [
+    BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, -2)),
+  ];
+}
+
+/// Type scale. Every style uses the bundled Inter family with the bundled
+/// "Dirham" family as fallback, so the UAE Dirham sign (U+20C3) renders
+/// anywhere.
 abstract final class AppText {
   static const String family = 'Inter';
 
-  /// 24/800: screen titles and the product title.
+  /// The family that has the Dirham sign.
+  static const String dirhamFamily = 'Dirham';
+  static const List<String> fallback = [dirhamFamily];
+
+  static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
+
+  /// 24/800 -0.3: screen titles and the product title.
   static const TextStyle title = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 24,
     height: 1.2,
     fontWeight: FontWeight.w800,
@@ -90,116 +174,281 @@ abstract final class AppText {
     letterSpacing: -0.3,
   );
 
-  /// 20/800: section headings and list titles.
+  /// 18/800: section heading text, app bar titles, empty-state titles.
   static const TextStyle heading = TextStyle(
     fontFamily: family,
-    fontSize: 20,
+    fontFamilyFallback: fallback,
+    fontSize: 18,
     height: 1.25,
     fontWeight: FontWeight.w800,
     color: AppColors.ink,
     letterSpacing: -0.2,
   );
 
-  /// 16/700: card headings.
+  /// 16/700: headings inside cards (summary card, info cards).
   static const TextStyle cardHeading = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 16,
     height: 1.3,
     fontWeight: FontWeight.w700,
     color: AppColors.ink,
   );
 
-  /// 14/400: body text.
+  /// 15/400: body text.
   static const TextStyle body = TextStyle(
     fontFamily: family,
-    fontSize: 14,
+    fontFamilyFallback: fallback,
+    fontSize: 15,
     height: 1.45,
     fontWeight: FontWeight.w400,
-    color: AppColors.body,
+    color: AppColors.ink,
   );
 
-  /// 14/500: product names.
+  /// 14/400: dense body text (rows, info cards, notes).
+  static const TextStyle bodySmall = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 14,
+    height: 1.4,
+    fontWeight: FontWeight.w400,
+    color: AppColors.ink,
+  );
+
+  /// 14/500: card titles (product names), two lines at most.
   static const TextStyle productName = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w500,
     color: AppColors.ink,
   );
 
-  /// 12/500: captions and size lines.
+  /// Same as [productName]: the spec's "card title 14/500".
+  static const TextStyle cardTitle = productName;
+
+  /// 12/500: captions and size lines, in [AppColors.secondary].
   static const TextStyle caption = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 12,
     height: 1.35,
     fontWeight: FontWeight.w500,
     color: AppColors.secondary,
   );
 
-  /// 16/800: prices on cards and rows.
+  /// 13/600: chip and pill labels, small buttons.
+  static const TextStyle label = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 13,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ink,
+  );
+
+  /// 16/800, tabular figures: prices on cards and rows.
   static const TextStyle price = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 16,
     height: 1.25,
     fontWeight: FontWeight.w800,
     color: AppColors.ink,
+    fontFeatures: _tabular,
   );
 
-  /// 12px struck-through old price.
+  /// 24/800, tabular figures: the price on product detail.
+  static const TextStyle priceLarge = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 24,
+    height: 1.2,
+    fontWeight: FontWeight.w800,
+    color: AppColors.ink,
+    letterSpacing: -0.3,
+    fontFeatures: _tabular,
+  );
+
+  /// 12/500 struck-through old price. Secondary rather than tertiary so the
+  /// text keeps 4.5:1.
   static const TextStyle oldPrice = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 12,
     height: 1.35,
     fontWeight: FontWeight.w500,
     color: AppColors.secondary,
     decoration: TextDecoration.lineThrough,
     decorationColor: AppColors.secondary,
+    fontFeatures: _tabular,
   );
 
-  /// 16/700 label of primary buttons.
+  /// 16/700 label of primary buttons (colour from the button).
   static const TextStyle button = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 16,
     height: 1.25,
     fontWeight: FontWeight.w700,
   );
 
-  /// 14/700 olive text link ("View all").
-  static const TextStyle link = TextStyle(
+  /// 14/600 label of secondary and small buttons (colour from the button).
+  static const TextStyle buttonSmall = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 14,
-    height: 1.3,
-    fontWeight: FontWeight.w700,
-    color: AppColors.olive,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
   );
 
-  /// 11/700 uppercase category tile label.
+  /// 14/600 ink text link ("See all", "Change").
+  static const TextStyle link = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 14,
+    height: 1.3,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ink,
+  );
+
+  /// 12/600 ink label under category and brand tiles (sentence case, two
+  /// lines at most).
   static const TextStyle tileLabel = TextStyle(
     fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 12,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+    color: AppColors.ink,
+  );
+
+  /// 11/700 bottom bar label (colour from the bar).
+  static const TextStyle navLabel = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
     fontSize: 11,
     height: 1.2,
     fontWeight: FontWeight.w700,
-    color: AppColors.tileLabel,
-    letterSpacing: 0.4,
+  );
+
+  /// 11/700 small tags and badges ("Express", "−46%"; colour from the tag).
+  static const TextStyle tag = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 11,
+    height: 1.2,
+    fontWeight: FontWeight.w700,
   );
 }
 
 /// Ready-made decorations.
 abstract final class AppDecor {
-  /// White card: radius 12, 1px border.
+  /// White card: radius 14, 1px hairline, very soft shadow.
   static const BoxDecoration card = BoxDecoration(
     color: AppColors.surface,
     borderRadius: AppDims.cardBorderRadius,
-    border: Border.fromBorderSide(BorderSide(color: AppColors.border)),
+    border: Border.fromBorderSide(BorderSide(color: AppColors.hairline)),
+    boxShadow: AppShadows.card,
+  );
+
+  /// Subtle info card (delivery summaries, notes): off-white, radius 12,
+  /// no border.
+  static const BoxDecoration info = BoxDecoration(
+    color: AppColors.subtle,
+    borderRadius: AppDims.wellBorderRadius,
+  );
+
+  /// Subtle image well: off-white, radius 12.
+  static const BoxDecoration well = BoxDecoration(
+    color: AppColors.subtle,
+    borderRadius: AppDims.wellBorderRadius,
+  );
+
+  /// White sticky bottom bar with a hairline on top.
+  static const BoxDecoration stickyBar = BoxDecoration(
+    color: AppColors.surface,
+    border: Border(top: BorderSide(color: AppColors.hairline)),
+  );
+
+  /// The shape of cards (for `Material(shape: ...)`).
+  static const RoundedRectangleBorder cardShape = RoundedRectangleBorder(
+    borderRadius: AppDims.cardBorderRadius,
+    side: BorderSide(color: AppColors.hairline),
   );
 
   /// Soft shadow under floating white surfaces (bottom bar, cart summary).
-  static const List<BoxShadow> floatShadow = [
-    BoxShadow(color: Color(0x1F2E3B00), blurRadius: 20, offset: Offset(0, 6)),
-  ];
+  static const List<BoxShadow> floatShadow = AppShadows.float;
 }
 
-/// Status bar style for the light lime page background.
+/// Button styles beyond the theme defaults. The theme's [FilledButton] is
+/// the green buying CTA, [OutlinedButton] the ink outline, [TextButton] an
+/// ink text link.
+abstract final class AppButtons {
+  /// Green filled, white label: the buying CTAs (theme default for
+  /// FilledButton).
+  static ButtonStyle get primary => FilledButton.styleFrom(
+        backgroundColor: AppColors.green,
+        foregroundColor: AppColors.onDark,
+        disabledBackgroundColor: AppColors.disabledFill,
+        disabledForegroundColor: AppColors.disabledText,
+        minimumSize: const Size(64, AppDims.buttonHeight),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppDims.buttonBorderRadius,
+        ),
+        textStyle: AppText.button,
+      );
+
+  /// Ink filled, white label: strong actions that are not buying (send).
+  static ButtonStyle get dark => FilledButton.styleFrom(
+        backgroundColor: AppColors.ink,
+        foregroundColor: AppColors.onDark,
+        disabledBackgroundColor: AppColors.disabledFill,
+        disabledForegroundColor: AppColors.disabledText,
+        minimumSize: const Size(64, AppDims.buttonHeight),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppDims.buttonBorderRadius,
+        ),
+        textStyle: AppText.button,
+      );
+
+  /// Ink outline on white (theme default for OutlinedButton): "Start
+  /// shopping" on empty states, "Discover now", destructive confirms.
+  static ButtonStyle get outline => OutlinedButton.styleFrom(
+        foregroundColor: AppColors.ink,
+        backgroundColor: AppColors.surface,
+        disabledForegroundColor: AppColors.disabledText,
+        minimumSize: const Size(64, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        side: const BorderSide(color: AppColors.ink, width: 1.5),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppDims.buttonBorderRadius,
+        ),
+        textStyle: AppText.buttonSmall,
+      );
+
+  /// Fully round ink outline pill (assistant action pills).
+  static ButtonStyle get outlinePill => outline.copyWith(
+        shape: const WidgetStatePropertyAll(StadiumBorder()),
+        minimumSize: const WidgetStatePropertyAll(Size(64, AppDims.touch)),
+      );
+
+  /// White pill with a hairline (sort pill, chips).
+  static ButtonStyle get chip => OutlinedButton.styleFrom(
+        foregroundColor: AppColors.ink,
+        backgroundColor: AppColors.surface,
+        minimumSize: const Size(44, AppDims.touch),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        side: const BorderSide(color: AppColors.hairline),
+        shape: const StadiumBorder(),
+        textStyle: AppText.label,
+      );
+}
+
+/// Status bar style for the white canvas.
 const SystemUiOverlayStyle appOverlayStyle = SystemUiOverlayStyle(
   statusBarColor: Color(0x00000000),
   statusBarIconBrightness: Brightness.dark,
@@ -209,58 +458,84 @@ const SystemUiOverlayStyle appOverlayStyle = SystemUiOverlayStyle(
 );
 
 ThemeData buildAppTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.lime,
+  const scheme = ColorScheme(
     brightness: Brightness.light,
-  ).copyWith(
-    primary: AppColors.lime,
-    onPrimary: AppColors.ink,
-    primaryContainer: AppColors.tile,
+    // Ink, not green: default Material widgets (switches, checkboxes,
+    // focus rings, spinners) stay neutral. The green buying button is set
+    // explicitly below.
+    primary: AppColors.ink,
+    onPrimary: AppColors.onDark,
+    primaryContainer: AppColors.subtle,
     onPrimaryContainer: AppColors.ink,
-    secondary: AppColors.olive,
-    onSecondary: Colors.white,
-    secondaryContainer: AppColors.tile,
+    secondary: AppColors.ink,
+    onSecondary: AppColors.onDark,
+    secondaryContainer: AppColors.subtle,
     onSecondaryContainer: AppColors.ink,
-    tertiary: AppColors.ink,
-    onTertiary: Colors.white,
+    tertiary: AppColors.green,
+    onTertiary: AppColors.onDark,
+    tertiaryContainer: AppColors.greenSoft,
+    onTertiaryContainer: AppColors.green,
+    // No red anywhere: errors are said in ink.
+    error: AppColors.ink,
+    onError: AppColors.onDark,
+    errorContainer: AppColors.subtle,
+    onErrorContainer: AppColors.ink,
     surface: AppColors.surface,
     onSurface: AppColors.ink,
     onSurfaceVariant: AppColors.secondary,
-    // No red anywhere: errors are said in ink.
-    error: AppColors.ink,
-    onError: Colors.white,
-    errorContainer: AppColors.tile,
-    onErrorContainer: AppColors.ink,
-    outline: AppColors.border,
+    surfaceDim: AppColors.subtle,
+    surfaceBright: AppColors.surface,
+    surfaceContainerLowest: AppColors.surface,
+    surfaceContainerLow: AppColors.surface,
+    surfaceContainer: AppColors.subtle,
+    surfaceContainerHigh: AppColors.subtle,
+    surfaceContainerHighest: AppColors.subtle,
+    surfaceTint: Color(0x00000000),
+    outline: AppColors.hairline,
+    outlineVariant: AppColors.hairline,
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: AppColors.ink,
+    onInverseSurface: AppColors.onDark,
+    inversePrimary: AppColors.navInactive,
   );
-  const buttonShape = RoundedRectangleBorder(
+  final outlinedBorder = OutlineInputBorder(
     borderRadius: AppDims.controlBorderRadius,
+    borderSide: BorderSide.none,
   );
-  OutlineInputBorder inputBorder(Color color, [double width = 1]) =>
-      OutlineInputBorder(
-        borderRadius: AppDims.controlBorderRadius,
-        borderSide: BorderSide(color: color, width: width),
-      );
+  const textTheme = TextTheme(
+    headlineSmall: AppText.title,
+    titleLarge: AppText.heading,
+    titleMedium: AppText.cardHeading,
+    titleSmall: AppText.productName,
+    bodyLarge: AppText.body,
+    bodyMedium: AppText.body,
+    bodySmall: AppText.caption,
+    labelLarge: AppText.button,
+    labelMedium: AppText.label,
+    labelSmall: AppText.tag,
+  );
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     fontFamily: AppText.family,
-    scaffoldBackgroundColor: AppColors.page,
-    canvasColor: AppColors.page,
-    dividerColor: AppColors.border,
+    // Applied to every text theme, so plain Text widgets (and the
+    // assistant's sentences) render the Dirham sign too.
+    fontFamilyFallback: AppText.fallback,
+    scaffoldBackgroundColor: AppColors.canvas,
+    canvasColor: AppColors.canvas,
+    dividerColor: AppColors.hairline,
     splashFactory: InkRipple.splashFactory,
-    textTheme: const TextTheme(
-      headlineSmall: AppText.title,
-      titleLarge: AppText.heading,
-      titleMedium: AppText.cardHeading,
-      bodyLarge: AppText.body,
-      bodyMedium: AppText.body,
-      bodySmall: AppText.caption,
-      labelLarge: AppText.button,
+    textTheme: textTheme.apply(fontFamilyFallback: AppText.fallback),
+    primaryTextTheme: textTheme.apply(fontFamilyFallback: AppText.fallback),
+    dividerTheme: const DividerThemeData(
+      color: AppColors.hairline,
+      thickness: 1,
+      space: 1,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.page,
+      backgroundColor: AppColors.canvas,
       foregroundColor: AppColors.ink,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
@@ -269,35 +544,16 @@ ThemeData buildAppTheme() {
       titleTextStyle: AppText.heading,
       systemOverlayStyle: appOverlayStyle,
     ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: AppColors.lime,
-        foregroundColor: AppColors.ink,
-        disabledBackgroundColor: AppColors.disabledFill,
-        disabledForegroundColor: AppColors.disabledText,
-        minimumSize: const Size(64, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        shape: buttonShape,
-        textStyle: AppText.button,
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.ink,
-        backgroundColor: AppColors.surface,
-        minimumSize: const Size(64, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        side: const BorderSide(color: AppColors.border),
-        shape: buttonShape,
-        textStyle: AppText.button.copyWith(fontSize: 14),
-      ),
-    ),
+    filledButtonTheme: FilledButtonThemeData(style: AppButtons.primary),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: AppButtons.outline),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.olive,
+        foregroundColor: AppColors.ink,
         minimumSize: const Size(AppDims.touch, AppDims.touch),
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        shape: buttonShape,
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppDims.buttonBorderRadius,
+        ),
         textStyle: AppText.link,
       ),
     ),
@@ -307,32 +563,57 @@ ThemeData buildAppTheme() {
         minimumSize: const Size(AppDims.touch, AppDims.touch),
       ),
     ),
+    chipTheme: const ChipThemeData(
+      backgroundColor: AppColors.surface,
+      selectedColor: AppColors.surface,
+      disabledColor: AppColors.disabledFill,
+      side: BorderSide(color: AppColors.hairline),
+      shape: StadiumBorder(),
+      labelStyle: AppText.label,
+      checkmarkColor: AppColors.ink,
+      showCheckmark: false,
+    ),
     inputDecorationTheme: InputDecorationThemeData(
       filled: true,
-      fillColor: AppColors.surface,
+      fillColor: AppColors.subtle,
       hintStyle: AppText.body.copyWith(color: AppColors.secondary),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: inputBorder(AppColors.border),
-      enabledBorder: inputBorder(AppColors.border),
-      focusedBorder: inputBorder(AppColors.olive, 1.5),
+      border: outlinedBorder,
+      enabledBorder: outlinedBorder,
+      focusedBorder: const OutlineInputBorder(
+        borderRadius: AppDims.controlBorderRadius,
+        borderSide: BorderSide(color: AppColors.ink, width: 1.5),
+      ),
     ),
-    // The default cursor would be lime (primary), too faint on white and
-    // the page; the selection is a translucent lime under ink text.
     textSelectionTheme: const TextSelectionThemeData(
-      cursorColor: AppColors.olive,
-      selectionColor: Color(0x80B8D432),
-      selectionHandleColor: AppColors.olive,
+      cursorColor: AppColors.ink,
+      selectionColor: Color(0x33111111),
+      selectionHandleColor: AppColors.ink,
     ),
-    // Olive, not lime: a spinner must stand out on white and the page.
+    // Ink: a spinner is not an accent.
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: AppColors.olive,
+      color: AppColors.ink,
+      linearTrackColor: AppColors.hairline,
+      circularTrackColor: Colors.transparent,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: AppColors.surface,
+      surfaceTintColor: Colors.transparent,
+      modalBackgroundColor: AppColors.surface,
+    ),
+    dialogTheme: const DialogThemeData(
+      backgroundColor: AppColors.surface,
+      surfaceTintColor: Colors.transparent,
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.ink,
-      contentTextStyle: AppText.body.copyWith(color: Colors.white),
-      actionTextColor: AppColors.lime,
+      contentTextStyle: AppText.bodySmall.copyWith(color: AppColors.onDark),
+      // Green on ink would be under 4.5:1; the action is white and bold.
+      actionTextColor: AppColors.onDark,
       behavior: SnackBarBehavior.floating,
-      shape: buttonShape,
+      shape: const RoundedRectangleBorder(
+        borderRadius: AppDims.buttonBorderRadius,
+      ),
     ),
   );
 }
