@@ -65,12 +65,17 @@ class MoneyText extends StatelessWidget {
   }
 }
 
-/// A price with the struck-through old price beside it, on one line.
+/// A price with the struck-through old price beside it.
 ///
 /// Pass [oldPriceCents] only when the item is on sale (`variant.oldPriceCents`
 /// and `line.oldLineTotalCents` already follow that rule); the price is then
 /// drawn in saving orange. Use `large: true` for the 24/800 price on product
 /// detail; add a trailing [SalePill] there through [trailing].
+///
+/// With [wrap] (the default) the price keeps the shopper's text size: when
+/// the parts do not fit one line, the old price (and [trailing]) go to the
+/// next line. Without it the row stays one line and shrinks to fit (a
+/// fixed-height product card at normal text sizes).
 ///
 /// Screen readers hear "AED 12.50, was AED 23.00".
 class PriceRow extends StatelessWidget {
@@ -80,17 +85,57 @@ class PriceRow extends StatelessWidget {
     this.oldPriceCents,
     this.large = false,
     this.trailing,
+    this.wrap = true,
   });
 
   final int priceCents;
   final int? oldPriceCents;
   final bool large;
   final Widget? trailing;
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
     final old = oldPriceCents;
     final showOld = old != null && old > priceCents;
+    final gap = large ? 8.0 : 6.0;
+    final price = Text(
+      formatMoney(priceCents),
+      semanticsLabel: moneySemantics(priceCents),
+      maxLines: 1,
+      style: (large ? AppText.priceLarge : AppText.price)
+          .copyWith(color: showOld ? AppColors.saving : null),
+    );
+    final oldText = showOld
+        ? Text(
+            // The currency is already on the price next to it.
+            formatAmount(old),
+            semanticsLabel: 'was ${moneySemantics(old)}',
+            maxLines: 1,
+            style: large
+                ? AppText.oldPrice.copyWith(fontSize: 15)
+                : AppText.oldPrice,
+          )
+        : null;
+    if (wrap) {
+      // Bottom-aligned runs: the baselines of the price, the old price and
+      // the badge sit within a pixel of each other.
+      return Wrap(
+        spacing: gap,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        children: [
+          // Only a price wider than the whole line shrinks.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: price,
+          ),
+          ?oldText,
+          ?trailing,
+        ],
+      );
+    }
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: AlignmentDirectional.centerStart,
@@ -99,25 +144,8 @@ class PriceRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(
-            formatMoney(priceCents),
-            semanticsLabel: moneySemantics(priceCents),
-            maxLines: 1,
-            style: (large ? AppText.priceLarge : AppText.price)
-                .copyWith(color: showOld ? AppColors.saving : null),
-          ),
-          if (showOld) ...[
-            SizedBox(width: large ? 8 : 6),
-            Text(
-              // The currency is already on the price next to it.
-              formatAmount(old),
-              semanticsLabel: 'was ${moneySemantics(old)}',
-              maxLines: 1,
-              style: large
-                  ? AppText.oldPrice.copyWith(fontSize: 15)
-                  : AppText.oldPrice,
-            ),
-          ],
+          price,
+          if (oldText != null) ...[SizedBox(width: gap), oldText],
           if (trailing != null) ...[
             const SizedBox(width: 10),
             trailing!,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../app.dart';
 import '../app_nav.dart';
 import '../data/catalog.dart';
 import '../models/product.dart';
@@ -26,6 +27,9 @@ class HomeScreen extends StatefulWidget {
 
   /// How many products a rail shows before "See all".
   static const int railLimit = 10;
+
+  /// Category tiles on Home: two rows of four.
+  static const int categoryLimit = 8;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -121,36 +125,35 @@ class _HomeScreenState extends State<HomeScreen> {
             const _Header(),
             const SizedBox(height: 20),
             const _BannerCarousel(),
-            const _Section(
+            // Two rows; "See all" opens the Categories tab with all of them.
+            _Section(
               title: 'Shop By Category',
               icon: Icons.grid_view_rounded,
-              child: Padding(
+              onViewAll: () => AppNav.goToTab(context, AppTab.categories),
+              child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
-                child: CategoryGrid(),
+                child: CategoryGrid(limit: HomeScreen.categoryLimit),
               ),
             ),
             for (final rail in Catalog.railsBeforeBrands)
               _rail(
                 rail,
                 afterGrid: rail == Catalog.railsBeforeBrands.first
-                    ? [for (final c in Catalog.categories) c.label]
+                    ? [
+                        for (final c in CategoryGrid.shown(
+                          HomeScreen.categoryLimit,
+                        ))
+                          c.label,
+                      ]
                     : null,
               ),
+            // One sideways row of brands.
             const _Section(
               title: 'Brands We Love',
               icon: Icons.favorite,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppDims.gutter),
-                child: BrandGrid(),
-              ),
+              child: BrandRail(),
             ),
-            for (final rail in Catalog.railsAfterBrands)
-              _rail(
-                rail,
-                afterGrid: rail == Catalog.railsAfterBrands.first
-                    ? [for (final b in Catalog.brands) b.name]
-                    : null,
-              ),
+            for (final rail in Catalog.railsAfterBrands) _rail(rail),
             const _Section(
               title: 'Offers',
               icon: Icons.campaign,
@@ -198,16 +201,28 @@ class _Section extends StatelessWidget {
     return (AppDims.sectionGap - free).clamp(8.0, AppDims.sectionGap);
   }
 
+  /// The heading row is at least a touch target tall, with the tag
+  /// centred in it; this is the free space above and below the tag, taken
+  /// off the gaps so the gaps the eye sees are [AppDims.sectionGap] and
+  /// [AppDims.headingGap].
+  static double touchInset(BuildContext context) {
+    final tag = SectionTag.heightOf(context);
+    return tag >= AppDims.touch ? 0 : (AppDims.touch - tag) / 2;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final inset = touchInset(context);
     return Padding(
-      padding: EdgeInsets.only(top: gapAbove(context, afterGrid: afterGrid)),
+      padding: EdgeInsets.only(
+        top: gapAbove(context, afterGrid: afterGrid) - inset,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           SectionHeader(title: title, icon: icon, onViewAll: onViewAll),
-          const SizedBox(height: AppDims.headingGap),
+          SizedBox(height: AppDims.headingGap - inset),
           child,
         ],
       ),
@@ -254,7 +269,7 @@ class _Header extends StatelessWidget {
           AppDims.gutter,
           top + 8,
           AppDims.gutter,
-          2,
+          1,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -273,11 +288,11 @@ class _Header extends StatelessWidget {
                 const LocationChip(),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             SearchFieldButton(onTap: () => AppNav.openSearch(context)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const DeliveryModeSwitch(),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             // Two planned lines: the bold time, then the detail.
             const DeliveryLine(stacked: true),
           ],
@@ -287,8 +302,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// The three bundled banners with page dots. Advances by itself; a tap
-/// opens the banner's collection.
+/// The three bundled banners with page dots. Advances by itself every
+/// [interval] until the shopper touches it or a screen reader focuses a
+/// banner, and never with reduce motion on (WCAG 2.2.2); a tap opens the
+/// banner's collection.
 class _BannerCarousel extends StatefulWidget {
   const _BannerCarousel();
 
@@ -307,15 +324,33 @@ class _BannerCarouselState extends State<_BannerCarousel> {
   Timer? _timer;
   int _page = 0;
 
+  /// The shopper swiped or touched the banners, or a screen reader focused
+  /// one: they stay where the shopper left them from then on.
+  bool _stopped = false;
+
+  /// The system's "remove animations" setting.
+  bool _reduceMotion = false;
+
   @override
-  void initState() {
-    super.initState();
-    _restartTimer();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _syncTimer();
   }
 
-  void _restartTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(_BannerCarousel.interval, (_) => _advance());
+  void _syncTimer() {
+    if (_stopped || _reduceMotion) {
+      _timer?.cancel();
+      _timer = null;
+    } else {
+      _timer ??= Timer.periodic(_BannerCarousel.interval, (_) => _advance());
+    }
+  }
+
+  void _stop() {
+    if (_stopped) return;
+    _stopped = true;
+    _syncTimer();
   }
 
   void _advance() {
@@ -351,42 +386,43 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                 _BannerCarousel.aspectRatio;
             return SizedBox(
               height: height,
-              child: PageView.builder(
-                controller: _controller,
-                itemCount: banners.length,
-                onPageChanged: (index) {
-                  setState(() => _page = index);
-                  _restartTimer();
-                },
-                itemBuilder: (context, index) {
-                  final banner = banners[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDims.gutter,
-                    ),
-                    child: Semantics(
-                      button: true,
-                      label: 'Shop ${banner.title}',
-                      child: Material(
-                        key: ValueKey('banner-$index'),
-                        color: AppColors.subtle,
-                        borderRadius: AppDims.bannerBorderRadius,
-                        clipBehavior: Clip.antiAlias,
-                        child: Ink.image(
-                          image: AssetImage(banner.asset),
-                          fit: BoxFit.cover,
-                          child: InkWell(
-                            onTap: () => AppNav.openCollection(
-                              context,
-                              handle: banner.handle,
-                              title: banner.title,
+              child: Listener(
+                onPointerDown: (_) => _stop(),
+                child: PageView.builder(
+                  controller: _controller,
+                  itemCount: banners.length,
+                  onPageChanged: (index) => setState(() => _page = index),
+                  itemBuilder: (context, index) {
+                    final banner = banners[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDims.gutter,
+                      ),
+                      child: Semantics(
+                        button: true,
+                        label: 'Shop ${banner.title}',
+                        onDidGainAccessibilityFocus: _stop,
+                        child: Material(
+                          key: ValueKey('banner-$index'),
+                          color: AppColors.subtle,
+                          borderRadius: AppDims.bannerBorderRadius,
+                          clipBehavior: Clip.antiAlias,
+                          child: Ink.image(
+                            image: AssetImage(banner.asset),
+                            fit: BoxFit.cover,
+                            child: InkWell(
+                              onTap: () => AppNav.openCollection(
+                                context,
+                                handle: banner.handle,
+                                title: banner.title,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             );
           },

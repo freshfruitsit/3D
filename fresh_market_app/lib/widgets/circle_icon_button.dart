@@ -6,6 +6,10 @@ import 'floating_nav_bar.dart';
 /// A 44px round white button with a hairline and a soft shadow: back
 /// arrows, the favourite heart and the cart button on product detail.
 /// [badgeCount] above 0 adds the green count badge.
+///
+/// Screen readers hear a button named [semanticLabel] (or [tooltip]), with
+/// its on/off state when [toggled] is set; the badge's digits are not read
+/// on their own (put the count in [semanticLabel]).
 class CircleIconButton extends StatelessWidget {
   const CircleIconButton({
     super.key,
@@ -14,6 +18,8 @@ class CircleIconButton extends StatelessWidget {
     required this.tooltip,
     this.iconColor = AppColors.ink,
     this.badgeCount = 0,
+    this.semanticLabel,
+    this.toggled,
   });
 
   /// The standard back button; pops the nearest navigator.
@@ -30,6 +36,13 @@ class CircleIconButton extends StatelessWidget {
   final String tooltip;
   final Color iconColor;
   final int badgeCount;
+
+  /// What screen readers hear; [tooltip] when null.
+  final String? semanticLabel;
+
+  /// The on/off state of a toggle (the favourite heart); null for a plain
+  /// button.
+  final bool? toggled;
 
   static const double size = AppDims.touch;
 
@@ -54,21 +67,31 @@ class CircleIconButton extends StatelessWidget {
         ),
       ),
     );
-    return Tooltip(
-      message: tooltip,
-      child: badgeCount > 0
-          ? Stack(
-              clipBehavior: Clip.none,
-              children: [
-                button,
-                Positioned(
-                  top: -3,
-                  right: -3,
-                  child: CountBadge(count: badgeCount),
-                ),
-              ],
-            )
-          : button,
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      toggled: toggled,
+      label: semanticLabel ?? tooltip,
+      onTap: onPressed,
+      // The tooltip (long press) and the badge's digits are not read
+      // separately.
+      excludeSemantics: true,
+      child: Tooltip(
+        message: tooltip,
+        child: badgeCount > 0
+            ? Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  button,
+                  Positioned(
+                    top: -3,
+                    right: -3,
+                    child: CountBadge(count: badgeCount),
+                  ),
+                ],
+              )
+            : button,
+      ),
     );
   }
 }

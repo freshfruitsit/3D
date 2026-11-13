@@ -19,9 +19,28 @@ import '../widgets/state_views.dart';
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
+  /// Under the subtotal. The store's own cart says "Duties and taxes
+  /// included. Shipping is calculated at checkout."
+  static const String vatNote =
+      'Prices include VAT. Any delivery fee is shown at checkout.';
+
+  /// Under the subtotal when some lines are sold out.
+  static const String soldOutNote = 'Sold-out items are not included.';
+
+  /// The Checkout label with the total: "Checkout · \u20C3 62.50".
+  static String checkoutLabel(int cents) => 'Checkout · ${formatMoney(cents)}';
+
+  /// Above the text scale where the summary card stops being pinned and
+  /// scrolls with the lines, so it never squeezes them off the screen.
+  static const double pinnedSummaryMaxScale = 1.3;
+
   @override
   State<CartScreen> createState() => _CartScreenState();
 }
+
+/// Said when the cart finds lines the store has sold out since.
+const String soldOutMessage =
+    'Some items are sold out now. They are not included in your order.';
 
 class _CartScreenState extends State<CartScreen> {
   @override
@@ -31,13 +50,17 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   /// The cart is saved on the device, possibly days ago: bring names and
-  /// prices up to date and drop lines the store no longer has.
+  /// prices up to date, drop lines the store no longer has and mark the
+  /// ones it has sold out since. Each is said once.
   Future<void> _revalidate() async {
-    final removed = await context.read<CartStore>().revalidate(
-      context.read<ShopifyApi>(),
-    );
-    if (removed > 0 && mounted) {
+    final cart = context.read<CartStore>();
+    final soldOutBefore = cart.soldOutLines;
+    final removed = await cart.revalidate(context.read<ShopifyApi>());
+    if (!mounted) return;
+    if (removed > 0) {
       AppNav.showNotice(context, AppNav.removedItemsMessage);
+    } else if (cart.soldOutLines > soldOutBefore) {
+      AppNav.showNotice(context, soldOutMessage);
     }
   }
 
@@ -46,6 +69,16 @@ class _CartScreenState extends State<CartScreen> {
     final cart = context.watch<CartStore>();
     final lines = cart.lines;
     final count = cart.itemCount;
+    // Pinned above the bar at normal text sizes; at a large font size it
+    // scrolls with the lines instead (and its text is never capped).
+    final pinned =
+        MediaQuery.textScalerOf(context).scale(10) / 10 <=
+        CartScreen.pinnedSummaryMaxScale;
+    final summary = _SummaryCard(
+      subtotalCents: cart.subtotalCents,
+      soldOut: cart.soldOutLines > 0,
+      canCheckout: cart.hasAvailableLines,
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -96,20 +129,22 @@ class _CartScreenState extends State<CartScreen> {
             else ...[
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     AppDims.gutter,
                     0,
                     AppDims.gutter,
-                    16,
+                    pinned ? 16 : AppDims.bottomBarSpace(context),
                   ),
                   // The delivery card, then the lines with hairlines
-                  // between them.
-                  itemCount: lines.length + 1,
-                  separatorBuilder: (_, index) => index == 0
+                  // between them (and, at a large font size, the summary).
+                  itemCount: lines.length + (pinned ? 1 : 2),
+                  separatorBuilder: (_, index) =>
+                      index == 0 || index == lines.length
                       ? const SizedBox(height: 8)
                       : const Divider(height: 1),
                   itemBuilder: (context, index) {
                     if (index == 0) return const CartDeliveryCard();
+                    if (index > lines.length) return summary;
                     final line = lines[index - 1];
                     return _CartRow(
                       key: ValueKey<int>(line.variantId),
@@ -118,15 +153,16 @@ class _CartScreenState extends State<CartScreen> {
                   },
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDims.gutter,
-                  0,
-                  AppDims.gutter,
-                  AppDims.bottomBarSpace(context) - 12,
+              if (pinned)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppDims.gutter,
+                    0,
+                    AppDims.gutter,
+                    AppDims.bottomBarSpace(context) - 12,
+                  ),
+                  child: summary,
                 ),
-                child: _SummaryCard(subtotalCents: cart.subtotalCents),
-              ),
             ],
           ],
         ),
@@ -146,6 +182,18 @@ class _CartRow extends StatefulWidget {
 
 class _CartRowState extends State<_CartRow> {
   bool _opening = false;
+
+  /// Removes the whole line, with "Undo".
+  void _remove(CartStore cart, CartLine line) {
+    final index = cart.indexOf(line.variantId);
+    cart.remove(line.variantId);
+    AppNav.showNotice(
+      context,
+      'Removed ${line.title} from your cart.',
+      actionLabel: 'Undo',
+      onAction: () => cart.restoreLine(line, index: index),
+    );
+  }
 
   /// Cart lines keep only what the row needs, so the full product is
   /// loaded before product detail opens. A failure leaves the shopper on
@@ -170,7 +218,26 @@ class _CartRowState extends State<_CartRow> {
   Widget build(BuildContext context) {
     final line = widget.line;
     final cart = context.read<CartStore>();
-    final variant = line.variantTitle;
+    final detail = line.detailLine;
+    // At a large font size the stepper goes under the price, so the
+    // price keeps the shopper's size.
+    final stack =
+        MediaQuery.textScalerOf(context).scale(10) / 10 >
+        CartScreen.pinnedSummaryMaxScale;
+    final Widget control = line.available
+        ? QuantityStepper(
+            quantity: line.quantity,
+            style: QuantityStepperStyle.solid,
+            onDecrement: () => decrementWithUndo(context, cart, line.variantId),
+            onIncrement: line.quantity >= CartStore.maxQuantity
+                ? null
+                : () => cart.increment(line.variantId),
+          )
+        : _SoldOutActions(onRemove: () => _remove(cart, line));
+    final price = PriceRow(
+      priceCents: line.lineTotalCents,
+      oldPriceCents: line.available ? line.oldLineTotalCents : null,
+    );
 
     return InkWell(
       onTap: _openProduct,
@@ -219,37 +286,38 @@ class _CartRowState extends State<_CartRow> {
                     overflow: TextOverflow.ellipsis,
                     style: AppText.productName,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    line.detailLine,
-                    semanticsLabel: [
-                      ?variant,
-                      '${moneySemantics(line.priceCents)} each',
-                    ].join(', '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.caption,
-                  ),
+                  if (detail.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      semanticsLabel: line.detailSemantics,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.caption,
+                    ),
+                  ],
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PriceRow(
-                          priceCents: line.lineTotalCents,
-                          oldPriceCents: line.oldLineTotalCents,
+                  if (stack) ...[
+                    // A sold-out line's price is struck: it is not counted.
+                    Opacity(opacity: line.available ? 1 : 0.6, child: price),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: control,
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Opacity(
+                            opacity: line.available ? 1 : 0.6,
+                            child: price,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      QuantityStepper(
-                        quantity: line.quantity,
-                        style: QuantityStepperStyle.solid,
-                        onDecrement: () => cart.decrement(line.variantId),
-                        onIncrement: line.quantity >= CartStore.maxQuantity
-                            ? null
-                            : () => cart.increment(line.variantId),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        control,
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -260,10 +328,43 @@ class _CartRowState extends State<_CartRow> {
   }
 }
 
+/// In place of the stepper on a line the store has sold out since it was
+/// added: "Sold out" and a way to remove it.
+class _SoldOutActions extends StatelessWidget {
+  const _SoldOutActions({required this.onRemove});
+
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Sold out',
+          style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 4),
+        TextButton(onPressed: onRemove, child: const Text('Remove')),
+      ],
+    );
+  }
+}
+
 class _SummaryCard extends StatefulWidget {
-  const _SummaryCard({required this.subtotalCents});
+  const _SummaryCard({
+    required this.subtotalCents,
+    required this.soldOut,
+    required this.canCheckout,
+  });
 
   final int subtotalCents;
+
+  /// Some lines are sold out (and not in [subtotalCents]).
+  final bool soldOut;
+
+  /// At least one line can be bought.
+  final bool canCheckout;
 
   @override
   State<_SummaryCard> createState() => _SummaryCardState();
@@ -285,44 +386,44 @@ class _SummaryCardState extends State<_SummaryCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Capped text scaling keeps the card a bounded height, so the list
-    // above always has room.
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: 1.3,
-      child: Container(
+    // Never capped: at a large font size the card scrolls with the lines
+    // (see CartScreen.pinnedSummaryMaxScale).
+    final total = widget.subtotalCents;
+    return Container(
         decoration: AppDecor.card.copyWith(boxShadow: AppDecor.floatShadow),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            // One line when it fits; at a large font size the amount goes
+            // under "Subtotal" rather than shrinking.
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 16,
               children: [
                 const Text('Subtotal', style: AppText.cardHeading),
-                const SizedBox(width: 16),
-                // Takes the rest of the row so the total sits flush right.
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: MoneyText(
-                      widget.subtotalCents,
-                      style: AppText.price.copyWith(fontSize: 20),
-                    ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: MoneyText(
+                    total,
+                    style: AppText.price.copyWith(fontSize: 20),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 2),
-            const Text(
-              'Delivery and taxes are calculated at checkout.',
+            Text(
+              widget.soldOut
+                  ? '${CartScreen.vatNote} ${CartScreen.soldOutNote}'
+                  : CartScreen.vatNote,
               style: AppText.caption,
             ),
             const SizedBox(height: 14),
             FilledButton(
-              onPressed: _checkout,
+              onPressed: widget.canCheckout ? _checkout : null,
               child: _checking
                   ? const SizedBox(
                       width: 20,
@@ -333,11 +434,19 @@ class _SummaryCardState extends State<_SummaryCard> {
                         color: AppColors.onDark,
                       ),
                     )
-                  : const Text('Checkout'),
+                  : Text(
+                      widget.canCheckout
+                          ? CartScreen.checkoutLabel(total)
+                          : 'Remove sold-out items to check out',
+                      semanticsLabel: widget.canCheckout
+                          ? 'Checkout, ${moneySemantics(total)}'
+                          : null,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                    ),
             ),
           ],
         ),
-      ),
     );
   }
 }

@@ -44,8 +44,23 @@ class ProductCard extends StatelessWidget {
   /// Space under the last line of text.
   static const double bottomPadding = 10;
 
-  /// Inset of the badge, heart and add control from the well's edges.
+  /// Inset of the add control's circle (and the "Sold out" tag) from the
+  /// well's edges: its 48px touch target sits in the corner.
   static const double wellInset = 6;
+
+  /// Inset of the discount badge and of the heart's circle from the well's
+  /// top edge (the heart's 48px touch target sits in the corner).
+  static const double topInset =
+      (AppDims.controlTarget - FavouriteHeart.circleSize) / 2;
+
+  /// Above this text scale a sale price and its old price may take two
+  /// lines on a card (the price keeps the shopper's size), so cards keep
+  /// room for both.
+  static const double wrapPriceAbove = 1.3;
+
+  /// True when cards at the current text size let the price wrap.
+  static bool priceWraps(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(10) / 10 > wrapPriceAbove;
 
   /// The fixed height of a card at the current text size. Call it from a
   /// build method: once a delivery area is set the cards grow to make room
@@ -62,6 +77,10 @@ class ProductCard extends StatelessWidget {
               scaler.scale(DeliveryPromiseLine.fontSize) *
                   DeliveryPromiseLine.lineHeight
         : 0.0;
+    // The old price's own line when a sale price wraps (large text).
+    final secondPriceLine = priceWraps(context)
+        ? 2 + line(AppText.oldPrice)
+        : 0.0;
     // Border 2, padding 8 + well + gap 8, name, gap 2, size, gap 4,
     // price, delivery, bottom padding, +1 for rounding.
     return 2 +
@@ -73,6 +92,7 @@ class ProductCard extends StatelessWidget {
         line(AppText.caption) +
         4 +
         line(AppText.price) +
+        secondPriceLine +
         delivery +
         bottomPadding +
         1;
@@ -93,11 +113,8 @@ class ProductCard extends StatelessWidget {
     final sizeLine = product.sizeLine(variant);
     final percent = variant?.salePercent;
     final soldOut = variant == null || !variant.available;
-    // The heart and the add control are 44px touch targets around smaller
-    // circles; shift them so the circles sit [wellInset] from the edges.
-    const heartShift =
-        wellInset - (AppDims.touch - FavouriteHeart.circleSize) / 2;
-    const addShift = wellInset - (AppDims.touch - AddControl.circleSize) / 2;
+    // The heart and the add control are 48px touch targets in the well's
+    // corners; their circles sit [topInset] and [wellInset] in.
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -141,18 +158,18 @@ class ProductCard extends StatelessWidget {
                       ),
                       if (percent != null)
                         Positioned(
-                          top: wellInset,
-                          left: wellInset,
+                          top: topInset,
+                          left: topInset,
                           child: SalePill(percent: percent),
                         ),
                       Positioned(
-                        top: heartShift,
-                        right: heartShift,
+                        top: 0,
+                        right: 0,
                         child: FavouriteHeart(product: product),
                       ),
                       Positioned(
-                        right: soldOut ? wellInset : addShift,
-                        bottom: soldOut ? wellInset : addShift,
+                        right: soldOut ? wellInset : 0,
+                        bottom: soldOut ? wellInset : 0,
                         child: soldOut
                             ? const _SoldOutTag()
                             : AddControl(product: product, variant: variant),
@@ -185,6 +202,7 @@ class ProductCard extends StatelessWidget {
                         PriceRow(
                           priceCents: variant.priceCents,
                           oldPriceCents: variant.oldPriceCents,
+                          wrap: priceWraps(context),
                         ),
                       DeliveryPromiseLine(product: product),
                     ],
@@ -200,7 +218,7 @@ class ProductCard extends StatelessWidget {
 }
 
 /// The favourite heart on a product photo: an outline ink heart in a 32px
-/// white circle (filled ink heart when saved), in a 44px touch target.
+/// white circle (filled ink heart when saved), in a 48px touch target.
 /// Wired to the [FavouritesStore]; draws nothing when there is none.
 class FavouriteHeart extends StatelessWidget {
   const FavouriteHeart({super.key, required this.product});
@@ -216,20 +234,22 @@ class FavouriteHeart extends StatelessWidget {
       (s) => s?.contains(product.id),
     );
     if (saved == null) return const SizedBox.shrink();
+    void toggle() => context.read<FavouritesStore>().toggle(product);
     return Semantics(
       button: true,
       toggled: saved,
       label: saved
           ? 'Remove ${product.title} from favourites'
           : 'Add ${product.title} to favourites',
+      onTap: toggle,
       excludeSemantics: true,
       child: InkResponse(
         key: ValueKey('favourite-${product.id}'),
-        onTap: () => context.read<FavouritesStore>().toggle(product),
-        radius: 22,
+        onTap: toggle,
+        radius: AppDims.controlTarget / 2,
         child: SizedBox(
-          width: AppDims.touch,
-          height: AppDims.touch,
+          width: AppDims.controlTarget,
+          height: AppDims.controlTarget,
           child: Center(
             child: DecoratedBox(
               decoration: const BoxDecoration(

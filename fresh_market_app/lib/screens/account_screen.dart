@@ -2,18 +2,22 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
+import '../delivery/delivery.dart';
 import '../state/favourites_store.dart';
 import '../theme/app_theme.dart';
 import 'intro_screen.dart';
 
 /// The Account tab: a sign-in card (sign-in is not available in this
-/// version), the way into the favourites list and a replay of the intro.
+/// version, said with a "Coming soon" tag rather than a dead button), the
+/// delivery location, the way into the favourites list and a replay of the
+/// intro.
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final favourites = context.select<FavouritesStore, int>((s) => s.count);
+    final area = context.select<DeliveryStore, DeliveryArea?>((s) => s.area);
 
     return Scaffold(
       body: SafeArea(
@@ -72,12 +76,31 @@ class AccountScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Signing in is not buying: ink, not the green CTA.
-                  FilledButton(
-                    style: AppButtons.dark,
-                    onPressed: null,
-                    child: const Text('Sign in'),
+                  const SizedBox(height: 12),
+                  // Not a dead "Sign in" button: a quiet tag says it is
+                  // on its way.
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 60),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Container(
+                        key: const ValueKey('sign-in-coming-soon'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: const ShapeDecoration(
+                          color: AppColors.subtle,
+                          shape: StadiumBorder(),
+                        ),
+                        child: Text(
+                          comingSoon,
+                          style: AppText.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -91,6 +114,17 @@ class AccountScreen extends StatelessWidget {
                 type: MaterialType.transparency,
                 child: Column(
                   children: [
+                    _AccountRow(
+                      key: const ValueKey('account-location'),
+                      icon: Icons.location_on_outlined,
+                      label: 'Delivery location',
+                      onTap: () => AppNav.openLocationPicker(context),
+                      // The area, as in the Home chip.
+                      subtitle: area == null
+                          ? DeliveryCopy.chipLabel(null)
+                          : DeliveryCopy.chipHint(area),
+                    ),
+                    const Divider(height: 1, indent: 52),
                     _AccountRow(
                       // Ink either way: filled when something is saved.
                       icon: favourites > 0
@@ -125,6 +159,9 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+  /// The tag on the sign-in card.
+  static const String comingSoon = 'Coming soon';
+
   /// Plays the intro over the whole screen (no bottom bar) and comes back
   /// here when it finishes.
   static Future<void> _watchIntro(BuildContext context) =>
@@ -142,16 +179,21 @@ class AccountScreen extends StatelessWidget {
 /// chevron.
 class _AccountRow extends StatelessWidget {
   const _AccountRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
     this.trailing,
+    this.subtitle,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Widget? trailing;
+
+  /// A second line under the label in grey ("Business Bay, Dubai").
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -166,9 +208,24 @@ class _AccountRow extends StatelessWidget {
               Icon(icon, size: 22, color: AppColors.ink),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  label,
-                  style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (subtitle != null)
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.bodySmall.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (trailing != null) ...[

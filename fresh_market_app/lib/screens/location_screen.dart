@@ -65,6 +65,9 @@ class LocationScreen extends StatefulWidget {
   static const String userAgentPackageName = 'ae.freshmarket.fresh_market_app';
   static const String attribution = '© OpenStreetMap contributors';
   static const String mapHint = 'Tap the map or drag it to move the pin.';
+  /// The Express zone's fill on the map: the accent at 10%.
+  static const Color zoneFill = Color(0x1A0E7C3A);
+
   static const String tilesFailed =
       "The map couldn't load. Search for your area instead.";
 
@@ -421,18 +424,22 @@ class _LocationScreenState extends State<LocationScreen> {
                                 LocationScreen.userAgentPackageName,
                             errorTileCallback: (_, _, _) => _onTileError(),
                           ),
-                          CircleLayer(
-                            circles: [
-                              CircleMarker(
-                                point: LatLng(hub.lat, hub.lng),
-                                radius: DeliveryConfig.expressKm * 1000,
-                                useRadiusInMeter: true,
-                                color: const Color(0x260E7C3A),
-                                borderColor: AppColors.green,
-                                borderStrokeWidth: 2,
-                              ),
-                            ],
-                          ),
+                          // A hint of the Express zone under the streets;
+                          // with no streets (tiles failed) it would be a
+                          // mint slab, so the calm placeholder stays.
+                          if (!_tilesFailed)
+                            CircleLayer(
+                              circles: [
+                                CircleMarker(
+                                  point: LatLng(hub.lat, hub.lng),
+                                  radius: DeliveryConfig.expressKm * 1000,
+                                  useRadiusInMeter: true,
+                                  color: LocationScreen.zoneFill,
+                                  borderColor: AppColors.green,
+                                  borderStrokeWidth: 1.5,
+                                ),
+                              ],
+                            ),
                           MarkerLayer(
                             markers: [
                               Marker(
@@ -508,9 +515,9 @@ class _LocationScreenState extends State<LocationScreen> {
               height: 14,
               margin: const EdgeInsets.only(top: 1),
               decoration: BoxDecoration(
-                color: const Color(0x260E7C3A),
+                color: LocationScreen.zoneFill,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.green, width: 2),
+                border: Border.all(color: AppColors.green, width: 1.5),
               ),
             ),
             const SizedBox(width: 6),
@@ -659,6 +666,7 @@ class _GpsButton extends StatelessWidget {
       button: true,
       enabled: !locating,
       label: label,
+      onTap: locating ? null : onTap,
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -880,6 +888,7 @@ class _PlaceRow extends StatelessWidget {
         if (subtitle.isNotEmpty) subtitle,
         if (covered) 'Express available',
       ].join(', '),
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         type: MaterialType.transparency,
