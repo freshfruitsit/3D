@@ -72,3 +72,54 @@ class BrandGrid extends StatelessWidget {
     );
   }
 }
+
+/// The brand tiles in one horizontal row (Home), so the brand photos sit
+/// in one band and there is never a half-empty last row. Scrolls
+/// sideways; the next tile peeks in at the right edge.
+class BrandRail extends StatelessWidget {
+  const BrandRail({super.key, this.onSelected});
+
+  /// Defaults to opening Search pre-filled with the brand's search term.
+  final ValueChanged<BrandEntry>? onSelected;
+
+  /// Width of one tile.
+  static const double tileWidth = 80;
+
+  /// Gap between tiles.
+  static const double gap = 12;
+
+  /// Height of the rail at the current text size: the square and as many
+  /// label lines as the longest name needs.
+  static double heightOf(BuildContext context) {
+    final lines = SquareTile.linesNeeded(context, tileWidth, [
+      for (final b in Catalog.brands) b.name,
+    ]);
+    return SquareTile.heightFor(context, tileWidth, lines);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const brands = Catalog.brands;
+    return SizedBox(
+      height: heightOf(context),
+      child: ListView.separated(
+        key: const PageStorageKey('brand-rail'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppDims.gutter),
+        itemCount: brands.length,
+        separatorBuilder: (_, _) => const SizedBox(width: gap),
+        itemBuilder: (context, index) {
+          final brand = brands[index];
+          return SizedBox(
+            width: tileWidth,
+            child: BrandTile(
+              key: ValueKey('brand-$index'),
+              brand: brand,
+              onTap: onSelected == null ? null : () => onSelected!(brand),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

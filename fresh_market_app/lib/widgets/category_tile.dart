@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../app_nav.dart';
 import '../data/catalog.dart';
 import '../theme/app_theme.dart';
+import 'a11y.dart';
 
 /// The square, label-below tile shared by categories and brands: an
 /// off-white square (radius 14) holding [image], and the label under it in
@@ -44,10 +45,29 @@ class SquareTile extends StatelessWidget {
     int lines = labelLines,
   ]) => width + labelGap + labelHeight(context, lines) + slack;
 
+  /// The style [label] is drawn in on a tile [width] wide: the tile label,
+  /// as the Text really draws it (inherited style, bold text), at a
+  /// smaller size when one of its words would not fit the width on its
+  /// own, so no word is broken in two ("Vegetabl|es") at a large font size.
+  static TextStyle labelStyle(
+    BuildContext context,
+    double width,
+    String label,
+  ) {
+    final style = effectiveTextStyle(context, AppText.tileLabel);
+    final size = fittingFontSize(
+      label,
+      style,
+      MediaQuery.textScalerOf(context),
+      width,
+    );
+    return size == style.fontSize ? style : style.copyWith(fontSize: size);
+  }
+
   /// How many label lines (1 or 2) the longest of [labels] takes on a tile
   /// [width] wide at the current text size. A grid keeps that many under
   /// every tile, so its rows line up without an empty line when every
-  /// name fits on one.
+  /// name fits on one. Measured with the style the label is drawn in.
   static int linesNeeded(
     BuildContext context,
     double width,
@@ -56,7 +76,10 @@ class SquareTile extends StatelessWidget {
     var lines = 1;
     for (final label in labels) {
       final painter = TextPainter(
-        text: TextSpan(text: label, style: AppText.tileLabel),
+        text: TextSpan(
+          text: label,
+          style: labelStyle(context, width, label),
+        ),
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
         textScaler: MediaQuery.textScalerOf(context),
@@ -75,6 +98,7 @@ class SquareTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         type: MaterialType.transparency,
@@ -95,12 +119,14 @@ class SquareTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: labelGap),
-              Text(
-                label,
-                maxLines: labelLines,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: AppText.tileLabel,
+              LayoutBuilder(
+                builder: (context, constraints) => Text(
+                  label,
+                  maxLines: labelLines,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: labelStyle(context, constraints.maxWidth, label),
+                ),
               ),
             ],
           ),
@@ -200,16 +226,28 @@ abstract final class TileGrid {
   }
 }
 
-/// The 4-column grid of the 12 category tiles. Not scrollable: put it in
-/// the page's scroll view and add the page gutter around it.
+/// The 4-column grid of the category tiles (all 12, or the first [limit]).
+/// Not scrollable: put it in the page's scroll view and add the page
+/// gutter around it.
 class CategoryGrid extends StatelessWidget {
-  const CategoryGrid({super.key, this.onSelected});
+  const CategoryGrid({super.key, this.onSelected, this.limit});
 
   /// Defaults to opening the category's product list.
   final ValueChanged<CategoryEntry>? onSelected;
 
+  /// Shows only the first [limit] categories (Home: two rows, with "See
+  /// all" opening the Categories tab).
+  final int? limit;
+
+  /// The categories shown with [limit].
+  static List<CategoryEntry> shown([int? limit]) =>
+      limit == null || limit >= Catalog.categories.length
+          ? Catalog.categories
+          : Catalog.categories.sublist(0, limit);
+
   @override
   Widget build(BuildContext context) {
+    final categories = shown(limit);
     return LayoutBuilder(
       builder: (context, constraints) => GridView.builder(
         shrinkWrap: true,
@@ -219,11 +257,11 @@ class CategoryGrid extends StatelessWidget {
         gridDelegate: TileGrid.delegate(
           context,
           constraints.maxWidth,
-          labels: [for (final c in Catalog.categories) c.label],
+          labels: [for (final c in categories) c.label],
         ),
-        itemCount: Catalog.categories.length,
+        itemCount: categories.length,
         itemBuilder: (context, index) {
-          final category = Catalog.categories[index];
+          final category = categories[index];
           return CategoryTile(
             key: ValueKey('category-$index'),
             category: category,
