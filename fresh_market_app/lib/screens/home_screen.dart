@@ -205,7 +205,7 @@ class _Header extends StatelessWidget {
                   children: [
                     Image.asset(
                       Catalog.logoWideAsset,
-                      height: 48,
+                      height: 56,
                       fit: BoxFit.contain,
                       semanticLabel: 'Fresh Market',
                     ),

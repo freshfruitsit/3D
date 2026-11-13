@@ -123,13 +123,13 @@ class DeliveryPlace extends GeoPoint {
 
   /// From one of the website's areas.
   DeliveryPlace.fromArea(DeliveryArea area)
-      : this(
-          name: area.name,
-          emirate: area.emirate,
-          lat: area.lat,
-          lng: area.lng,
-          sub: area.emirate.label,
-        );
+    : this(
+        name: area.name,
+        emirate: area.emirate,
+        lat: area.lat,
+        lng: area.lng,
+        sub: area.emirate.label,
+      );
 
   final String name;
   final Emirate? emirate;
@@ -161,14 +161,14 @@ class DeliveryPlace extends GeoPoint {
   /// A copy at another point (the website keeps the pin, not the
   /// geocoder's point, after a reverse lookup).
   DeliveryPlace at(double lat, double lng) => DeliveryPlace(
-        name: name,
-        emirate: emirate,
-        lat: lat,
-        lng: lng,
-        sub: sub,
-        foreign: foreign,
-        isStore: isStore,
-      );
+    name: name,
+    emirate: emirate,
+    lat: lat,
+    lng: lng,
+    sub: sub,
+    foreign: foreign,
+    isStore: isStore,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -271,7 +271,8 @@ abstract final class DeliveryRules {
     double r(double x) => x * math.pi / 180;
     final dLat = r(a.lat - b.lat);
     final dLng = r(a.lng - b.lng);
-    final s = math.pow(math.sin(dLat / 2), 2) +
+    final s =
+        math.pow(math.sin(dLat / 2), 2) +
         math.cos(r(a.lat)) *
             math.cos(r(b.lat)) *
             math.pow(math.sin(dLng / 2), 2);
@@ -301,7 +302,8 @@ abstract final class DeliveryRules {
         short: 'Within $hrs hrs',
         by: by,
         left: formatLeft(cut - h),
-        sub: 'Order now and it arrives by $by · same-day cut-off '
+        sub:
+            'Order now and it arrives by $by · same-day cut-off '
             '${formatHour(cut)}',
         cutHour: cut,
       );
@@ -317,7 +319,8 @@ abstract final class DeliveryRules {
   }
 
   /// True when [point] is inside the Express zone (time does not matter).
-  static bool isCovered(GeoPoint point) => km(point) <= DeliveryConfig.expressKm;
+  static bool isCovered(GeoPoint point) =>
+      km(point) <= DeliveryConfig.expressKm;
 
   /// True while Express runs (8 AM to 10 PM UAE time).
   static bool isExpressOpen(DateTime now) {
@@ -363,7 +366,9 @@ abstract final class DeliveryRules {
     final n = nearestArea(lat, lng);
     if (n.km <= DeliveryConfig.maxAreaKm) {
       return DeliveryPlace(
-        name: n.km > DeliveryConfig.nearKm ? 'Near ${n.area.name}' : n.area.name,
+        name: n.km > DeliveryConfig.nearKm
+            ? 'Near ${n.area.name}'
+            : n.area.name,
         emirate: n.area.emirate,
         lat: lat,
         lng: lng,
@@ -426,8 +431,9 @@ abstract final class DeliveryRules {
     return {
       'Delivery mode': mode.label,
       'Delivery area': area.label,
-      'Delivery promise':
-          isExpress ? express(area, now).range : market(area, now).line,
+      'Delivery promise': isExpress
+          ? express(area, now).range
+          : market(area, now).line,
       'Delivery pin': area.pin,
     };
   }

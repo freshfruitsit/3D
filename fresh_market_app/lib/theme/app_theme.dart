@@ -316,6 +316,13 @@ ThemeData buildAppTheme() {
       enabledBorder: inputBorder(AppColors.border),
       focusedBorder: inputBorder(AppColors.olive, 1.5),
     ),
+    // The default cursor would be lime (primary), too faint on white and
+    // the page; the selection is a translucent lime under ink text.
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: AppColors.olive,
+      selectionColor: Color(0x80B8D432),
+      selectionHandleColor: AppColors.olive,
+    ),
     // Olive, not lime: a spinner must stand out on white and the page.
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: AppColors.olive,
