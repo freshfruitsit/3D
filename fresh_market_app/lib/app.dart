@@ -87,12 +87,16 @@ class FreshMarketApp extends StatelessWidget {
     required this.cart,
     required this.favourites,
     this.shell,
+    this.showIntro = true,
   });
 
   final ShopifyApi api;
   final CartStore cart;
   final FavouritesStore favourites;
   final ShellController? shell;
+
+  /// False skips the intro video (tests).
+  final bool showIntro;
 
   @override
   Widget build(BuildContext context) {
@@ -105,8 +109,8 @@ class FreshMarketApp extends StatelessWidget {
         title: 'Fresh Market',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        // First launch shows the intro video once, then the shell.
-        home: const IntroGate(child: AppShell()),
+        // Every launch shows the intro video, then the shell.
+        home: IntroGate(enabled: showIntro, child: const AppShell()),
       ),
     );
   }

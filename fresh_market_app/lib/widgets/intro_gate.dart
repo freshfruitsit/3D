@@ -1,86 +1,60 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../intro/intro_player.dart';
 import '../screens/intro_screen.dart';
-import '../theme/app_theme.dart';
 
-/// Shows the intro video on the very first launch, then [child].
+/// Shows the intro video every time the app starts, then [child].
 ///
-/// On later launches [child] shows straight away. While the saved flag is
-/// being read only the plain page background is shown, so the intro never
-/// flashes. [child] is not built until the intro has finished.
-///
-/// If device storage cannot be read the intro is skipped, so a shopper is
-/// never made to watch it on every launch.
+/// [child] is built straight away, hidden under the intro, so the shop
+/// loads its products while the video plays and is ready the moment the
+/// shopper taps Skip or Start shopping. While hidden it is not painted,
+/// cannot be tapped, is left out of accessibility and its animations are
+/// paused.
 class IntroGate extends StatefulWidget {
-  const IntroGate({super.key, required this.child, this.playerFactory});
+  const IntroGate({
+    super.key,
+    required this.child,
+    this.playerFactory,
+    this.enabled = true,
+  });
 
   final Widget child;
 
   /// Passed to [IntroScreen]; leave null in the app.
   final IntroPlayerFactory? playerFactory;
 
-  /// shared_preferences key; true once the intro has been finished.
-  static const String seenKey = 'intro_seen_v1';
+  /// False shows [child] straight away (tests).
+  final bool enabled;
 
   @override
   State<IntroGate> createState() => _IntroGateState();
 }
 
-enum _GateState { loading, intro, done }
-
 class _IntroGateState extends State<IntroGate> {
-  _GateState _state = _GateState.loading;
-  SharedPreferences? _prefs;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    var seen = true;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _prefs = prefs;
-      seen = prefs.getBool(IntroGate.seenKey) ?? false;
-    } catch (_) {
-      seen = true;
-    }
-    if (!mounted) return;
-    setState(() => _state = seen ? _GateState.done : _GateState.intro);
-  }
+  late bool _done = !widget.enabled;
 
   void _onIntroDone() {
-    if (_state == _GateState.done) return;
-    setState(() => _state = _GateState.done);
-    final prefs = _prefs;
-    if (prefs != null) {
-      unawaited(
-        prefs
-            .setBool(IntroGate.seenKey, true)
-            .then<void>((_) {})
-            .catchError((Object _) {}),
-      );
-    }
+    if (_done) return;
+    setState(() => _done = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return switch (_state) {
-      _GateState.loading => const ColoredBox(
-          color: AppColors.page,
-          child: SizedBox.expand(),
+    // The child keeps the same place in the tree before and after the
+    // intro, so it is not rebuilt from scratch when the intro ends.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Offstage(
+          offstage: !_done,
+          child: TickerMode(enabled: _done, child: widget.child),
         ),
-      _GateState.intro => IntroScreen(
-          onDone: _onIntroDone,
-          playerFactory: widget.playerFactory,
-        ),
-      _GateState.done => widget.child,
-    };
+        if (!_done)
+          IntroScreen(
+            onDone: _onIntroDone,
+            playerFactory: widget.playerFactory,
+          ),
+      ],
+    );
   }
 }

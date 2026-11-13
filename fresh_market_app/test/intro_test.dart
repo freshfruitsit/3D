@@ -6,7 +6,6 @@ import 'package:fresh_market_app/screens/intro_screen.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/intro_gate.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/test_app.dart';
 
@@ -353,34 +352,20 @@ void main() {
       );
     }
 
-    testWidgets('first launch: intro, then the app, and the flag is stored',
-        (tester) async {
-      SharedPreferences.setMockInitialValues({});
+    testWidgets('the intro shows first, then the app', (tester) async {
       await pumpGate(tester, FakeIntroPlayer());
-
-      // While the flag loads: neither the intro nor the app.
-      expect(find.byType(IntroScreen), findsNothing);
-      expect(find.text('the shop'), findsNothing);
-      expect(
-        tester.widget<ColoredBox>(find.byType(ColoredBox).last).color,
-        AppColors.page,
-      );
-
-      await tester.pumpAndSettle();
       expect(find.byType(IntroScreen), findsOneWidget);
+      // The app is built underneath, hidden.
       expect(find.text('the shop'), findsNothing);
+      expect(find.text('the shop', skipOffstage: false), findsOneWidget);
 
       await tester.tap(find.byKey(IntroScreen.startKey));
       await tester.pumpAndSettle();
       expect(find.byType(IntroScreen), findsNothing);
       expect(find.text('the shop'), findsOneWidget);
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(IntroGate.seenKey), isTrue);
     });
 
     testWidgets('the video ending also opens the app', (tester) async {
-      SharedPreferences.setMockInitialValues({});
       final player = FakeIntroPlayer();
       await pumpGate(tester, player);
       await tester.pumpAndSettle();
@@ -391,13 +376,19 @@ void main() {
       expect(player.disposed, isTrue);
     });
 
-    testWidgets('later launches go straight to the app', (tester) async {
-      SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
+    testWidgets('disabled goes straight to the app', (tester) async {
       final player = FakeIntroPlayer();
-      await pumpGate(tester, player);
-      expect(find.byType(IntroScreen), findsNothing);
-
-      await tester.pumpAndSettle();
+      usePhoneSize(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppTheme(),
+          home: IntroGate(
+            enabled: false,
+            playerFactory: () => player,
+            child: const Text('the shop'),
+          ),
+        ),
+      );
       expect(find.byType(IntroScreen), findsNothing);
       expect(find.text('the shop'), findsOneWidget);
       expect(player.playCalls, 0);

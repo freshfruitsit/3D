@@ -9,7 +9,6 @@ import 'package:fresh_market_app/widgets/product_card.dart';
 import 'package:fresh_market_app/screens/assistant_screen.dart';
 import 'package:fresh_market_app/screens/intro_screen.dart';
 import 'package:fresh_market_app/widgets/ask_button.dart';
-import 'package:fresh_market_app/widgets/intro_gate.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,7 +18,7 @@ void main() {
   testWidgets('app starts on Home and the bottom bar switches tabs',
       (tester) async {
     usePhoneSize(tester);
-    SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
+    SharedPreferences.setMockInitialValues({});
     final shell = ShellController();
     final cart = CartStore();
     final products = sampleProducts();
@@ -30,6 +29,7 @@ void main() {
       cart: cart,
       favourites: FavouritesStore(),
       shell: shell,
+      showIntro: false,
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -53,8 +53,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('first launch shows the intro, then Home; not again after',
-      (tester) async {
+  testWidgets('every launch shows the intro, then Home', (tester) async {
     usePhoneSize(tester);
     SharedPreferences.setMockInitialValues({});
     Widget app() => FreshMarketApp(
@@ -64,37 +63,34 @@ void main() {
           favourites: FavouritesStore(),
         );
 
-    await tester.pumpWidget(app());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(IntroScreen), findsOneWidget);
-    expect(find.byType(FloatingNavBar), findsNothing);
+    for (var launch = 0; launch < 2; launch++) {
+      await tester.pumpWidget(app());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(IntroScreen), findsOneWidget);
+      // The shop is loading underneath but cannot be seen or tapped.
+      expect(find.byType(FloatingNavBar), findsNothing);
+      expect(find.byType(FloatingNavBar, skipOffstage: false), findsOneWidget);
 
-    await tester.tap(find.text('Start shopping'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(IntroScreen), findsNothing);
-    expect(find.byType(FloatingNavBar), findsOneWidget);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool(IntroGate.seenKey), isTrue);
-
-    await tester.pumpWidget(app());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(IntroScreen), findsNothing);
-    expect(find.byType(FloatingNavBar), findsOneWidget);
+      await tester.tap(find.text('Start shopping'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(IntroScreen), findsNothing);
+      expect(find.byType(FloatingNavBar), findsOneWidget);
+    }
   });
 
   testWidgets('Ask button sits 12px above the bar, hides on Cart and with '
       'the keyboard, and opens the assistant', (tester) async {
     usePhoneSize(tester);
-    SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
+    SharedPreferences.setMockInitialValues({});
     final shell = ShellController();
     await tester.pumpWidget(FreshMarketApp(
       api: FakeShopifyApi.sample(),
       cart: CartStore(),
       favourites: FavouritesStore(),
       shell: shell,
+      showIntro: false,
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -135,13 +131,14 @@ void main() {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    SharedPreferences.setMockInitialValues({IntroGate.seenKey: true});
+    SharedPreferences.setMockInitialValues({});
     final shell = ShellController();
     await tester.pumpWidget(FreshMarketApp(
       api: FakeShopifyApi.sample(),
       cart: CartStore(),
       favourites: FavouritesStore(),
       shell: shell,
+      showIntro: false,
     ));
     await tester.pump();
     shell.select(AppTab.deals);
