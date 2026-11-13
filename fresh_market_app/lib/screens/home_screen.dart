@@ -74,9 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _RailData next;
     try {
       final products = await context.read<ShopifyApi>().collectionProducts(
-            handle,
-            limit: HomeScreen.railLimit,
-          );
+        handle,
+        limit: HomeScreen.railLimit,
+      );
       next = _RailData(products: products);
     } on ApiException catch (e) {
       next = _RailData(error: e.userMessage);
@@ -89,14 +89,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refresh() => Future.wait(Catalog.rails.map(_loadRail));
 
-  /// [afterGrid]: the rail follows a tile grid (see [_Section.afterGrid]).
-  Widget _rail(HomeRail rail, {bool afterGrid = false}) => _ProductRail(
-        rail: rail,
-        style: _railStyles[rail.handle] ?? _defaultRailStyle,
-        data: _rails[rail.handle] ?? const _RailData(loading: true),
-        onRetry: () => _loadRail(rail),
-        afterGrid: afterGrid,
-      );
+  /// [afterGrid]: the names of the tile grid the rail follows (see
+  /// [_Section.afterGrid]).
+  Widget _rail(HomeRail rail, {List<String>? afterGrid}) => _ProductRail(
+    rail: rail,
+    style: _railStyles[rail.handle] ?? _defaultRailStyle,
+    data: _rails[rail.handle] ?? const _RailData(loading: true),
+    onRetry: () => _loadRail(rail),
+    afterGrid: afterGrid,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +130,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             for (final rail in Catalog.railsBeforeBrands)
-              _rail(rail, afterGrid: rail == Catalog.railsBeforeBrands.first),
+              _rail(
+                rail,
+                afterGrid: rail == Catalog.railsBeforeBrands.first
+                    ? [for (final c in Catalog.categories) c.label]
+                    : null,
+              ),
             const _Section(
               title: 'Brands We Love',
               icon: Icons.favorite,
@@ -139,7 +145,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             for (final rail in Catalog.railsAfterBrands)
-              _rail(rail, afterGrid: rail == Catalog.railsAfterBrands.first),
+              _rail(
+                rail,
+                afterGrid: rail == Catalog.railsAfterBrands.first
+                    ? [for (final b in Catalog.brands) b.name]
+                    : null,
+              ),
             const _Section(
               title: 'Offers',
               icon: Icons.campaign,
@@ -166,7 +177,7 @@ class _Section extends StatelessWidget {
     required this.icon,
     required this.child,
     this.onViewAll,
-    this.afterGrid = false,
+    this.afterGrid,
   });
 
   final String title;
@@ -174,25 +185,23 @@ class _Section extends StatelessWidget {
   final Widget child;
   final VoidCallback? onViewAll;
 
-  /// The section follows a category or brand grid. Those keep two label
-  /// lines free under every tile and the last row's names take one, so
-  /// the gap above is shortened by that free line: what the eye sees stays
-  /// [AppDims.sectionGap].
-  final bool afterGrid;
+  /// The names of the category or brand grid this section follows. A grid
+  /// leaves a little free space under its last row's names
+  /// ([TileGrid.trailingSpace]); the gap above is shortened by it, so what
+  /// the eye sees stays [AppDims.sectionGap].
+  final List<String>? afterGrid;
 
-  static double gapAbove(BuildContext context, {bool afterGrid = false}) {
-    if (!afterGrid) return AppDims.sectionGap;
-    final freeLine =
-        SquareTile.labelHeight(context) / SquareTile.labelLines + 2;
-    return (AppDims.sectionGap - freeLine).clamp(8.0, AppDims.sectionGap);
+  static double gapAbove(BuildContext context, {List<String>? afterGrid}) {
+    if (afterGrid == null) return AppDims.sectionGap;
+    final gridWidth = MediaQuery.sizeOf(context).width - 2 * AppDims.gutter;
+    final free = TileGrid.trailingSpace(context, gridWidth, afterGrid);
+    return (AppDims.sectionGap - free).clamp(8.0, AppDims.sectionGap);
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        top: gapAbove(context, afterGrid: afterGrid),
-      ),
+      padding: EdgeInsets.only(top: gapAbove(context, afterGrid: afterGrid)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -337,7 +346,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            final height = (constraints.maxWidth - 2 * AppDims.gutter) /
+            final height =
+                (constraints.maxWidth - 2 * AppDims.gutter) /
                 _BannerCarousel.aspectRatio;
             return SizedBox(
               height: height,
@@ -418,14 +428,14 @@ class _ProductRail extends StatelessWidget {
     required this.style,
     required this.data,
     required this.onRetry,
-    this.afterGrid = false,
+    this.afterGrid,
   });
 
   final HomeRail rail;
   final ({IconData icon}) style;
   final _RailData data;
   final VoidCallback onRetry;
-  final bool afterGrid;
+  final List<String>? afterGrid;
 
   @override
   Widget build(BuildContext context) {
@@ -550,9 +560,7 @@ class _LocalCard extends StatelessWidget {
                 Text(
                   'Organic tomatoes, beetroot, marrow, capsicum and more, '
                   'grown in the UAE and picked for you within 24 hours.',
-                  style: AppText.bodySmall.copyWith(
-                    color: AppColors.secondary,
-                  ),
+                  style: AppText.bodySmall.copyWith(color: AppColors.secondary),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton(

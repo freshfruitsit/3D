@@ -23,7 +23,8 @@ class BrandTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return SquareTile(
       label: brand.name,
-      onTap: onTap ??
+      onTap:
+          onTap ??
           () => AppNav.openSearch(context, initialQuery: brand.searchTerm),
       image: ClipRRect(
         borderRadius: AppDims.cardBorderRadius,
@@ -53,7 +54,11 @@ class BrandGrid extends StatelessWidget {
         primary: false,
         padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: TileGrid.delegate(context, constraints.maxWidth),
+        gridDelegate: TileGrid.delegate(
+          context,
+          constraints.maxWidth,
+          labels: [for (final b in Catalog.brands) b.name],
+        ),
         itemCount: Catalog.brands.length,
         itemBuilder: (context, index) {
           final brand = Catalog.brands[index];

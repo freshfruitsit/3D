@@ -48,7 +48,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void _addToCart(CartStore cart, Variant variant, int quantity) {
     cart.add(_product, variant, quantity: quantity);
     setState(() {
-      _addedMessage = quantity == 1 ? 'Added to cart' : '$quantity added to cart';
+      _addedMessage = quantity == 1
+          ? 'Added to cart'
+          : '$quantity added to cart';
       _quantity = 1;
     });
   }
@@ -75,100 +77,118 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           Expanded(
             // No top SafeArea: the photo area runs behind the status bar.
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PhotoPanel(product: product, cartCount: cart.itemCount),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppDims.gutter,
-                      20,
-                      AppDims.gutter,
-                      0,
-                    ),
+            // The round buttons float above the page, so back, favourite
+            // and cart stay in reach however far it is scrolled.
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (product.vendor.isNotEmpty) ...[
-                          Text(product.vendor, style: AppText.caption),
-                          const SizedBox(height: 4),
-                        ],
-                        Semantics(
-                          header: true,
-                          child: Text(product.title, style: AppText.title),
-                        ),
-                        if (sizeLine.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            sizeLine,
-                            style: AppText.body
-                                .copyWith(color: AppColors.secondary),
+                        _PhotoPanel(product: product),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppDims.gutter,
+                            20,
+                            AppDims.gutter,
+                            0,
                           ),
-                        ],
-                        if (variant != null) ...[
-                          const SizedBox(height: 12),
-                          PriceRow(
-                            priceCents: variant.priceCents,
-                            oldPriceCents: variant.oldPriceCents,
-                            large: true,
-                            trailing: variant.salePercent == null
-                                ? null
-                                : SalePill(percent: variant.salePercent!),
-                          ),
-                        ],
-                        // The weights sit right under the price they change.
-                        if (product.hasVariantChoice) ...[
-                          const SizedBox(height: 24),
-                          Text(product.optionName, style: AppText.cardHeading),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              for (final v in product.variants)
-                                _VariantButton(
-                                  variant: v,
-                                  selected: v.id == variant?.id,
-                                  onTap: () => _selectVariant(v),
+                              if (product.vendor.isNotEmpty) ...[
+                                Text(product.vendor, style: AppText.caption),
+                                const SizedBox(height: 4),
+                              ],
+                              Semantics(
+                                header: true,
+                                child: Text(
+                                  product.title,
+                                  style: AppText.title,
                                 ),
+                              ),
+                              if (sizeLine.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  sizeLine,
+                                  style: AppText.body.copyWith(
+                                    color: AppColors.secondary,
+                                  ),
+                                ),
+                              ],
+                              if (variant != null) ...[
+                                const SizedBox(height: 12),
+                                PriceRow(
+                                  priceCents: variant.priceCents,
+                                  oldPriceCents: variant.oldPriceCents,
+                                  large: true,
+                                  trailing: variant.salePercent == null
+                                      ? null
+                                      : SalePill(percent: variant.salePercent!),
+                                ),
+                              ],
+                              // The weights sit right under the price they change.
+                              if (product.hasVariantChoice) ...[
+                                const SizedBox(height: 24),
+                                Text(
+                                  product.optionName,
+                                  style: AppText.cardHeading,
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    for (final v in product.variants)
+                                      _VariantButton(
+                                        variant: v,
+                                        selected: v.id == variant?.id,
+                                        onTap: () => _selectVariant(v),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 24),
+                              ProductDeliveryInfo(product: product),
+                              if (facts.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final fact in facts)
+                                      _FactChip(fact: fact),
+                                  ],
+                                ),
+                              ],
+                              if (description.isNotEmpty) ...[
+                                const SizedBox(height: 24),
+                                Semantics(
+                                  header: true,
+                                  child: const Text(
+                                    'About this product',
+                                    style: AppText.cardHeading,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  description,
+                                  style: AppText.body.copyWith(
+                                    color: AppColors.secondary,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
-                        ],
-                        const SizedBox(height: 24),
-                        ProductDeliveryInfo(product: product),
-                        if (facts.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final fact in facts) _FactChip(fact: fact),
-                            ],
-                          ),
-                        ],
-                        if (description.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          Semantics(
-                            header: true,
-                            child: const Text(
-                              'About this product',
-                              style: AppText.cardHeading,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            description,
-                            style: AppText.body
-                                .copyWith(color: AppColors.secondary),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                _RoundButtons(product: product, cartCount: cart.itemCount),
+              ],
             ),
           ),
           _BuyBar(
@@ -184,12 +204,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             buttonLabel: !canBuy
                 ? 'Sold out'
                 : room < 1
-                    ? 'Limit reached'
-                    : 'Add to cart · '
-                        '${formatMoney(variant.priceCents * quantity)}',
+                ? 'Limit reached'
+                : 'Add to cart · '
+                      '${formatMoney(variant.priceCents * quantity)}',
             buttonSemantics: canBuy && room >= 1
                 ? 'Add to cart, '
-                    '${moneySemantics(variant.priceCents * quantity)}'
+                      '${moneySemantics(variant.priceCents * quantity)}'
                 : null,
             onAdd: canBuy && room >= 1
                 ? () => _addToCart(cart, variant, quantity)
@@ -201,13 +221,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 }
 
-/// The photo(s) on a full-width off-white area that runs behind the status
-/// bar, with round white back, favourite and cart buttons on top.
-class _PhotoPanel extends StatefulWidget {
-  const _PhotoPanel({required this.product, required this.cartCount});
+/// The round white back, favourite and cart buttons, floating at the top
+/// of the page (over the photo area, and over the text once scrolled).
+class _RoundButtons extends StatelessWidget {
+  const _RoundButtons({required this.product, required this.cartCount});
 
   final Product product;
   final int cartCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final favourites = context.watch<FavouritesStore>();
+    final isFavourite = favourites.contains(product.id);
+    final top = MediaQuery.paddingOf(context).top + 8;
+    return Positioned(
+      top: top,
+      left: AppDims.gutter,
+      right: AppDims.gutter,
+      child: Row(
+        children: [
+          CircleIconButton.back(context),
+          const Spacer(),
+          CircleIconButton(
+            icon: isFavourite ? Icons.favorite : Icons.favorite_border,
+            // Ink either way: filled when on, outlined when off.
+            iconColor: AppColors.ink,
+            tooltip: isFavourite
+                ? 'Remove from favourites'
+                : 'Add to favourites',
+            onPressed: () => favourites.toggle(product),
+          ),
+          const SizedBox(width: 10),
+          CircleIconButton(
+            icon: Icons.shopping_bag_outlined,
+            tooltip: 'Cart',
+            badgeCount: cartCount,
+            onPressed: () => AppNav.goToTab(context, AppTab.cart),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The photo(s) on a full-width off-white area that runs behind the status
+/// bar (the round buttons float above it, see [_RoundButtons]).
+class _PhotoPanel extends StatefulWidget {
+  const _PhotoPanel({required this.product});
+
+  final Product product;
 
   /// Height of the photo area below the status bar, as a share of the
   /// screen width (capped on large screens).
@@ -232,26 +294,26 @@ class _PhotoPanelState extends State<_PhotoPanel> {
   Widget build(BuildContext context) {
     final product = widget.product;
     final images = product.images;
-    final favourites = context.watch<FavouritesStore>();
-    final isFavourite = favourites.contains(product.id);
     final width = MediaQuery.sizeOf(context).width;
     final top = MediaQuery.paddingOf(context).top;
-    final height = (width * _PhotoPanel.heightFactor)
-        .clamp(0.0, _PhotoPanel.maxHeight);
+    final height = (width * _PhotoPanel.heightFactor).clamp(
+      0.0,
+      _PhotoPanel.maxHeight,
+    );
 
     // Clear of the round buttons above and the page dots below.
     Widget photo(String? url) => Padding(
-          padding: const EdgeInsets.fromLTRB(40, 64, 40, 36),
-          child: Opacity(
-            opacity: product.available ? 1 : 0.5,
-            child: ProductImage(
-              url: url,
-              logicalWidth: width,
-              semanticLabel: product.title,
-              wellColor: AppColors.subtle,
-            ),
-          ),
-        );
+      padding: const EdgeInsets.fromLTRB(40, 64, 40, 36),
+      child: Opacity(
+        opacity: product.available ? 1 : 0.5,
+        child: ProductImage(
+          url: url,
+          logicalWidth: width,
+          semanticLabel: product.title,
+          wellColor: AppColors.subtle,
+        ),
+      ),
+    );
 
     return ColoredBox(
       color: AppColors.subtle,
@@ -292,45 +354,15 @@ class _PhotoPanelState extends State<_PhotoPanel> {
                               color: i == _page
                                   ? AppColors.ink
                                   : AppColors.tertiary.withValues(alpha: 0.45),
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(3)),
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(3),
+                              ),
                             ),
                           ),
                       ],
                     ),
                   ),
                 ),
-              Positioned(
-                top: 8,
-                left: AppDims.gutter,
-                child: CircleIconButton.back(context),
-              ),
-              Positioned(
-                top: 8,
-                right: AppDims.gutter,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleIconButton(
-                      icon:
-                          isFavourite ? Icons.favorite : Icons.favorite_border,
-                      // Ink either way: filled when on, outlined when off.
-                      iconColor: AppColors.ink,
-                      tooltip: isFavourite
-                          ? 'Remove from favourites'
-                          : 'Add to favourites',
-                      onPressed: () => favourites.toggle(product),
-                    ),
-                    const SizedBox(width: 10),
-                    CircleIconButton(
-                      icon: Icons.shopping_bag_outlined,
-                      tooltip: 'Cart',
-                      badgeCount: widget.cartCount,
-                      onPressed: () => AppNav.goToTab(context, AppTab.cart),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -389,8 +421,7 @@ class _VariantButton extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 104, minHeight: 56),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -400,8 +431,7 @@ class _VariantButton extends StatelessWidget {
                     name,
                     style: AppText.body.copyWith(
                       fontWeight: FontWeight.w700,
-                      color:
-                          soldOut ? AppColors.disabledText : AppColors.ink,
+                      color: soldOut ? AppColors.disabledText : AppColors.ink,
                       decoration: soldOut ? TextDecoration.lineThrough : null,
                       decorationColor: AppColors.disabledText,
                     ),
@@ -432,10 +462,10 @@ class _FactChip extends StatelessWidget {
   final ProductFact fact;
 
   IconData get _icon => switch (fact) {
-        ProductFact.express => Icons.bolt,
-        ProductFact.local => Icons.eco_outlined,
-        ProductFact.byAir => Icons.flight,
-      };
+    ProductFact.express => Icons.bolt,
+    ProductFact.local => Icons.eco_outlined,
+    ProductFact.byAir => Icons.flight,
+  };
 
   @override
   Widget build(BuildContext context) {

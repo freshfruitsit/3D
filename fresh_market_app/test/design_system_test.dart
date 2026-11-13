@@ -5,9 +5,12 @@ import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/models/money.dart';
 import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
+import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
+import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:fresh_market_app/widgets/ask_button.dart';
+import 'package:fresh_market_app/widgets/category_tile.dart';
 import 'package:fresh_market_app/widgets/delivery_widgets.dart';
 import 'package:fresh_market_app/widgets/floating_nav_bar.dart';
 import 'package:fresh_market_app/widgets/price_widgets.dart';
@@ -81,8 +84,11 @@ void main() {
         (AppColors.onDark, AppColors.ink),
       ];
       for (final (fg, bg) in pairs) {
-        expect(_contrast(fg, bg), greaterThanOrEqualTo(4.5),
-            reason: '$fg on $bg');
+        expect(
+          _contrast(fg, bg),
+          greaterThanOrEqualTo(4.5),
+          reason: '$fg on $bg',
+        );
       }
     });
 
@@ -166,16 +172,16 @@ void main() {
 
     testWidgets('a plain Text inherits the fallback', (tester) async {
       await pumpScreen(tester, Scaffold(body: Text(formatMoney(1250))));
-      final style = DefaultTextStyle.of(
-        tester.element(find.text('⃃ 12.50')),
-      ).style;
+      final style = DefaultTextStyle.of(tester.element(find.text('⃃ 12.50')))
+          .style;
       expect(style.fontFamilyFallback, contains('Dirham'));
     });
   });
 
   group('prices', () {
-    testWidgets('a sale price is saving orange, read out as AED',
-        (tester) async {
+    testWidgets('a sale price is saving orange, read out as AED', (
+      tester,
+    ) async {
       await pumpScreen(
         tester,
         const Scaffold(
@@ -218,8 +224,9 @@ void main() {
   });
 
   group('bottom bar and Ask', () {
-    testWidgets('ink bar, white active tab with a green dot, green badge',
-        (tester) async {
+    testWidgets('ink bar, white active tab with a green dot, green badge', (
+      tester,
+    ) async {
       await pumpScreen(
         tester,
         Scaffold(
@@ -243,10 +250,14 @@ void main() {
       );
       final shape = bar.decoration! as ShapeDecoration;
       expect(shape.color, AppColors.ink);
-      expect(tester.widget<Text>(find.text('Deals')).style!.color,
-          AppColors.onDark);
-      expect(tester.widget<Text>(find.text('Home')).style!.color,
-          AppColors.navInactive);
+      expect(
+        tester.widget<Text>(find.text('Deals')).style!.color,
+        AppColors.onDark,
+      );
+      expect(
+        tester.widget<Text>(find.text('Home')).style!.color,
+        AppColors.navInactive,
+      );
       expect(find.byKey(const ValueKey('nav-active-dot')), findsOneWidget);
       final badge = tester.widget<Text>(find.text('3'));
       expect(badge.style!.color, AppColors.onDark);
@@ -267,10 +278,11 @@ void main() {
             .first,
       );
       expect(material.color, AppColors.surface);
-      expect(tester.widget<Icon>(find.byIcon(Icons.auto_awesome)).color,
-          AppColors.green);
-      expect(tester.widget<Text>(find.text('Ask')).style!.color,
-          AppColors.ink);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.auto_awesome)).color,
+        AppColors.green,
+      );
+      expect(tester.widget<Text>(find.text('Ask')).style!.color, AppColors.ink);
     });
   });
 
@@ -297,21 +309,22 @@ void main() {
   });
 
   group('header delivery widgets', () {
-    testWidgets('10:00 Fresh Market: the compact line offers Express',
-        (tester) async {
+    testWidgets('10:00 Fresh Market: the compact line offers Express', (
+      tester,
+    ) async {
       final store = await _pumpLine(tester, at: uaeTime(10));
       expect(_lineText(tester), 'Today by 4 PM · order within 8h 0m');
-      expect(
-        _inKey('mode-express', find.text('30–40 min')),
-        findsOneWidget,
-      );
+      expect(_inKey('mode-express', find.text('30–40 min')), findsOneWidget);
       final range = tester.widget<Text>(
         _inKey('mode-express', find.text('30–40 min')),
       );
       expect(range.style!.color, AppColors.green);
 
       await tester.tap(
-        _inKey('delivery-line', find.text(DeliveryLine.expressLabel('30–40 min'))),
+        _inKey(
+          'delivery-line',
+          find.text(DeliveryLine.expressLabel('30–40 min')),
+        ),
       );
       await tester.pump();
       expect(store.mode, DeliveryMode.express);
@@ -355,8 +368,9 @@ void main() {
       expect(store.mode, DeliveryMode.market);
     });
 
-    testWidgets('outside the Express zone: no Express button, grey bolt',
-        (tester) async {
+    testWidgets('outside the Express zone: no Express button, grey bolt', (
+      tester,
+    ) async {
       await _pumpLine(tester, area: 'Jebel Ali', at: uaeTime(10));
       expect(_lineText(tester), startsWith('Today by'));
       expect(find.textContaining('Express 3'), findsNothing);
@@ -366,8 +380,9 @@ void main() {
       expect(notHere.style!.color, AppColors.secondary);
     });
 
-    testWidgets('no area: the website sentence and Set location',
-        (tester) async {
+    testWidgets('no area: the website sentence and Set location', (
+      tester,
+    ) async {
       await _pumpLine(tester, area: null);
       expect(
         _lineText(tester),
@@ -380,8 +395,9 @@ void main() {
       );
     });
 
-    testWidgets('the location chip sits at the right end, area in ink',
-        (tester) async {
+    testWidgets('the location chip sits at the right end, area in ink', (
+      tester,
+    ) async {
       await pumpScreen(
         tester,
         const Scaffold(
@@ -401,8 +417,10 @@ void main() {
       final area = tester.widget<Text>(find.text('Business Bay'));
       expect(area.style!.color, AppColors.ink);
       expect(area.style!.fontWeight, FontWeight.w700);
-      expect(tester.widget<Icon>(find.byIcon(Icons.location_on)).color,
-          AppColors.green);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.location_on)).color,
+        AppColors.green,
+      );
     });
 
     testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {
@@ -414,9 +432,7 @@ void main() {
             builder: (context) => ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Row(
-                  children: [Text('Logo'), Spacer(), LocationChip()],
-                ),
+                const Row(children: [Text('Logo'), Spacer(), LocationChip()]),
                 const DeliveryModeSwitch(),
                 const DeliveryLine(),
                 SizedBox(
@@ -452,9 +468,7 @@ void main() {
             const Scaffold(
               body: Padding(
                 padding: EdgeInsets.all(16),
-                child: Column(
-                  children: [DeliveryModeSwitch(), DeliveryLine()],
-                ),
+                child: Column(children: [DeliveryModeSwitch(), DeliveryLine()]),
               ),
             ),
             delivery: store,
@@ -467,7 +481,104 @@ void main() {
     });
   });
 
+  group('tile grids', () {
+    testWidgets('rows keep a second label line only when a name needs it', (
+      tester,
+    ) async {
+      late BuildContext context;
+      await pumpScreen(
+        tester,
+        Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox();
+          },
+        ),
+      );
+      expect(SquareTile.linesNeeded(context, 80, ['Fig', 'Kiwi']), 1);
+      expect(
+        SquareTile.linesNeeded(context, 80, ['Fig', 'Exotic fruit boxes']),
+        2,
+      );
+      // One line: the row is a line shorter than with two.
+      expect(
+        SquareTile.heightFor(context, 80, 2) -
+            SquareTile.heightFor(context, 80, 1),
+        moreOrLessEquals(12 * 1.25),
+      );
+      // After the grid, only the slack is left under a one-line last row.
+      expect(
+        TileGrid.trailingSpace(context, 4 * 80 + 3 * 12, ['Fig', 'Kiwi']),
+        SquareTile.slack,
+      );
+    });
+  });
+
   group('product card', () {
+    testWidgets('the add control sits on the photo well, bottom right', (
+      tester,
+    ) async {
+      final kiwi = sampleProducts().first;
+      final cart = CartStore();
+      await pumpScreen(
+        tester,
+        Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: ProductCard.railWidth,
+              child: Builder(
+                builder: (context) => SizedBox(
+                  height: ProductCard.heightOf(context),
+                  child: ProductCard(product: kiwi),
+                ),
+              ),
+            ),
+          ),
+        ),
+        cart: cart,
+      );
+      final well = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(ProductCard),
+              matching: find.byWidgetPredicate(
+                (w) => w is DecoratedBox && w.decoration == AppDecor.well,
+              ),
+            )
+            .first,
+      );
+      Rect circle() => tester.getRect(
+        find
+            .descendant(
+              of: find.bySemanticsLabel('Add ${kiwi.title} to cart'),
+              matching: find.byWidgetPredicate(
+                (w) => w is SizedBox && w.width == AddControl.circleSize,
+              ),
+            )
+            .first,
+      );
+      expect(
+        circle().right,
+        moreOrLessEquals(well.right - ProductCard.wellInset),
+      );
+      expect(
+        circle().bottom,
+        moreOrLessEquals(well.bottom - ProductCard.wellInset),
+      );
+      // Nothing of the card sits below the text: no empty control row.
+      final card = tester.getRect(find.byType(ProductCard));
+      final price = tester.getRect(find.byType(PriceRow));
+      expect(card.bottom - price.bottom, lessThan(40));
+
+      // In the cart it is a green stepper, still on the well.
+      await tester.tap(find.bySemanticsLabel('Add ${kiwi.title} to cart'));
+      await tester.pump();
+      final stepper = tester.getRect(find.byType(QuantityStepper));
+      expect(stepper.right, lessThanOrEqualTo(well.right));
+      expect(stepper.bottom, lessThanOrEqualTo(well.bottom));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the heart saves to favourites', (tester) async {
       final favourites = FavouritesStore();
       final kiwi = sampleProducts().first;
@@ -493,11 +604,15 @@ void main() {
       await tester.pump();
       expect(favourites.contains(kiwi.id), isTrue);
       expect(find.byIcon(Icons.favorite), findsOneWidget);
-      expect(tester.widget<Icon>(find.byIcon(Icons.favorite)).color,
-          AppColors.ink);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.favorite)).color,
+        AppColors.ink,
+      );
       // The add button is a green circle with a white plus.
-      expect(tester.widget<Icon>(find.byIcon(Icons.add)).color,
-          AppColors.onDark);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.add)).color,
+        AppColors.onDark,
+      );
       expect(tester.takeException(), isNull);
     });
   });

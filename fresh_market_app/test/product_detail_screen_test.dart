@@ -7,6 +7,7 @@ import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/add_control.dart';
+import 'package:fresh_market_app/widgets/delivery_widgets.dart';
 import 'package:fresh_market_app/widgets/price_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -23,8 +24,9 @@ void main() {
   FilledButton addButton(WidgetTester tester) =>
       tester.widget<FilledButton>(find.byType(FilledButton));
 
-  testWidgets('shows vendor, title, size line, price, facts and description',
-      (tester) async {
+  testWidgets('shows vendor, title, size line, price, facts and description', (
+    tester,
+  ) async {
     await pumpScreen(tester, ProductDetailScreen(product: kiwi));
 
     expect(find.text('Zespri'), findsOneWidget);
@@ -42,8 +44,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('choosing a variant updates the size line and the price',
-      (tester) async {
+  testWidgets('choosing a variant updates the size line and the price', (
+    tester,
+  ) async {
     await pumpScreen(tester, ProductDetailScreen(product: kiwi));
 
     await tester.tap(find.text('1 KG'));
@@ -53,36 +56,40 @@ void main() {
     expect(find.text('Add to cart · \u20C3 39.75'), findsOneWidget);
   });
 
-  testWidgets('quantity stepper multiplies the button price and adds that many',
-      (tester) async {
-    final cart = CartStore();
-    await pumpScreen(tester, ProductDetailScreen(product: kiwi), cart: cart);
+  testWidgets(
+    'quantity stepper multiplies the button price and adds that many',
+    (tester) async {
+      final cart = CartStore();
+      await pumpScreen(tester, ProductDetailScreen(product: kiwi), cart: cart);
 
-    // At 1 the minus is disabled and is not a bin.
-    final stepper = tester.widget<QuantityStepper>(find.byType(QuantityStepper));
-    expect(stepper.onDecrement, isNull);
-    expect(find.byIcon(Icons.delete_outline), findsNothing);
+      // At 1 the minus is disabled and is not a bin.
+      final stepper = tester.widget<QuantityStepper>(
+        find.byType(QuantityStepper),
+      );
+      expect(stepper.onDecrement, isNull);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Increase quantity'));
-    await tester.pump();
-    await tester.tap(find.bySemanticsLabel('Increase quantity'));
-    await tester.pump();
-    expect(find.text('Add to cart · \u20C3 59.85'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Increase quantity'));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel('Increase quantity'));
+      await tester.pump();
+      expect(find.text('Add to cart · \u20C3 59.85'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Decrease quantity'));
-    await tester.pump();
-    expect(find.text('Add to cart · \u20C3 39.90'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Decrease quantity'));
+      await tester.pump();
+      expect(find.text('Add to cart · \u20C3 39.90'), findsOneWidget);
 
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
 
-    expect(cart.quantityOf(2001), 2);
-    expect(find.text('2 added to cart'), findsOneWidget);
-    expect(find.text('View cart'), findsOneWidget);
-    // Quantity goes back to 1 and the cart button shows the badge.
-    expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
-  });
+      expect(cart.quantityOf(2001), 2);
+      expect(find.text('2 added to cart'), findsOneWidget);
+      expect(find.text('View cart'), findsOneWidget);
+      // Quantity goes back to 1 and the cart button shows the badge.
+      expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+    },
+  );
 
   testWidgets('"View cart" switches to the cart tab', (tester) async {
     final shell = ShellController();
@@ -101,8 +108,9 @@ void main() {
     expect(shell.tab, AppTab.cart);
   });
 
-  testWidgets('cart button shows what is in the cart and opens the cart tab',
-      (tester) async {
+  testWidgets('cart button shows what is in the cart and opens the cart tab', (
+    tester,
+  ) async {
     final shell = ShellController();
     final cart = CartStore()..add(beef, beef.variants.first, quantity: 3);
     await pumpScreen(
@@ -131,7 +139,11 @@ void main() {
 
   testWidgets('a sold-out product cannot be added', (tester) async {
     final cart = CartStore();
-    await pumpScreen(tester, ProductDetailScreen(product: blueberry), cart: cart);
+    await pumpScreen(
+      tester,
+      ProductDetailScreen(product: blueberry),
+      cart: cart,
+    );
 
     expect(addButton(tester).onPressed, isNull);
     expect(find.widgetWithText(FilledButton, 'Sold out'), findsOneWidget);
@@ -140,10 +152,15 @@ void main() {
     expect(cart.isEmpty, isTrue);
   });
 
-  testWidgets('a sold-out variant is labelled and cannot be chosen',
-      (tester) async {
+  testWidgets('a sold-out variant is labelled and cannot be chosen', (
+    tester,
+  ) async {
     final cart = CartStore();
-    await pumpScreen(tester, ProductDetailScreen(product: strawberry), cart: cart);
+    await pumpScreen(
+      tester,
+      ProductDetailScreen(product: strawberry),
+      cart: cart,
+    );
 
     // The in-stock weight is chosen to start with.
     expect(find.text('South Africa · 1 KG'), findsOneWidget);
@@ -187,8 +204,47 @@ void main() {
     expect(find.text('Limit reached'), findsOneWidget);
   });
 
-  testWidgets('a product with several photos and long text does not overflow',
-      (tester) async {
+  testWidgets('back, favourite and cart stay in reach when scrolled', (
+    tester,
+  ) async {
+    await pumpScreen(tester, ProductDetailScreen(product: kiwi));
+    final before = tester.getRect(find.byTooltip('Back'));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -400),
+    );
+    await tester.pump();
+    // The page moved under them; the round buttons did not.
+    expect(tester.getRect(find.byTooltip('Back')), before);
+    expect(find.byTooltip('Back').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('Cart').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('Add to favourites').hitTestable(), findsOneWidget);
+  });
+
+  test('delivery lines keep times, units and the area name together', () {
+    expect(
+      ProductDeliveryInfo.keepTogether(
+        'Today within 6 hours to Business Bay · by 9:45 PM',
+        'Business Bay',
+      ),
+      'Today within 6\u00A0hours to Business\u00A0Bay · by\u00A09:45\u00A0PM',
+    );
+    expect(
+      ProductDeliveryInfo.keepTogether(
+        'Express: Get it in 30–40 min to Business Bay',
+        'Business Bay',
+      ),
+      'Express: Get it in\u00A030–40\u00A0min to Business\u00A0Bay',
+    );
+    expect(
+      ProductDeliveryInfo.keepTogether('Express opens 8 AM', null),
+      'Express opens 8\u00A0AM',
+    );
+  });
+
+  testWidgets('a product with several photos and long text does not overflow', (
+    tester,
+  ) async {
     final product = Product(
       id: 1,
       title: 'A very long product title that wraps over more than one line',
@@ -197,14 +253,25 @@ void main() {
       descriptionHtml: '<p>${'Lorem ipsum dolor sit amet. ' * 80}</p>',
       tags: const ['1hr-delivery', 'UAE', 'AIR'],
       variants: const [
-        Variant(id: 11, title: '250 GM', priceCents: 123456, compareAtCents: 234567),
+        Variant(
+          id: 11,
+          title: '250 GM',
+          priceCents: 123456,
+          compareAtCents: 234567,
+        ),
         Variant(id: 12, title: '500 GM', priceCents: 1000),
         Variant(id: 13, title: '1 KG', priceCents: 2000, available: false),
         Variant(id: 14, title: '2 KG', priceCents: 4000),
       ],
-      images: const ['https://cdn.shopify.com/a.jpg', 'https://cdn.shopify.com/b.jpg'],
+      images: const [
+        'https://cdn.shopify.com/a.jpg',
+        'https://cdn.shopify.com/b.jpg',
+      ],
       options: const [
-        ProductOption(name: 'Size', values: ['250 GM', '500 GM', '1 KG', '2 KG']),
+        ProductOption(
+          name: 'Size',
+          values: ['250 GM', '500 GM', '1 KG', '2 KG'],
+        ),
       ],
     );
     await pumpScreen(tester, ProductDetailScreen(product: product));
@@ -212,7 +279,10 @@ void main() {
 
     expect(find.text('Size'), findsOneWidget);
     expect(find.byType(PageView), findsOneWidget);
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -600));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -600),
+    );
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
@@ -220,13 +290,14 @@ void main() {
   group('design', () {
     /// The Material that draws the variant chip around [label].
     Material chip(WidgetTester tester, String label) => tester.widget<Material>(
-          find
-              .ancestor(of: find.text(label), matching: find.byType(Material))
-              .first,
-        );
+      find
+          .ancestor(of: find.text(label), matching: find.byType(Material))
+          .first,
+    );
 
-    testWidgets('the photo sits on a full-width off-white area',
-        (tester) async {
+    testWidgets('the photo sits on a full-width off-white area', (
+      tester,
+    ) async {
       await pumpScreen(tester, ProductDetailScreen(product: kiwi));
       final area = find.byWidgetPredicate(
         (w) => w is ColoredBox && w.color == AppColors.subtle,
@@ -236,8 +307,9 @@ void main() {
       expect(tester.getTopLeft(area), Offset.zero);
     });
 
-    testWidgets('variant chips are white; the chosen one has a 2px ink edge',
-        (tester) async {
+    testWidgets('variant chips are white; the chosen one has a 2px ink edge', (
+      tester,
+    ) async {
       await pumpScreen(tester, ProductDetailScreen(product: kiwi));
 
       final chosen = chip(tester, '500 GM');
@@ -254,15 +326,13 @@ void main() {
       expect(find.bySemanticsLabel('1 KG, AED 39.75'), findsOneWidget);
     });
 
-    testWidgets('the add button is green and reads the price as AED',
-        (tester) async {
+    testWidgets('the add button is green and reads the price as AED', (
+      tester,
+    ) async {
       await pumpScreen(tester, ProductDetailScreen(product: kiwi));
       final button = addButton(tester);
       expect(button.style, isNull); // the theme's green buying button
-      expect(
-        find.bySemanticsLabel('Add to cart, AED 19.95'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Add to cart, AED 19.95'), findsOneWidget);
     });
 
     testWidgets('the added notice is green on green-soft', (tester) async {
@@ -280,10 +350,7 @@ void main() {
             )
             .first,
       );
-      expect(
-        (notice.decoration! as BoxDecoration).color,
-        AppColors.greenSoft,
-      );
+      expect((notice.decoration! as BoxDecoration).color, AppColors.greenSoft);
     });
 
     testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {

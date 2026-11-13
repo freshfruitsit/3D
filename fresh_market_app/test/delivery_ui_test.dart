@@ -33,9 +33,12 @@ Finder _inKey(String key, Finder matching) =>
     find.descendant(of: find.byKey(ValueKey(key)), matching: matching);
 
 /// A time or detail line of the picker's options, where a number and its
-/// unit are joined by a non-breaking space ("6\u00A0hours", "11\u00A0AM").
+/// unit are joined by a non-breaking space ("6\u00A0hours", "11\u00A0AM")
+/// and hyphens do not break ("same\u2011day").
 Finder _when(String text) => find.byWidgetPredicate(
-  (w) => w is Text && w.data?.replaceAll('\u00A0', ' ') == text,
+  (w) =>
+      w is Text &&
+      w.data?.replaceAll('\u00A0', ' ').replaceAll('\u2011', '-') == text,
   description: 'option time "$text"',
 );
 
@@ -124,6 +127,8 @@ void main() {
         _when('Order now and it arrives by 4 PM · same-day cut-off 6 PM'),
         findsOneWidget,
       );
+      // "same-day" and "cut-off" never break at their hyphens.
+      expect(find.textContaining('same\u2011day cut\u2011off'), findsOneWidget);
       expect(_when('Today within 6 hours'), findsOneWidget);
       expect(find.text('Express · selected items'), findsOneWidget);
       expect(
@@ -796,15 +801,31 @@ void main() {
       await pumpCards(tester, testDelivery(mode: DeliveryMode.express));
       expect(textOf(tester, kiwi), '30–40 min');
       expect(iconOf(tester, kiwi), Icons.bolt);
-      expect(textOf(tester, beef), 'Fresh Market · Within 6 hrs');
+      // The storefront says "Fresh Market"; the text is the time, so it
+      // fits the card. Screen readers hear the whole line.
+      expect(textOf(tester, beef), 'Within 6 hrs');
       expect(iconOf(tester, beef), Icons.storefront_outlined);
+      expect(
+        tester
+            .widget<Semantics>(
+              find
+                  .descendant(
+                    of: lineOf(beef),
+                    matching: find.byType(Semantics),
+                  )
+                  .first,
+            )
+            .properties
+            .label,
+        'Fresh Market · Within 6 hrs',
+      );
 
       await pumpCards(
         tester,
         testDelivery(at: uaeTime(23), mode: DeliveryMode.express),
       );
       expect(textOf(tester, kiwi), 'From 8 AM');
-      expect(textOf(tester, beef), 'Fresh Market · Tomorrow by 11 AM');
+      expect(textOf(tester, beef), 'Tomorrow by 11 AM');
       expect(tester.takeException(), isNull);
     });
 
@@ -818,14 +839,14 @@ void main() {
       expect(
         find.descendant(
           of: box,
-          matching: find.text('Today within 6 hours to Business Bay · by 7 PM'),
+          matching: _when('Today within 6 hours to Business Bay · by 7 PM'),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: box,
-          matching: find.text('Express: Get it in 30–40 min to Business Bay'),
+          matching: _when('Express: Get it in 30–40 min to Business Bay'),
         ),
         findsOneWidget,
       );
@@ -841,7 +862,7 @@ void main() {
         ProductDetailScreen(product: kiwi),
         delivery: testDelivery(mode: DeliveryMode.express),
       );
-      expect(find.text('Get it in 30–40 min to Business Bay'), findsOneWidget);
+      expect(_when('Get it in 30–40 min to Business Bay'), findsOneWidget);
 
       final store = testDelivery(mode: DeliveryMode.express);
       await pumpScreen(
@@ -850,7 +871,7 @@ void main() {
         delivery: store,
       );
       expect(
-        find.text(
+        _when(
           "This item isn't on Express. Fresh Market delivers it today within "
           '6 hours.',
         ),
@@ -897,8 +918,8 @@ void main() {
       );
       expect(card('Fresh Market delivery'), findsOneWidget);
       expect(card('Business Bay, Dubai'), findsOneWidget);
-      // "4 PM" is joined by a non-breaking space so it never splits.
-      expect(card('Today within 6 hours · by 4\u00A0PM'), findsOneWidget);
+      // "by 4 PM" is joined by non-breaking spaces so it never splits.
+      expect(card('Today within 6 hours · by\u00A04\u00A0PM'), findsOneWidget);
       expect(card('Change'), findsOneWidget);
 
       await tester.tap(card('Change'));

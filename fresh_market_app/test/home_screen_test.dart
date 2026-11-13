@@ -237,7 +237,7 @@ void main() {
     }
 
     // Four equal columns inside the gutter, 12 apart; a new row after four,
-    // 12 below.
+    // TileGrid.rowGap (16) below.
     Rect rect(int i) => tester.getRect(find.byKey(ValueKey('brand-$i')));
     const width = (390 - 2 * 16 - 3 * 12) / 4;
     expect(rect(0).left, 16);
@@ -245,7 +245,7 @@ void main() {
     expect(rect(3).right, moreOrLessEquals(390 - 16));
     expect(rect(3).top, rect(0).top);
     expect(rect(4).left, 16);
-    expect(rect(4).top, moreOrLessEquals(rect(0).bottom + 12));
+    expect(rect(4).top, moreOrLessEquals(rect(0).bottom + TileGrid.rowGap));
     expect(rect(9).left, rect(1).left);
     expect(rect(9).top, greaterThan(rect(4).top));
 
@@ -489,11 +489,17 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('banner-dot-0'))).bottom,
       moreOrLessEquals(AppDims.sectionGap),
     );
+    // The lowest name of a grid's last row (a name may take two lines).
+    double lastRowBottom(List<String> names) => names
+        .map((n) => tester.getRect(find.text(n)).bottom)
+        .reduce((a, b) => a > b ? a : b);
+
     // The last row of category names, then the first rail.
     await _centre(
         tester, find.widgetWithText(SectionHeader, "Today's Top Deals"));
     expect(
-      heading("Today's Top Deals").top - tester.getRect(find.text('Herbs')).bottom,
+      heading("Today's Top Deals").top -
+          lastRowBottom(['Melons', 'Tropical', 'Greens', 'Herbs']),
       moreOrLessEquals(AppDims.sectionGap, epsilon: 0.5),
     );
     // A rail of cards, then the next heading.
@@ -508,7 +514,7 @@ void main() {
         tester, find.widgetWithText(SectionHeader, 'Fresh Pick For You'));
     expect(
       heading('Fresh Pick For You').top -
-          tester.getRect(find.text('Juliet')).bottom,
+          lastRowBottom(['Pink Lady', 'Juliet']),
       moreOrLessEquals(AppDims.sectionGap, epsilon: 0.5),
     );
     // Heading to content: 12.

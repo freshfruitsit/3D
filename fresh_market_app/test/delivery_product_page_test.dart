@@ -10,9 +10,13 @@ import 'support/test_app.dart';
 void main() {
   final kiwi = sampleProducts()[0]; // 1hr-delivery
 
+  // Times and the area name are joined by non-breaking spaces on screen.
   Finder inBox(String text) => find.descendant(
     of: find.byKey(const ValueKey('product-delivery')),
-    matching: find.text(text),
+    matching: find.byWidgetPredicate(
+      (w) => w is Text && w.data?.replaceAll('\u00A0', ' ') == text,
+      description: 'text "$text"',
+    ),
   );
 
   testWidgets('open: labelled "Express: ..."', (tester) async {

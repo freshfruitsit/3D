@@ -12,10 +12,11 @@ import 'price_widgets.dart';
 import 'product_image.dart';
 
 /// The product card of rails and grids: a white card (radius 14, hairline)
-/// with the photo in an off-white well, the discount badge and the
-/// favourite heart on the well, the name, size line, price, the one-line
-/// delivery promise (once a delivery area is set) and the add control at
-/// the bottom right. Tapping it opens product detail.
+/// with the photo in an off-white well, the discount badge, the favourite
+/// heart and the add control on the well (top-left, top-right and
+/// bottom-right, as on the big grocery apps, so the card has no empty
+/// control row), then the name, size line, price and the one-line delivery
+/// promise (once a delivery area is set). Tapping it opens product detail.
 ///
 /// Rails: wrap in `SizedBox(width: ProductCard.railWidth)` inside a
 /// horizontal list of height `ProductCard.heightOf(context)`.
@@ -40,6 +41,12 @@ class ProductCard extends StatelessWidget {
   /// Height of the image well.
   static const double wellHeight = 128;
 
+  /// Space under the last line of text.
+  static const double bottomPadding = 10;
+
+  /// Inset of the badge, heart and add control from the well's edges.
+  static const double wellInset = 6;
+
   /// The fixed height of a card at the current text size. Call it from a
   /// build method: once a delivery area is set the cards grow to make room
   /// for the delivery line, and the caller is rebuilt.
@@ -47,15 +54,16 @@ class ProductCard extends StatelessWidget {
     final scaler = MediaQuery.textScalerOf(context);
     double line(TextStyle style, [int lines = 1]) =>
         scaler.scale(style.fontSize!) * style.height! * lines;
-    final hasArea =
-        context.select<DeliveryStore?, bool>((s) => s?.hasArea ?? false);
+    final hasArea = context.select<DeliveryStore?, bool>(
+      (s) => s?.hasArea ?? false,
+    );
     final delivery = hasArea
         ? DeliveryPromiseLine.topGap +
-            scaler.scale(DeliveryPromiseLine.fontSize) *
-                DeliveryPromiseLine.lineHeight
+              scaler.scale(DeliveryPromiseLine.fontSize) *
+                  DeliveryPromiseLine.lineHeight
         : 0.0;
     // Border 2, padding 8 + well + gap 8, name, gap 2, size, gap 4,
-    // price, delivery, control 44, bottom 4, +1 for rounding.
+    // price, delivery, bottom padding, +1 for rounding.
     return 2 +
         padding +
         wellHeight +
@@ -66,8 +74,7 @@ class ProductCard extends StatelessWidget {
         4 +
         line(AppText.price) +
         delivery +
-        AppDims.touch +
-        4 +
+        bottomPadding +
         1;
   }
 
@@ -85,6 +92,12 @@ class ProductCard extends StatelessWidget {
     final variant = product.defaultVariant;
     final sizeLine = product.sizeLine(variant);
     final percent = variant?.salePercent;
+    final soldOut = variant == null || !variant.available;
+    // The heart and the add control are 44px touch targets around smaller
+    // circles; shift them so the circles sit [wellInset] from the edges.
+    const heartShift =
+        wellInset - (AppDims.touch - FavouriteHeart.circleSize) / 2;
+    const addShift = wellInset - (AppDims.touch - AddControl.circleSize) / 2;
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -102,7 +115,7 @@ class ProductCard extends StatelessWidget {
               padding + 1,
               padding + 1,
               padding + 1,
-              5,
+              bottomPadding + 1,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -128,14 +141,21 @@ class ProductCard extends StatelessWidget {
                       ),
                       if (percent != null)
                         Positioned(
-                          top: 6,
-                          left: 6,
+                          top: wellInset,
+                          left: wellInset,
                           child: SalePill(percent: percent),
                         ),
                       Positioned(
-                        top: 0,
-                        right: 0,
+                        top: heartShift,
+                        right: heartShift,
                         child: FavouriteHeart(product: product),
+                      ),
+                      Positioned(
+                        right: soldOut ? wellInset : addShift,
+                        bottom: soldOut ? wellInset : addShift,
+                        child: soldOut
+                            ? const _SoldOutTag()
+                            : AddControl(product: product, variant: variant),
                       ),
                     ],
                   ),
@@ -169,10 +189,6 @@ class ProductCard extends StatelessWidget {
                       DeliveryPromiseLine(product: product),
                     ],
                   ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: AddControl(product: product, variant: variant),
                 ),
               ],
             ),
@@ -233,6 +249,27 @@ class FavouriteHeart extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Sold out" on the image well, in place of the add control: a small
+/// white pill with grey text (the photo behind it is dimmed).
+class _SoldOutTag extends StatelessWidget {
+  const _SoldOutTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: const ShapeDecoration(
+        color: AppColors.surface,
+        shape: StadiumBorder(side: BorderSide(color: AppColors.hairline)),
+      ),
+      child: Text(
+        'Sold out',
+        style: AppText.caption.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }

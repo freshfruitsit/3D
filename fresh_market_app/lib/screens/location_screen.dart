@@ -1099,9 +1099,12 @@ class _OptionRow extends StatelessWidget {
   final bool divider;
 
   /// Keeps a number with its unit ("6 hours", "10 PM", "7 km") on one
-  /// line when the text wraps.
-  static String _keepUnits(String text) =>
-      text.replaceAllMapped(RegExp(r'(\d) (?=\S)'), (m) => '${m[1]}\u00A0');
+  /// line when the text wraps, and a hyphenated word ("same-day",
+  /// "cut-off") whole: its hyphen becomes Inter's non-breaking hyphen,
+  /// which looks the same.
+  static String _keepUnits(String text) => text
+      .replaceAllMapped(RegExp(r'(\d) (?=\S)'), (m) => '${m[1]}\u00A0')
+      .replaceAllMapped(RegExp(r'(\w)-(?=\w)'), (m) => '${m[1]}\u2011');
 
   @override
   Widget build(BuildContext context) {

@@ -451,9 +451,12 @@ void main() {
       expect(session.messages[1].text, offers.message);
       expect(session.busy, isTrue);
 
-      // Greyed and not tappable while the reply loads.
+      // Greyed and not tappable while the reply loads (the tile keeps its
+      // off-white fill; the icon and label grey out).
       expect(tester.widget<Material>(tileMaterial(tester, 'Categories')).color,
-          AppColors.disabledFill);
+          AppColors.subtle);
+      expect(tester.widget<Text>(find.text('Categories')).style?.color,
+          AppColors.disabledText);
       await tester.tap(find.text('Categories'));
       await tester.pump();
       expect(session.messages, hasLength(2));
@@ -463,6 +466,8 @@ void main() {
       expect(session.messages, hasLength(3));
       expect(tester.widget<Material>(tileMaterial(tester, 'Categories')).color,
           AppColors.subtle);
+      expect(tester.widget<Text>(find.text('Categories')).style?.color,
+          AppColors.ink);
     });
   });
 
@@ -1029,8 +1034,8 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('the composer: an off-white pill holding the options button '
-        'and the field, an ink Send button, the demo label under them',
+    testWidgets('the composer: one off-white pill holding the options '
+        'button, the field and the ink Send button; the demo label under it',
         (tester) async {
       await pumpScreen(tester, AssistantScreen(session: newSession()));
 
@@ -1038,26 +1043,28 @@ void main() {
         of: find.byType(TextField),
         matching: find.byWidgetPredicate(
           (w) =>
-              w is DecoratedBox &&
-              w.decoration is ShapeDecoration &&
-              (w.decoration as ShapeDecoration).color == AppColors.subtle,
+              w is Material &&
+              w.color == AppColors.subtle &&
+              w.shape is StadiumBorder,
         ),
       );
       expect(pill, findsOneWidget);
       expect(find.descendant(of: pill, matching: find.byTooltip('Show options')),
           findsOneWidget);
+      expect(find.descendant(of: pill, matching: find.byTooltip('Send')),
+          findsOneWidget);
       expect(tester.getSize(find.byTooltip('Send')), const Size(44, 44));
+      final sendCircle = find
+          .ancestor(
+            of: find.byIcon(Icons.arrow_upward),
+            matching: find.byType(DecoratedBox),
+          )
+          .first;
       expect(
-        tester
-            .widget<Material>(find
-                .ancestor(
-                  of: find.byIcon(Icons.arrow_upward),
-                  matching: find.byType(Material),
-                )
-                .first)
-            .color,
-        AppColors.ink,
-      );
+          (tester.widget<DecoratedBox>(sendCircle).decoration as BoxDecoration)
+              .color,
+          AppColors.ink);
+      expect(tester.getSize(sendCircle), const Size(36, 36));
       final caption = find.text(AssistantScreen.caption);
       expect(tester.getTopLeft(caption).dy,
           greaterThan(tester.getBottomLeft(pill).dy));

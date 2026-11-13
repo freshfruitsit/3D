@@ -349,9 +349,9 @@ class DeliveryLine extends StatelessWidget {
       ).message;
       actionLabel = setLocation;
       action = () => AppNav.openLocationPicker(
-            context,
-            noticeBottomMargin: noticeBottomMargin,
-          );
+        context,
+        noticeBottomMargin: noticeBottomMargin,
+      );
     } else if (store.isExpress) {
       final ex = store.express!;
       if (ex.open) {
@@ -360,29 +360,33 @@ class DeliveryLine extends StatelessWidget {
         boldColor = AppColors.green;
         parts = [
           b(ex.range, bold: true),
-          b(' · open until '
-              '${DeliveryRules.formatHour(DeliveryConfig.expressClose)}'),
+          b(
+            ' · open until '
+            '${DeliveryRules.formatHour(DeliveryConfig.expressClose)}',
+          ),
         ];
         actionLabel = shopExpress;
         actionGreen = true;
         action = () => AppNav.openCollection(
-              context,
-              handle: ExpressCollection.handle,
-              title: ExpressCollection.title,
-            );
+          context,
+          handle: ExpressCollection.handle,
+          title: ExpressCollection.title,
+        );
       } else {
         icon = Icons.schedule;
         parts = [
           b('Express is closed right now.', bold: true),
-          b(' Opens '
-              '${DeliveryRules.formatHour(DeliveryConfig.expressOpen)}'),
+          b(
+            ' Opens '
+            '${DeliveryRules.formatHour(DeliveryConfig.expressOpen)}',
+          ),
         ];
         actionLabel = backToMarket;
         action = () => AppNav.chooseDeliveryMode(
-              context,
-              DeliveryMode.market,
-              noticeBottomMargin: noticeBottomMargin,
-            );
+          context,
+          DeliveryMode.market,
+          noticeBottomMargin: noticeBottomMargin,
+        );
       }
     } else {
       final mk = store.market!;
@@ -393,17 +397,19 @@ class DeliveryLine extends StatelessWidget {
         if (mk.today)
           b(' · order within ${mk.left}')
         else
-          b(' · same-day orders closed at '
-              '${DeliveryRules.formatHour(mk.cutHour)}'),
+          b(
+            ' · same-day orders closed at '
+            '${DeliveryRules.formatHour(mk.cutHour)}',
+          ),
       ];
       if (ex.available) {
         actionLabel = expressLabel(ex.range);
         actionGreen = true;
         action = () => AppNav.chooseDeliveryMode(
-              context,
-              DeliveryMode.express,
-              noticeBottomMargin: noticeBottomMargin,
-            );
+          context,
+          DeliveryMode.express,
+          noticeBottomMargin: noticeBottomMargin,
+        );
       }
     }
 
@@ -466,8 +472,9 @@ class DeliveryLine extends StatelessWidget {
                 child: TextButton(
                   onPressed: action,
                   style: TextButton.styleFrom(
-                    foregroundColor:
-                        actionGreen ? AppColors.green : AppColors.ink,
+                    foregroundColor: actionGreen
+                        ? AppColors.green
+                        : AppColors.ink,
                     textStyle: AppText.link.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -579,7 +586,10 @@ class DeliveryBarView extends StatelessWidget {
               Expanded(
                 child: Semantics(
                   liveRegion: true,
-                  child: Text.rich(_spans(bar.message), style: AppText.bodySmall),
+                  child: Text.rich(
+                    _spans(bar.message),
+                    style: AppText.bodySmall,
+                  ),
                 ),
               ),
             ],
@@ -702,13 +712,16 @@ class _BarButton extends StatelessWidget {
 ///   time ("35 min" in Fresh Market mode, "30–40 min" in Express mode).
 /// * Otherwise a truck (or, in Express mode, a storefront for an item that
 ///   is not on Express) and the rules' line in grey ("Within 6 hrs",
-///   "Fresh Market · Tomorrow by 11 AM", "From 8 AM").
+///   "From 8 AM"; next to the storefront without its "Fresh Market · ").
 ///
-/// Screen readers hear the rules' full line ("Within 6 hrs · or 35 min").
+/// Screen readers hear the rules' full line ("Within 6 hrs · or 35 min",
+/// "Fresh Market · Within 6 hrs").
 class DeliveryPromiseLine extends StatelessWidget {
   const DeliveryPromiseLine({super.key, required this.product});
 
   final Product product;
+
+  static const String _marketPrefix = 'Fresh Market · ';
 
   /// Lines the card keeps room for.
   static const int maxLines = 1;
@@ -734,8 +747,13 @@ class DeliveryPromiseLine extends StatelessWidget {
         text = promise.text;
         green = express.open;
       case ProductPromiseKind.marketOnly:
+        // The storefront icon already says "Fresh Market" (as on the mode
+        // switch), so the card shows only the time and it fits one line:
+        // "Within 6 hrs" rather than "Fresh Market · Wit…".
         icon = Icons.storefront_outlined;
-        text = promise.text;
+        text = promise.text.startsWith(_marketPrefix)
+            ? promise.text.substring(_marketPrefix.length)
+            : promise.text;
         green = false;
       case ProductPromiseKind.market:
         if (promise.highlight != null) {
@@ -796,6 +814,19 @@ class ProductDeliveryInfo extends StatelessWidget {
 
   final Product product;
 
+  /// [text] as the rules wrote it, with non-breaking spaces so a wrapped
+  /// line never splits a time from its unit or "by" ("by 9:45 PM", "6
+  /// hours", "30–40 min") or the area's name ("Business Bay").
+  static String keepTogether(String text, String? areaName) {
+    var out = text
+        .replaceAllMapped(RegExp(r'\b(by|in) (?=\d)'), (m) => '${m[1]}\u00A0')
+        .replaceAllMapped(RegExp(r'(\d) (?=[A-Za-z])'), (m) => '${m[1]}\u00A0');
+    if (areaName != null && areaName.contains(' ')) {
+      out = out.replaceAll(areaName, areaName.replaceAll(' ', '\u00A0'));
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<DeliveryStore>();
@@ -807,32 +838,26 @@ class ProductDeliveryInfo extends StatelessWidget {
       String text, {
       bool strong = false,
       bool green = false,
-    }) =>
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                icon,
-                size: 20,
+    }) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: green ? AppColors.green : AppColors.ink),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              keepTogether(text, area?.name),
+              semanticsLabel: text,
+              style: AppText.bodySmall.copyWith(
                 color: green ? AppColors.green : AppColors.ink,
+                fontWeight: strong || green ? FontWeight.w700 : FontWeight.w500,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  text,
-                  style: AppText.bodySmall.copyWith(
-                    color: green ? AppColors.green : AppColors.ink,
-                    fontWeight: strong || green
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        );
+        ],
+      ),
+    );
 
     final List<Widget> rows;
     Widget? footer;
@@ -972,10 +997,10 @@ class CartDeliveryCard extends StatelessWidget {
     if (store.isExpress) {
       promise = store.expressClosedNotice ?? 'Express in ${express.range}';
     } else {
-      // A non-breaking space keeps "7:45 PM" from splitting across lines.
+      // Non-breaking spaces keep "by 7:45 PM" from splitting across lines.
       final by = market.by;
       promise = market.today && by != null
-          ? '${market.line} · by ${by.replaceAll(' ', '\u00A0')}'
+          ? '${market.line} · by\u00A0${by.replaceAll(' ', '\u00A0')}'
           : market.line;
     }
     final mismatch = store.isExpress && split.other > 0

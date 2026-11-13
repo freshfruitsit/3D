@@ -845,8 +845,10 @@ class _OptionTile extends StatelessWidget {
       onTap: onTap,
       excludeSemantics: true,
       child: Material(
-        // Off-white squares like the category tiles, no border.
-        color: enabled ? AppColors.subtle : AppColors.disabledFill,
+        // Off-white squares like the category tiles, no border. While a
+        // reply loads only the icon and label grey out: the grid does not
+        // flash darker with every question.
+        color: AppColors.subtle,
         shape: const RoundedRectangleBorder(
           borderRadius: AppDims.cardBorderRadius,
         ),
@@ -1237,29 +1239,35 @@ class _SuggestionRowState extends State<_SuggestionRow> {
   }
 }
 
-/// A round icon button with a tooltip, labelled for screen readers.
+/// A round icon button with a tooltip, labelled for screen readers: a
+/// [diameter] circle centred in a 44px touch target.
 class _RoundButton extends StatelessWidget {
   const _RoundButton({
     required this.label,
     required this.icon,
-    required this.size,
     required this.fill,
     required this.iconColor,
     required this.onTap,
+    this.diameter = size,
     this.disabledFill = AppColors.disabledFill,
   });
 
   final String label;
   final IconData icon;
-  final double size;
   final Color fill;
   final Color iconColor;
+
+  /// The visible circle, at most [size].
+  final double diameter;
 
   /// The fill while [onTap] is null.
   final Color disabledFill;
 
   /// Null: greyed and not tappable.
   final VoidCallback? onTap;
+
+  /// The touch target.
+  static const double size = AppDims.touch;
 
   @override
   Widget build(BuildContext context) {
@@ -1272,19 +1280,27 @@ class _RoundButton extends StatelessWidget {
       excludeSemantics: true,
       child: Tooltip(
         message: label,
-        child: Material(
-          color: enabled ? fill : disabledFill,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Icon(
-                icon,
-                size: 22,
-                color: enabled ? iconColor : AppColors.disabledText,
+        child: InkResponse(
+          onTap: onTap,
+          radius: size / 2,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: enabled ? fill : disabledFill,
+                  shape: BoxShape.circle,
+                ),
+                child: SizedBox(
+                  width: diameter,
+                  height: diameter,
+                  child: Icon(
+                    icon,
+                    size: 22,
+                    color: enabled ? iconColor : AppColors.disabledText,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1294,8 +1310,8 @@ class _RoundButton extends StatelessWidget {
   }
 }
 
-/// The composer: an off-white pill holding the options button and the
-/// text field, the ink Send button, and the demo label under them.
+/// The composer: one off-white pill holding the options button, the text
+/// field and the ink Send button, with the demo label under it.
 class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
@@ -1314,6 +1330,9 @@ class _InputBar extends StatelessWidget {
   /// Shows the options grid again.
   final VoidCallback onOptions;
 
+  /// The ink circle of the Send button, inside the 48px pill.
+  static const double sendDiameter = 36;
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
@@ -1323,63 +1342,58 @@ class _InputBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: DecoratedBox(
-                    decoration: const ShapeDecoration(
-                      color: AppColors.subtle,
-                      shape: StadiumBorder(),
+            // A Material, so the buttons' ripples show on the pill.
+            Material(
+              color: AppColors.subtle,
+              shape: const StadiumBorder(),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 2),
+                child: Row(
+                  children: [
+                    _RoundButton(
+                      label: 'Show options',
+                      icon: Icons.apps,
+                      fill: Colors.transparent,
+                      disabledFill: Colors.transparent,
+                      iconColor: AppColors.ink,
+                      onTap: enabled ? onOptions : null,
                     ),
-                    child: Row(
-                      children: [
-                        _RoundButton(
-                          label: 'Show options',
-                          icon: Icons.apps,
-                          size: AppDims.touch,
-                          fill: Colors.transparent,
-                          disabledFill: Colors.transparent,
-                          iconColor: AppColors.ink,
-                          onTap: enabled ? onOptions : null,
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        textInputAction: TextInputAction.send,
+                        textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: onSend,
+                        // Keeps the keyboard up after sending, for a
+                        // follow-up question.
+                        onEditingComplete: () {},
+                        style: AppText.body,
+                        decoration: const InputDecoration(
+                          hintText: AssistantScreen.inputHint,
+                          hintMaxLines: 2,
+                          // The pill around it is the field.
+                          filled: false,
+                          isDense: true,
+                          // The buttons' own padding is the gap on either
+                          // side.
+                          contentPadding: EdgeInsets.symmetric(vertical: 13),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                         ),
-                        Expanded(
-                          child: TextField(
-                            controller: controller,
-                            textInputAction: TextInputAction.send,
-                            textCapitalization: TextCapitalization.sentences,
-                            onSubmitted: onSend,
-                            // Keeps the keyboard up after sending, for a
-                            // follow-up question.
-                            onEditingComplete: () {},
-                            style: AppText.body,
-                            decoration: const InputDecoration(
-                              hintText: AssistantScreen.inputHint,
-                              hintMaxLines: 2,
-                              // The pill around it is the field.
-                              filled: false,
-                              isDense: true,
-                              contentPadding:
-                                  EdgeInsets.fromLTRB(2, 13, 16, 13),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    _RoundButton(
+                      label: 'Send',
+                      icon: Icons.arrow_upward,
+                      diameter: sendDiameter,
+                      fill: AppColors.ink,
+                      iconColor: AppColors.onDark,
+                      onTap: enabled ? () => onSend(controller.text) : null,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _RoundButton(
-                  label: 'Send',
-                  icon: Icons.arrow_upward,
-                  size: AppDims.touch,
-                  fill: AppColors.ink,
-                  iconColor: AppColors.onDark,
-                  onTap: enabled ? () => onSend(controller.text) : null,
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 6),
             // Never cut off: the label must stay readable at any font size,
