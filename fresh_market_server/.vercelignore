@@ -1,8 +1,7 @@
-# Upload only what the functions need (allowlist).
-/*
-!api
-!lib
-!public
-!package.json
-!package-lock.json
-!vercel.json
+# Leave out what the functions don't need.
+test
+node_modules
+.env
+.env.*
+*.log
+README.md
