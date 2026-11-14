@@ -31,7 +31,20 @@ class ShellController extends ChangeNotifier {
   AppTab _tab = AppTab.home;
   int _reselects = 0;
 
+  /// Set while the tab shell is on screen: shows a tab, back at its first
+  /// page, with [Route] pushed on that tab's own navigator.
+  Future<void> Function(AppTab tab, Route<void> route)? _openInTab;
+
   AppTab get tab => _tab;
+
+  /// True while the tab shell is on screen (not when a screen is shown
+  /// on its own, as in tests).
+  bool get hasShell => _openInTab != null;
+
+  /// Shows [tab], back at its first page, with [route] pushed inside it
+  /// (the bottom bar stays). Without the shell nothing happens.
+  Future<void> openInTab(AppTab tab, Route<void> route) =>
+      _openInTab?.call(tab, route) ?? Future<void>.value();
 
   /// Goes up each time the tab that is already showing is chosen again;
   /// the shell then returns that tab to its first screen.
@@ -112,7 +125,9 @@ class AppScope extends StatelessWidget {
         if (profile != null)
           ChangeNotifierProvider<ProfileStore>.value(value: profile!)
         else
-          ChangeNotifierProvider<ProfileStore>(create: (_) => ProfileStore()),
+          ChangeNotifierProvider<ProfileStore>(
+            create: (_) => ProfileStore(),
+          ),
         if (session != null)
           ChangeNotifierProvider<AccountSession>.value(value: session!)
         else
@@ -272,7 +287,8 @@ class _AppShellState extends State<AppShell> {
   /// Ask button: a control focused there is scrolled to the middle of the
   /// screen (WCAG 2.4.11).
   void _onFocusChanged() {
-    if (FocusManager.instance.highlightMode != FocusHighlightMode.traditional) {
+    if (FocusManager.instance.highlightMode !=
+        FocusHighlightMode.traditional) {
       return;
     }
     final node = FocusManager.instance.primaryFocus;
@@ -313,7 +329,9 @@ class _AppShellState extends State<AppShell> {
     final controller = context.read<ShellController>();
     if (!identical(controller, _controller)) {
       _controller?.removeListener(_onShellChanged);
+      if (_controller?._openInTab == _openInTab) _controller?._openInTab = null;
       _controller = controller..addListener(_onShellChanged);
+      controller._openInTab = _openInTab;
       _seenReselects = controller.reselects;
       _visited.add(controller.tab);
     }
@@ -323,27 +341,46 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     FocusManager.instance.removeListener(_onFocusChanged);
     _controller?.removeListener(_onShellChanged);
+    if (_controller?._openInTab == _openInTab) _controller?._openInTab = null;
     super.dispose();
+  }
+
+  /// [ShellController.openInTab]: [tab] shown, its stack back to its first
+  /// page, then [route] pushed on it (a tab not shown before is built
+  /// first).
+  Future<void> _openInTab(AppTab tab, Route<void> route) async {
+    final controller = _controller;
+    if (controller == null) return;
+    if (controller.tab != tab) controller.select(tab);
+    var navigator = _navigators[tab]!.currentState;
+    if (navigator == null) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      navigator = _navigators[tab]!.currentState;
+    }
+    if (navigator == null) return;
+    navigator.popUntil((r) => r.isFirst);
+    await navigator.push(route);
   }
 
   void _onShellChanged() {
     final controller = _controller!;
     if (controller.reselects != _seenReselects) {
       _seenReselects = controller.reselects;
-      _navigators[controller.tab]!.currentState?.popUntil(
-        (route) => route.isFirst,
-      );
+      _navigators[controller.tab]!
+          .currentState
+          ?.popUntil((route) => route.isFirst);
     }
     setState(() => _visited.add(controller.tab));
   }
 
   Widget _rootOf(AppTab tab) => switch (tab) {
-    AppTab.home => const HomeScreen(),
-    AppTab.categories => const CategoriesScreen(),
-    AppTab.deals => const ProductListScreen.deals(),
-    AppTab.cart => const CartScreen(),
-    AppTab.account => const AccountScreen(),
-  };
+        AppTab.home => const HomeScreen(),
+        AppTab.categories => const CategoriesScreen(),
+        AppTab.deals => const ProductListScreen.deals(),
+        AppTab.cart => const CartScreen(),
+        AppTab.account => const AccountScreen(),
+      };
 
   /// System back: first inside the tab, then to Home, then leave the app.
   void _onBack() {
@@ -389,9 +426,9 @@ class _AppShellState extends State<AppShell> {
                             key: _navigators[tab],
                             onGenerateRoute: (settings) =>
                                 MaterialPageRoute<void>(
-                                  settings: settings,
-                                  builder: (_) => _rootOf(tab),
-                                ),
+                              settings: settings,
+                              builder: (_) => _rootOf(tab),
+                            ),
                           ),
                         )
                       else
@@ -405,8 +442,7 @@ class _AppShellState extends State<AppShell> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height:
-                      FloatingNavBar.bottomInset +
+                  height: FloatingNavBar.bottomInset +
                       FloatingNavBar.height +
                       32 +
                       safeBottom,
@@ -444,8 +480,7 @@ class _AppShellState extends State<AppShell> {
                 if (current != AppTab.cart)
                   Positioned(
                     right: AppDims.gutter,
-                    bottom:
-                        FloatingNavBar.bottomInset +
+                    bottom: FloatingNavBar.bottomInset +
                         safeBottom +
                         FloatingNavBar.height +
                         AskButton.gapAboveNavBar,

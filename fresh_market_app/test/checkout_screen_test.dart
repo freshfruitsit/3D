@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
+import 'package:fresh_market_app/models/order.dart';
 import 'package:fresh_market_app/profile/customer_details.dart';
 import 'package:fresh_market_app/screens/checkout_screen.dart';
 import 'package:fresh_market_app/screens/my_details_screen.dart';
@@ -10,11 +12,14 @@ import 'package:fresh_market_app/screens/my_orders_screen.dart';
 import 'package:fresh_market_app/screens/order_placed_screen.dart';
 import 'package:fresh_market_app/services/customer_auth.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
+import 'package:fresh_market_app/services/order_api.dart';
 import 'package:fresh_market_app/state/account_session.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/order_fakes.dart';
 import 'support/test_app.dart';
@@ -125,13 +130,13 @@ void main() {
       expect(find.text('Zespri Kiwi Sungold · 500 g'), findsOneWidget);
       expect(find.text('× 2'), findsOneWidget);
       expect(find.text('Australian Beef Cubes'), findsOneWidget);
-      expect(find.text('⃃ 102.40'), findsOneWidget);
+      expect(find.text('⃃\u00A0102.40'), findsOneWidget);
       expect(find.text(CheckoutScreen.freeDeliveryHint(9760)), findsOneWidget);
       expect(find.text(CheckoutScreen.vatNote), findsOneWidget);
       expect(find.text(CheckoutScreen.codTitle), findsOneWidget);
       expect(find.text(CheckoutScreen.codSubtitle), findsOneWidget);
       expect(find.text(CheckoutScreen.cashNote), findsOneWidget);
-      expect(find.text('Place order · ⃃ 127.40'), findsOneWidget);
+      expect(find.text('Place order · ⃃\u00A0127.40'), findsOneWidget);
 
       double top(String text) => tester.getTopLeft(find.text(text)).dy;
       expect(top('DELIVER TO'), lessThan(top('DELIVERY')));
@@ -183,6 +188,12 @@ void main() {
         find.byKey(const ValueKey('checkout-quote-error')),
         findsOneWidget,
       );
+      // The quote's own words, not the order-placing ones.
+      expect(
+        find.text('Fresh Market is busy right now. Try again in a moment.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('place your order'), findsNothing);
       expect(_placeButton(tester).onPressed, isNull);
       server.quoteStatus = null;
       await tester.tap(find.byKey(const ValueKey('checkout-quote-retry')));
@@ -196,7 +207,58 @@ void main() {
       await open(tester);
       expect(find.text(CheckoutScreen.free), findsWidgets);
       expect(find.textContaining('more for free delivery'), findsNothing);
-      expect(find.text('Place order · ⃃ 289.90'), findsOneWidget);
+      expect(find.text('Place order · ⃃\u00A0289.90'), findsOneWidget);
+    });
+
+    test('quote failures are said for prices, not for placing', () {
+      expect(
+        CheckoutScreen.quoteErrorText(const OrderNetworkError()),
+        "We couldn't get today's prices. Check your connection and try again.",
+      );
+      const busy = 'Fresh Market is busy right now. Try again in a moment.';
+      expect(CheckoutScreen.quoteErrorText(const OrderRateLimited()), busy);
+      expect(
+        CheckoutScreen.quoteErrorText(
+          const OrderServerError(503, retryable: true),
+        ),
+        busy,
+      );
+      expect(
+        CheckoutScreen.quoteErrorText(
+          const OrderInvalid(field: 'delivery.area', message: 'We do not '
+              'deliver to this area yet.'),
+        ),
+        'We do not deliver to this area yet.',
+      );
+      expect(
+        CheckoutScreen.quoteErrorText(const OrderServerError(400)),
+        "We couldn't get today's prices. Try again in a moment.",
+      );
+    });
+
+    testWidgets('no address for the area: said in place, with Add address; '
+        'Place order waits', (tester) async {
+      final profile = ProfileStore()..saveContact(sara);
+      await open(tester, profile: profile);
+      expect(
+        find.byKey(const ValueKey('checkout-need-address')),
+        findsOneWidget,
+      );
+      expect(find.text(CheckoutScreen.needAddressTitle), findsOneWidget);
+      expect(
+        find.text('Add your address to place your order'),
+        findsOneWidget,
+      );
+      expect(_placeButton(tester).onPressed, isNull);
+      expect(
+        find.byKey(const ValueKey('checkout-add-address')),
+        findsOneWidget,
+      );
+      // Added meanwhile (as the address page does): Place order is ready.
+      profile.saveAddress(home());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('checkout-need-address')), findsNothing);
+      expect(_placeButton(tester).onPressed, isNotNull);
     });
 
     testWidgets('missing name and mobile: said in place; Place order waits '
@@ -284,7 +346,7 @@ void main() {
         find.text('Home · Bay Square, Building 5 · Flat 302'),
         findsOneWidget,
       );
-      expect(find.text('Pay ⃃ 127.40 on delivery'), findsOneWidget);
+      expect(find.text('Pay ⃃\u00A0127.40 on delivery'), findsOneWidget);
       expect(find.text(OrderPlacedScreen.cashLine), findsOneWidget);
       expect(
         find.text('A confirmation is on its way to sara@example.com'),
@@ -354,7 +416,7 @@ void main() {
         findsOneWidget,
       );
       // New totals: 39.90 + 25.00.
-      expect(find.text('Place order · ⃃ 64.90'), findsOneWidget);
+      expect(find.text('Place order · ⃃\u00A064.90'), findsOneWidget);
       expect(said.any((s) => s.startsWith('Your order changed.')), isTrue);
       final firstKey = server.orderRequests.single.headers['idempotency-key'];
 
@@ -378,7 +440,7 @@ void main() {
       );
       expect(cart.quantityOf(2001), 1);
       // 19.95 + 62.50 + 25.00.
-      expect(find.text('Place order · ⃃ 107.45'), findsOneWidget);
+      expect(find.text('Place order · ⃃\u00A0107.45'), findsOneWidget);
     });
 
     testWidgets('401: a fresh token once, then the same order with the same '
@@ -397,6 +459,32 @@ void main() {
         requests[1].headers['idempotency-key'],
         requests[0].headers['idempotency-key'],
       );
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+    });
+
+    testWidgets('401 and the forced refresh refused: signed out, sign in '
+        'again, then the order goes with the same key', (tester) async {
+      final session = await open(tester);
+      server.orderAnswers.add((_) => FakeOrderServer.json(401, {}));
+      oauth.refreshError = const RefreshRejected();
+      await placeOrder(tester);
+      expect(oauth.refreshCalls, 1);
+      expect(server.orderRequests, hasLength(1));
+      expect(session.signedIn, isFalse);
+      expect(find.text(CheckoutScreen.signInAgain), findsOneWidget);
+      expect(cart.isEmpty, isFalse);
+
+      oauth.refreshError = null;
+      await tester.tap(find.byKey(const ValueKey('checkout-problem-action')));
+      await tester.pumpAndSettle();
+      expect(session.signedIn, isTrue);
+      await placeOrder(tester);
+      expect(server.orderRequests, hasLength(2));
+      expect(
+        server.orderRequests[1].headers['idempotency-key'],
+        server.orderRequests[0].headers['idempotency-key'],
+      );
+      expect(server.orderRequests[1].headers['authorization'], 'Bearer access-1');
       expect(find.byType(OrderPlacedScreen), findsOneWidget);
     });
 
@@ -514,6 +602,11 @@ void main() {
       tester.view.physicalSize = const Size(1080, 2340);
       await tester.pump();
       expect(tester.takeException(), isNull);
+      // "Change" goes under the address, which keeps the card's width.
+      expect(
+        tester.getTopLeft(find.text('Change')).dy,
+        greaterThan(tester.getBottomLeft(find.textContaining('Sara Ahmed')).dy),
+      );
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('checkout-instructions')),
         300,
@@ -556,6 +649,328 @@ void main() {
             .height,
         greaterThanOrEqualTo(44),
       );
+      handle.dispose();
+    });
+  });
+
+  group('never two orders, and never a stale total', () {
+    /// A page with "Open checkout", which pushes checkout over it (so
+    /// checkout can be closed and opened again).
+    Future<AccountSession> host(WidgetTester tester) async {
+      final session = await signedInSession(client: oauth);
+      await pumpScreen(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CheckoutScreen(),
+                  ),
+                ),
+                child: const Text('Open checkout'),
+              ),
+            ),
+          ),
+        ),
+        cart: cart,
+        profile: filledProfile(),
+        delivery: testDelivery(),
+        session: session,
+        orderApi: server.api(),
+      );
+      tester.view.physicalSize = const Size(1170, 4200);
+      await tester.pump();
+      await tester.tap(find.text('Open checkout'));
+      await tester.pumpAndSettle();
+      return session;
+    }
+
+    void failThrice() {
+      for (var i = 0; i < 3; i++) {
+        server.orderAnswers.add(
+          (_) => FakeOrderServer.json(503, {'retryable': true}),
+        );
+      }
+    }
+
+    Set<String?> keys() => {
+      for (final r in server.orderRequests) r.headers['idempotency-key'],
+    };
+
+    testWidgets('a 5xx, then the note edited: Try again sends the same key '
+        '(the first try may have gone through) with the new note', (
+      tester,
+    ) async {
+      await open(tester);
+      failThrice();
+      await placeOrder(tester);
+      expect(find.text(CheckoutScreen.tryAgain), findsOneWidget);
+      expect(cart.pendingOrder, isNotNull);
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('checkout-instructions')),
+          matching: find.byType(EditableText),
+        ),
+        'Leave at the door',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('checkout-problem-action')));
+      await tester.pumpAndSettle();
+      expect(server.orderRequests, hasLength(4));
+      expect(keys(), hasLength(1), reason: 'one order, one key');
+      expect(
+        server.body(server.orderRequests.last)['instructions'],
+        'Leave at the door',
+      );
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+      expect(cart.isEmpty, isTrue);
+      expect(cart.pendingOrder, isNull);
+    });
+
+    testWidgets('a 5xx, then checkout closed and opened again: the same '
+        'key', (tester) async {
+      await host(tester);
+      failThrice();
+      await placeOrder(tester);
+      expect(find.text(CheckoutScreen.tryAgain), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CheckoutScreen), findsNothing);
+      await tester.tap(find.text('Open checkout'));
+      await tester.pumpAndSettle();
+      await placeOrder(tester);
+      expect(server.orderRequests, hasLength(4));
+      expect(keys(), hasLength(1));
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+    });
+
+    testWidgets('the key outlives a restart of the app (kept on the device)',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      cart = CartStore(prefs: prefs)
+        ..add(kiwi, kiwi.variants[0], quantity: 2)
+        ..add(beef, beef.variants[0]);
+      await open(tester);
+      failThrice();
+      await placeOrder(tester);
+      final first = server.orderRequests.first.headers['idempotency-key'];
+
+      // The app is closed and opened again: the cart is read back.
+      cart = CartStore(prefs: prefs);
+      expect(cart.pendingOrder?.key, first);
+      await open(tester);
+      await placeOrder(tester);
+      expect(server.orderRequests.last.headers['idempotency-key'], first);
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+      expect(prefs.getString(CartStore.pendingOrderPrefsKey), isNull);
+    });
+
+    testWidgets('the 201 comes after checkout was closed: the cart is '
+        'emptied all the same', (tester) async {
+      await host(tester);
+      final hold = Completer<void>();
+      server.orderAnswers.add((request) async {
+        await hold.future;
+        return server.created(request);
+      });
+      await tester.tap(_place);
+      await tester.pump();
+      // Checkout goes (the app closed it) while the order is on its way.
+      Navigator.of(tester.element(find.byType(CheckoutScreen))).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(CheckoutScreen), findsNothing);
+      hold.complete();
+      await tester.pumpAndSettle();
+      expect(cart.isEmpty, isTrue);
+      expect(cart.pendingOrder, isNull);
+    });
+
+    testWidgets('signed in again as someone else: a new key', (tester) async {
+      await open(tester);
+      server.orderAnswers
+        ..add((_) => FakeOrderServer.json(401, {}))
+        ..add((_) => FakeOrderServer.json(401, {}));
+      await placeOrder(tester);
+      expect(find.text(CheckoutScreen.signInAgain), findsOneWidget);
+      final first = server.orderRequests.first.headers['idempotency-key'];
+
+      oauth.email = 'omar@example.com';
+      oauth.refreshError = const RefreshRejected();
+      await tester.tap(find.byKey(const ValueKey('checkout-problem-action')));
+      await tester.pumpAndSettle();
+      oauth.refreshError = null;
+      await placeOrder(tester);
+      final last = server.orderRequests.last;
+      expect(last.headers['idempotency-key'], isNot(first));
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+    });
+
+    testWidgets('the key was another customer\'s (422 Idempotency-Key): a '
+        'new key at once, and the order goes', (tester) async {
+      await open(tester);
+      server.orderAnswers.add(
+        (_) => FakeOrderServer.json(422, {
+          'error': 'invalid',
+          'field': 'Idempotency-Key',
+          'message': 'This Idempotency-Key was already used. Send a new one '
+              'for a new order.',
+        }),
+      );
+      await placeOrder(tester);
+      expect(server.orderRequests, hasLength(2));
+      expect(keys(), hasLength(2));
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+      expect(find.textContaining('Idempotency'), findsNothing);
+    });
+
+    testWidgets('the key brings back an earlier order of another basket: '
+        'said, the cart stays, the next try is a new order', (tester) async {
+      final said = _announcements(tester);
+      await open(tester);
+      server.orderAnswers.add(
+        (_) => http.Response(
+          jsonEncode({
+            'orderId': 'gid://shopify/Order/1000',
+            'orderName': '#1000',
+            'totalFils': 8750,
+            'deliveryPromise': 'Today within 6 hours',
+            'paymentMethod': 'Cash on Delivery',
+          }),
+          201,
+          headers: {
+            'content-type': 'application/json',
+            'idempotent-replayed': 'true',
+          },
+        ),
+      );
+      await placeOrder(tester);
+      expect(find.byType(OrderPlacedScreen), findsNothing);
+      expect(cart.isEmpty, isFalse);
+      expect(cart.pendingOrder, isNull);
+      final line = CheckoutScreen.earlierOrderLine(
+        const PlacedOrder(
+          orderId: 'gid://shopify/Order/1000',
+          orderName: '#1000',
+          totalFils: 8750,
+          deliveryPromise: '',
+        ),
+      );
+      expect(find.text(line), findsOneWidget);
+      expect(find.text(CheckoutScreen.viewOrders), findsOneWidget);
+      expect(said, contains(line));
+    });
+
+    testWidgets('the last line sells out (409): struck through, "Everything '
+        'in your order sold out", Back to cart, and no Place order', (
+      tester,
+    ) async {
+      final said = _announcements(tester);
+      cart = CartStore()..add(beef, beef.variants[0]);
+      await open(tester);
+      expect(find.text('Place order · ⃃ 87.50'), findsOneWidget);
+      server.soldOut.add(2003);
+      server.orderAnswers.add(
+        (request) => FakeOrderServer.json(409, {
+          'error': 'quote_changed',
+          'problems': [
+            {'variantId': 2003, 'kind': 'sold_out', 'message': 'Sold out.'},
+          ],
+          'quote': server.quoteFor(server.body(request)),
+        }),
+      );
+      await placeOrder(tester);
+      expect(cart.lineOf(2003)!.available, isFalse);
+      expect(find.byKey(const ValueKey('checkout-sold-out')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('checkout-struck-2003')),
+        findsOneWidget,
+      );
+      expect(find.text(CheckoutScreen.allSoldOut), findsOneWidget);
+      expect(find.textContaining('87.50'), findsNothing);
+      expect(find.text('Place order'), findsOneWidget);
+      expect(_placeButton(tester).onPressed, isNull);
+      expect(
+        said.any((s) => s.contains(CheckoutScreen.allSoldOut)),
+        isTrue,
+      );
+      // Nothing more is sent.
+      await tester.tap(_place, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(server.orderRequests, hasLength(1));
+      expect(
+        find.byKey(const ValueKey('checkout-back-to-cart')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the same with no quote in the 409: no old total stays up',
+        (tester) async {
+      cart = CartStore()..add(beef, beef.variants[0]);
+      await open(tester);
+      server.soldOut.add(2003);
+      server.orderAnswers.add(
+        (_) => FakeOrderServer.json(409, {
+          'error': 'quote_changed',
+          'problems': [
+            {'variantId': 2003, 'kind': 'sold_out', 'message': 'Sold out.'},
+          ],
+        }),
+      );
+      await placeOrder(tester);
+      expect(find.byKey(const ValueKey('checkout-sold-out')), findsOneWidget);
+      expect(_placeButton(tester).onPressed, isNull);
+      expect(find.textContaining('87.50'), findsNothing);
+    });
+
+    testWidgets('a price that changed (409 without a quote): the server\'s '
+        'sentence, then the new price from the new quote', (tester) async {
+      cart = CartStore()..add(beef, beef.variants[0]);
+      await open(tester);
+      server.prices[2003] = 7000;
+      server.orderAnswers.add(
+        (_) => FakeOrderServer.json(409, {
+          'error': 'quote_changed',
+          'problems': [
+            {
+              'variantId': 2003,
+              'kind': 'price_changed',
+              'message': 'The price of Australian Beef Cubes changed from '
+                  'AED 62.50 to AED 70.00.',
+            },
+          ],
+        }),
+      );
+      await placeOrder(tester);
+      expect(
+        find.textContaining(
+          'The price of Australian Beef Cubes changed from AED 62.50 to '
+          'AED 70.00.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('now costs'), findsNothing);
+      // The new quote: 70.00 + 25.00; the cart follows the store.
+      expect(find.text('Place order · ⃃ 95.00'), findsOneWidget);
+      expect(cart.lineOf(2003)!.priceCents, 7000);
+    });
+
+    testWidgets('"Your order changed" is said once (announced, not also a '
+        'live region)', (tester) async {
+      server.stock[2001] = 1;
+      final handle = tester.ensureSemantics();
+      await open(tester);
+      final node = tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const ValueKey('checkout-changed')),
+          matching: find.byType(Semantics),
+        ).first,
+      );
+      expect(node.flagsCollection.isLiveRegion, isFalse);
       handle.dispose();
     });
   });

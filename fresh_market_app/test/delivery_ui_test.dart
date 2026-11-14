@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fresh_market_app/services/order_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:fresh_market_app/app.dart';
@@ -15,6 +14,7 @@ import 'package:fresh_market_app/screens/product_detail_screen.dart';
 import 'package:fresh_market_app/screens/product_list_screen.dart';
 import 'package:fresh_market_app/services/device_location.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
+import 'package:fresh_market_app/services/order_api.dart';
 import 'package:fresh_market_app/services/location_services.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
@@ -1002,12 +1002,7 @@ void main() {
       await pumpScreen(tester, const CartScreen(), cart: cart, delivery: store);
       expect(card('Set location'), findsOneWidget);
 
-      await tester.tap(
-        find.ancestor(
-          of: find.textContaining('Checkout · '),
-          matching: find.byType(FilledButton),
-        ),
-      );
+      await tester.tap(find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)));
       await tester.pump();
       await tester.pump(_settle);
       expect(find.byType(LocationScreen), findsOneWidget);

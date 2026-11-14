@@ -43,12 +43,12 @@ void main() {
       expect(find.text('3 items'), findsOneWidget);
       expect(find.text(kiwi.title), findsOneWidget);
       // Size first, normalised; the unit price once there are two.
-      expect(find.text('500 g · \u20C3 19.95 each'), findsOneWidget);
-      expect(find.text('\u20C3 39.90'), findsOneWidget); // kiwi line total
-      expect(find.text('\u20C3 62.50'), findsOneWidget); // beef line total
+      expect(find.text('500 g · \u20C3\u00A019.95 each'), findsOneWidget);
+      expect(find.text('\u20C3\u00A039.90'), findsOneWidget); // kiwi line total
+      expect(find.text('\u20C3\u00A062.50'), findsOneWidget); // beef line total
       expect(find.text('115.00'), findsOneWidget); // struck old line total
       expect(find.text('Subtotal'), findsOneWidget);
-      expect(find.text('\u20C3 102.40'), findsOneWidget);
+      expect(find.text('\u20C3\u00A0102.40'), findsOneWidget);
       // UAE prices include VAT (the store's own cart says "Duties and
       // taxes included"): nothing suggests tax is added later.
       expect(
@@ -57,7 +57,7 @@ void main() {
       );
       expect(find.textContaining('taxes are calculated'), findsNothing);
       // The Checkout button carries the total.
-      expect(find.text('Checkout · \u20C3 102.40'), findsOneWidget);
+      expect(find.text('Checkout · \u20C3\u00A0102.40'), findsOneWidget);
       expect(find.bySemanticsLabel('Checkout, AED 102.40'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -153,7 +153,7 @@ void main() {
         },
       });
       // 39.90 + 25.00 delivery.
-      expect(find.text('Place order · \u20C3 64.90'), findsOneWidget);
+      expect(find.text('Place order · \u20C3\u00A064.90'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
@@ -268,7 +268,7 @@ void main() {
       expect(
         find.descendant(
           of: row('express'),
-          matching: find.text('\u20C3 25.00'),
+          matching: find.text('\u20C3\u00A025.00'),
         ),
         findsOneWidget,
       );
@@ -477,7 +477,7 @@ void main() {
       expect(find.byType(Divider), findsOneWidget);
       expect(
         tester
-            .widget<Text>(find.text('500 g · \u20C3 19.95 each'))
+            .widget<Text>(find.text('500 g · \u20C3\u00A019.95 each'))
             .semanticsLabel,
         '500 g, AED 19.95 each',
       );

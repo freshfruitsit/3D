@@ -627,7 +627,10 @@ class DeliveryBarView extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text.rich(_spans(bar.message), style: AppText.bodySmall),
+                child: Text.rich(
+                  _spans(bar.message),
+                  style: AppText.bodySmall,
+                ),
               ),
             ],
           ),
@@ -1080,8 +1083,10 @@ class CartDeliveryCard extends StatelessWidget {
               alignment: AlignmentDirectional.centerStart,
               child: TextButton.icon(
                 key: const ValueKey('cart-switch-market'),
-                onPressed: () =>
-                    AppNav.chooseDeliveryMode(context, DeliveryMode.market),
+                onPressed: () => AppNav.chooseDeliveryMode(
+                  context,
+                  DeliveryMode.market,
+                ),
                 icon: const Icon(Icons.storefront_outlined, size: 18),
                 label: const Text(switchToMarket),
               ),

@@ -20,7 +20,9 @@ import '../widgets/state_views.dart';
 /// "My orders" (Account, signed in): the customer's latest orders from
 /// Shopify's Customer Account API, newest first. Each card has the order
 /// number and its status, the date, item count, total and payment, the
-/// first photos and "Buy again". Loading, empty and error states.
+/// first photos, and "Buy again" once the order is finished (delivered,
+/// cancelled or refunded). Loading, empty and error states. It opens
+/// inside the Account tab, above the floating bottom bar.
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({super.key});
 
@@ -82,21 +84,24 @@ class MyOrdersScreen extends StatefulWidget {
 
   /// The product and variant of a past order's line in the store now, or
   /// null when the store no longer has it. Found through the store's
-  /// search by the line's title (Shopify's order lines carry no product
-  /// handle).
+  /// search by the line's title or product name
+  /// ([OrderLine.searchTerms]; Shopify's order lines carry no product
+  /// handle), matched by the variant id.
   static Future<(Product, Variant)?> findVariant(
     ShopifyApi api,
     OrderLine line,
   ) async {
     final id = line.variantId;
-    if (id == null || line.title.trim().isEmpty) return null;
-    try {
-      for (final product in await api.search(line.title, limit: 6)) {
-        final variant = product.variantById(id);
-        if (variant != null) return (product, variant);
+    if (id == null) return null;
+    for (final term in line.searchTerms) {
+      try {
+        for (final product in await api.search(term, limit: 6)) {
+          final variant = product.variantById(id);
+          if (variant != null) return (product, variant);
+        }
+      } on ApiException {
+        // Not found right now.
       }
-    } on ApiException {
-      // Not found right now.
     }
     return null;
   }
@@ -163,10 +168,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   Future<void> _signIn() async {
-    if (await AppNav.signIn(context, noticeBottomMargin: AppDims.gutter) &&
-        mounted) {
-      await _load();
-    }
+    if (await AppNav.signIn(context) && mounted) await _load();
   }
 
   /// Puts what can still be bought from [order] in the cart, as many as
@@ -195,7 +197,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       AppNav.showNotice(
         context,
         MyOrdersScreen.buyAgainMessage(added: added, missing: missing),
-        bottomMargin: AppDims.gutter,
         actionLabel: added > 0 ? 'View cart' : null,
         onAction: added > 0 ? () => AppNav.goToTab(context, AppTab.cart) : null,
       );
@@ -207,14 +208,18 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final now = context.read<DeliveryStore>().now();
+    // Clear of the floating bottom bar and the Ask button.
+    final bottom = AppDims.floatingSpace(context);
+    Widget clear(Widget child) =>
+        Padding(padding: EdgeInsets.only(bottom: bottom), child: child);
     final Widget body = switch (_state) {
       _Load.loading => ListView(
         key: const ValueKey('orders-loading'),
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           AppDims.gutter,
           8,
           AppDims.gutter,
-          24,
+          bottom,
         ),
         children: [
           Semantics(
@@ -231,29 +236,33 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           ),
         ],
       ),
-      _Load.failed => ErrorView(
-        key: const ValueKey('orders-error'),
-        message: _error,
-        onRetry: _load,
+      _Load.failed => clear(
+        ErrorView(
+          key: const ValueKey('orders-error'),
+          message: _error,
+          onRetry: _load,
+        ),
       ),
-      _Load.signedOut => _SignedOut(onSignIn: _signIn),
-      _Load.loaded when _orders.isEmpty => EmptyView(
-        key: const ValueKey('orders-empty'),
-        icon: Icons.shopping_bag_outlined,
-        title: MyOrdersScreen.emptyTitle,
-        message: MyOrdersScreen.emptyMessage,
-        actionLabel: 'Start shopping',
-        onAction: () => AppNav.goToTab(context, AppTab.home),
+      _Load.signedOut => clear(_SignedOut(onSignIn: _signIn)),
+      _Load.loaded when _orders.isEmpty => clear(
+        EmptyView(
+          key: const ValueKey('orders-empty'),
+          icon: Icons.shopping_bag_outlined,
+          title: MyOrdersScreen.emptyTitle,
+          message: MyOrdersScreen.emptyMessage,
+          actionLabel: 'Start shopping',
+          onAction: () => AppNav.goToTab(context, AppTab.home),
+        ),
       ),
       _Load.loaded => RefreshIndicator(
         onRefresh: _load,
         child: ListView.separated(
           key: const ValueKey('orders-list'),
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppDims.gutter,
             8,
             AppDims.gutter,
-            24,
+            bottom,
           ),
           itemCount: _orders.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -324,7 +333,10 @@ class _OrderCard extends StatelessWidget {
     final shown = photos.take(4).toList();
     final more = order.lines.length - shown.length;
     final summary = MyOrdersScreen.summaryLine(order, now);
-    final canBuyAgain = order.lines.any((l) => l.variantId != null);
+    // Once it is finished, as in the approved design (not while it is
+    // still on its way).
+    final canBuyAgain =
+        order.status.finished && order.lines.any((l) => l.variantId != null);
     return Container(
       key: ValueKey('order-${order.name}'),
       decoration: AppDecor.card,

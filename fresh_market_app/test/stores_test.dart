@@ -36,7 +36,7 @@ void main() {
       expect(line.variantTitle, '500 GM');
       expect(line.lineTotalCents, 3990);
       expect(line.oldLineTotalCents, isNull);
-      expect(line.detailLine, '500 g · \u20C3 19.95 each');
+      expect(line.detailLine, '500 g · \u20C3\u00A019.95 each');
       expect(line.size, '500 g');
       expect(line.origin, 'New Zealand');
 
@@ -44,7 +44,7 @@ void main() {
       expect(sale.variantTitle, isNull);
       expect(sale.onSale, isTrue);
       expect(sale.oldLineTotalCents, 3 * 11500);
-      expect(sale.detailLine, '\u20C3 62.50 each');
+      expect(sale.detailLine, '\u20C3\u00A062.50 each');
 
       // At one unit the line total is the price: only the size is said.
       final one = cart.lineOf(kiwi.variants[1].id)!;
@@ -128,6 +128,97 @@ void main() {
 
       restored.clear();
       expect(CartStore(prefs: prefs).isEmpty, isTrue);
+    });
+
+    test('the order key: kept until the outcome is known, for an hour '
+        'after the last try, for the same account; kept on the device '
+        '(a random key and a time, nothing personal)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final t0 = DateTime.utc(2026, 11, 14, 8);
+      var n = 0;
+      String next() => 'key-${++n}';
+      final cart = CartStore(prefs: prefs)..add(kiwi, kiwi.variants[0]);
+      var notified = 0;
+      cart.addListener(() => notified++);
+
+      expect(cart.pendingOrder, isNull);
+      final first = cart.orderKey(account: 'sara@example.com', now: t0, newKey: next);
+      expect(first, 'key-1');
+      expect(notified, 0, reason: 'nothing on screen shows it');
+      // Again (a retry, after an edit or a reopened checkout): the same.
+      expect(
+        cart.orderKey(
+          account: 'sara@example.com',
+          now: t0.add(const Duration(minutes: 50)),
+          newKey: next,
+        ),
+        'key-1',
+      );
+      // An hour after the last try is still within the hour.
+      expect(
+        cart.orderKey(
+          account: 'sara@example.com',
+          now: t0.add(const Duration(minutes: 100)),
+          newKey: next,
+        ),
+        'key-1',
+      );
+
+      // After a restart: read back, the account no longer known.
+      final saved = prefs.getString(CartStore.pendingOrderPrefsKey)!;
+      expect(saved, isNot(contains('sara')));
+      final restored = CartStore(prefs: prefs);
+      expect(restored.pendingOrder!.key, 'key-1');
+      expect(restored.pendingOrder!.account, isNull);
+      expect(
+        restored.orderKey(
+          account: 'sara@example.com',
+          now: t0.add(const Duration(minutes: 110)),
+          newKey: next,
+        ),
+        'key-1',
+      );
+
+      // Another account: a new key.
+      expect(
+        restored.orderKey(
+          account: 'omar@example.com',
+          now: t0.add(const Duration(minutes: 111)),
+          newKey: next,
+        ),
+        'key-2',
+      );
+      // More than an hour after the last try: a new key.
+      expect(
+        restored.orderKey(
+          account: 'omar@example.com',
+          now: t0.add(const Duration(minutes: 172)),
+          newKey: next,
+        ),
+        'key-3',
+      );
+
+      // Settled (201 or 409): gone, also from the device.
+      restored.settleOrder();
+      expect(restored.pendingOrder, isNull);
+      expect(prefs.getString(CartStore.pendingOrderPrefsKey), isNull);
+      expect(CartStore(prefs: prefs).pendingOrder, isNull);
+      expect(
+        restored.orderKey(now: t0.add(const Duration(hours: 3)), newKey: next),
+        'key-4',
+      );
+      // Clearing the cart leaves the key (its order may exist).
+      restored.clear();
+      expect(restored.pendingOrder!.key, 'key-4');
+    });
+
+    test('a saved order key that cannot be read is dropped', () async {
+      SharedPreferences.setMockInitialValues({
+        CartStore.pendingOrderPrefsKey: '{"key": 3}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      expect(CartStore(prefs: prefs).pendingOrder, isNull);
     });
 
     test('a saved cart that cannot be read is dropped', () async {

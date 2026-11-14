@@ -367,54 +367,54 @@ class AssistantBrain {
     AssistantIntent intent,
     Product? target,
   ) async => switch (intent) {
-    final AddIntent add => await _add(add, target: target),
-    final RemoveIntent remove => _remove(remove),
-    ClearCartIntent() => _clearCart(),
-    CheckoutIntent() => _checkout(),
-    CartIntent() => _cart(),
-    OffersIntent() => await _offers(),
-    CategoryIntent(:final category) => await _collection(
-      category.handle,
-      category.label,
-      category: category,
-    ),
-    CollectionIntent(:final collection) => await _collection(
-      collection.handle,
-      collection.title,
-    ),
-    AllCategoriesIntent() => _allCategories(),
-    final CheapestIntent cheapest => await _cheapest(cheapest),
-    PriceIntent(:final query) => await _price(query, target: target),
-    StockIntent(:final query) => await _stock(query),
-    RecipeIntent(:final recipe) => await _recipe(recipe),
-    RecipeIdeasIntent() => _recipeIdeas(),
-    FavouritesIntent() => await _favourites(),
-    ContactIntent() => const AssistantReply(
-      contactText,
-      actions: contactActions,
-      suggestions: [_deliveryChip, _paymentChip, _offersChip],
-    ),
-    PaymentIntent() => _payment(),
-    DeliveryIntent() => deliveryReply(),
-    ExpressIntent() => expressReply(),
-    BrandsIntent() => _brands(),
-    HelpIntent(:final greeting) =>
-      greeting
-          ? const AssistantReply(
-              'Hello! Here is what I can help with. Tap an option or type '
-              'your question.',
-              showOptions: true,
-            )
-          : optionsReply,
-    ThanksIntent(:final farewell) => AssistantReply(
-      farewell
-          ? 'Thank you for shopping with Fresh Market. Come back any '
-                'time.'
-          : 'You are welcome. Is there anything else I can help with?',
-      suggestions: const [_offersChip, _cartChip, _categoriesChip],
-    ),
-    SearchIntent(:final query) => await _search(query),
-  };
+        final AddIntent add => await _add(add, target: target),
+        final RemoveIntent remove => _remove(remove),
+        ClearCartIntent() => _clearCart(),
+        CheckoutIntent() => _checkout(),
+        CartIntent() => _cart(),
+        OffersIntent() => await _offers(),
+        CategoryIntent(:final category) => await _collection(
+          category.handle,
+          category.label,
+          category: category,
+        ),
+        CollectionIntent(:final collection) => await _collection(
+          collection.handle,
+          collection.title,
+        ),
+        AllCategoriesIntent() => _allCategories(),
+        final CheapestIntent cheapest => await _cheapest(cheapest),
+        PriceIntent(:final query) => await _price(query, target: target),
+        StockIntent(:final query) => await _stock(query),
+        RecipeIntent(:final recipe) => await _recipe(recipe),
+        RecipeIdeasIntent() => _recipeIdeas(),
+        FavouritesIntent() => await _favourites(),
+        ContactIntent() => const AssistantReply(
+          contactText,
+          actions: contactActions,
+          suggestions: [_deliveryChip, _paymentChip, _offersChip],
+        ),
+        PaymentIntent() => _payment(),
+        DeliveryIntent() => deliveryReply(),
+        ExpressIntent() => expressReply(),
+        BrandsIntent() => _brands(),
+        HelpIntent(:final greeting) =>
+          greeting
+              ? const AssistantReply(
+                  'Hello! Here is what I can help with. Tap an option or type '
+                  'your question.',
+                  showOptions: true,
+                )
+              : optionsReply,
+        ThanksIntent(:final farewell) => AssistantReply(
+          farewell
+              ? 'Thank you for shopping with Fresh Market. Come back any '
+                    'time.'
+              : 'You are welcome. Is there anything else I can help with?',
+          suggestions: const [_offersChip, _cartChip, _categoriesChip],
+        ),
+        SearchIntent(:final query) => await _search(query),
+      };
 
   // ---- helpers -----------------------------------------------------------
 
@@ -984,7 +984,11 @@ class AssistantBrain {
       for (final (rail, _) in shown) {
         if (!shownRails.contains(rail)) shownRails.add(rail);
       }
-      final suggestions = _chips([_addChip(best.$2), _popularChip, _cartChip]);
+      final suggestions = _chips([
+        _addChip(best.$2),
+        _popularChip,
+        _cartChip,
+      ]);
       return AssistantReply(
         'These are on sale today.$saving',
         products: [for (final entry in shown) entry.$2],
@@ -1010,7 +1014,11 @@ class AssistantBrain {
       );
     }
     final pick = _firstAvailable(shown);
-    final suggestions = _chips([_addChip(pick), _popularChip, _categoriesChip]);
+    final suggestions = _chips([
+      _addChip(pick),
+      _popularChip,
+      _categoriesChip,
+    ]);
     return AssistantReply(
       'Nothing is marked down right now. Here are products from '
       '${_deals.title}.',
@@ -1344,7 +1352,11 @@ class AssistantBrain {
                 'stock.';
     }
     final suggestions = product.available
-        ? _chips([_addChip(product), _priceChip(product), _cheapestChip(query)])
+        ? _chips([
+            _addChip(product),
+            _priceChip(product),
+            _cheapestChip(query),
+          ])
         : _chips([_cheapestChip(query), _offersChip, _categoriesChip]);
     return AssistantReply(
       text,

@@ -2,11 +2,15 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/config/store_config.dart';
 import 'package:fresh_market_app/profile/profile_vault.dart';
 import 'package:fresh_market_app/services/customer_auth.dart';
+import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/state/account_session.dart';
+import 'package:fresh_market_app/state/cart_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/order_fakes.dart';
 
@@ -182,10 +186,46 @@ void main() {
       expect(client.refresh(before), throwsA(isA<RefreshRejected>()));
       appAuth.error = _platformError(type: '0', code: '3');
       expect(client.refresh(before), throwsA(isA<AuthNetworkError>()));
+      appAuth.error = _platformError(type: '0', code: '4');
+      expect(client.refresh(before), throwsA(isA<AuthNetworkError>()));
       expect(
         client.refresh(testTokens(refresh: null)),
         throwsA(isA<RefreshRejected>()),
       );
+    });
+
+    test('a refresh that fails for any reason but the network is refused '
+        '(the customer signs in again, never "offline" for good)', () async {
+      final appAuth = _FakeAppAuth();
+      final client = AppAuthClient(appAuth: appAuth, clientId: 'id');
+      final before = testTokens(now: now);
+      // AppAuth-Android general errors: 5 an unreadable answer (a non-JSON
+      // 4xx), 6 no token response, 8 and 9 a bad ID token.
+      for (final code in ['5', '6', '8', '9']) {
+        appAuth.error = _platformError(type: '0', code: code);
+        await expectLater(
+          client.refresh(before),
+          throwsA(isA<RefreshRejected>()),
+          reason: 'general error $code',
+        );
+      }
+      appAuth.error = _platformError(type: '2', code: '2002');
+      await expectLater(client.refresh(before), throwsA(isA<RefreshRejected>()));
+      appAuth.error = PlatformException(code: 'token_failed');
+      await expectLater(client.refresh(before), throwsA(isA<RefreshRejected>()));
+      appAuth.error = MissingPluginException();
+      await expectLater(client.refresh(before), throwsA(isA<RefreshRejected>()));
+
+      // And so the session ends on the phone.
+      final vault = MemoryProfileVault(jsonEncode(before.toJson()));
+      final auth = CustomerAuth(
+        client: AppAuthClient(appAuth: appAuth, clientId: 'id'),
+        vault: vault,
+      );
+      appAuth.error = _platformError(type: '0', code: '9');
+      expect(await auth.accessToken(forceRefresh: true), isNull);
+      expect(auth.signedIn, isFalse);
+      expect(vault.value, isNull);
     });
   });
 
@@ -227,6 +267,49 @@ void main() {
       await again.load();
       expect(again.signedIn, isTrue);
       expect(await again.accessToken(), 'access-1');
+    });
+
+    test("the app's vault is flutter_secure_storage (customer_tokens_v1); "
+        'no token ever reaches SharedPreferences', () async {
+      final secure = <String, String>{};
+      FlutterSecureStorage.setMockInitialValues(secure);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final ends = EndSessionRecorder();
+      // The vault the app uses (no vault given).
+      final auth = CustomerAuth(
+        client: FakeOAuthClient(),
+        httpClient: ends.client,
+      );
+      await auth.load();
+      await auth.signIn();
+      expect(secure.keys, [SecureTokenVault.key]);
+      final saved = jsonDecode(secure[SecureTokenVault.key]!) as Map;
+      expect(saved['access'], 'access-1');
+      expect(saved['refresh'], 'refresh-1');
+
+      // A cart and an order attempt write to SharedPreferences: never a
+      // token.
+      final cart = CartStore(prefs: prefs)
+        ..add(sampleProducts()[0], sampleProducts()[0].variants[0]);
+      cart.orderKey(account: auth.tokens!.email);
+      for (final key in prefs.getKeys()) {
+        final value = '${prefs.get(key)}';
+        expect(value, isNot(contains('access-1')), reason: key);
+        expect(value, isNot(contains('refresh-1')), reason: key);
+        expect(value, isNot(contains(auth.tokens!.idToken!)), reason: key);
+      }
+
+      // Read back by a new run; removed on sign-out.
+      final again = CustomerAuth(
+        client: FakeOAuthClient(),
+        httpClient: ends.client,
+      );
+      await again.load();
+      expect(await again.accessToken(), 'access-1');
+      await again.signOut();
+      expect(secure, isEmpty);
+      expect(ends.calls, hasLength(1));
     });
 
     test(

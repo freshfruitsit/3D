@@ -92,6 +92,27 @@ void main() {
       expect(OrderApi(base: 'https://o.example.com/').available, isTrue);
     });
 
+    test('a release build never sends the token over plain http (only to '
+        'the phone itself)', () {
+      expect(
+        OrderApi(base: 'http://orders.example.com', allowCleartext: false)
+            .available,
+        isFalse,
+      );
+      expect(
+        OrderApi(base: 'http://localhost:8790', allowCleartext: false)
+            .available,
+        isTrue,
+      );
+      expect(
+        OrderApi(base: 'https://orders.example.com', allowCleartext: false)
+            .available,
+        isTrue,
+      );
+      // Debug and test builds may use a local server.
+      expect(OrderApi(base: 'http://10.0.2.2:3000').available, isTrue);
+    });
+
     test('Idempotency-Keys are random v4 UUIDs', () {
       final key = OrderApi.newIdempotencyKey(Random(1));
       expect(
@@ -265,8 +286,22 @@ void main() {
         expect(placed.orderName, '#1001');
         expect(placed.totalFils, 6490);
         expect(placed.paymentMethod, 'Cash on Delivery');
+        expect(placed.replayed, isFalse);
       },
     );
+
+    test('an order this key made earlier, sent again, says so', () async {
+      final t = _api([
+        (_) => _json(
+          201,
+          _created,
+          headers: {'idempotent-replayed': 'true'},
+        ),
+      ]);
+      final placed = await _place(t.api);
+      expect(placed.orderName, '#1001');
+      expect(placed.replayed, isTrue);
+    });
 
     test('401, 409, 422 and 429 are said, never retried', () async {
       var t = _api([

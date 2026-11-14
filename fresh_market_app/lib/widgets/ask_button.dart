@@ -18,10 +18,10 @@ class AskButton extends StatelessWidget {
   static const double gapAboveNavBar = 12;
 
   /// Opens the assistant over everything, bottom bar included.
-  static Future<void> open(BuildContext context) => Navigator.of(
-    context,
-    rootNavigator: true,
-  ).push(MaterialPageRoute<void>(builder: (_) => const AssistantScreen()));
+  static Future<void> open(BuildContext context) =>
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(builder: (_) => const AssistantScreen()),
+      );
 
   @override
   Widget build(BuildContext context) {

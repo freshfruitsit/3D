@@ -69,6 +69,11 @@ class CheckoutScreen extends StatefulWidget {
   static const String changedEnd =
       'Check the new total, then place your order.';
 
+  /// Nothing in the order can be bought any more.
+  static const String allSoldOut = 'Everything in your order sold out.';
+  static const String allSoldOutEnd =
+      'Add something else from your cart to order.';
+
   static const String placing = 'Placing your order…';
   static const String needDetailsTitle = 'Add your name and mobile';
   static const String needDetailsLine =
@@ -92,6 +97,28 @@ class CheckoutScreen extends StatefulWidget {
   /// "Add ⃃ 77.50 more for free delivery".
   static String freeDeliveryHint(int moreFils) =>
       'Add ${formatMoney(moreFils)} more for free delivery';
+
+  /// What the ORDER section says when the order server could not quote:
+  /// offline, busy, or what it could not accept (the order-placing
+  /// messages say "place your order", which is not what failed here).
+  static String quoteErrorText(OrderApiException error) => switch (error) {
+    OrderNetworkError() =>
+      "We couldn't get today's prices. Check your connection and try again.",
+    OrderRateLimited() => 'Fresh Market is busy right now. Try again in a moment.',
+    OrderServerError(:final statusCode) when statusCode >= 500 =>
+      'Fresh Market is busy right now. Try again in a moment.',
+    OrderInvalid(:final message) when message.isNotEmpty => message,
+    OrderingUnavailable() => error.userMessage,
+    _ => "We couldn't get today's prices. Try again in a moment.",
+  };
+
+  /// Said when the order server answered with an order an earlier try
+  /// made (its key had gone through), not with this cart's order.
+  static String earlierOrderLine(PlacedOrder order) =>
+      'Your earlier order ${order.orderName} '
+      '(${formatMoney(order.totalFils)}) went through. Check My orders '
+      'before you order again.';
+  static const String viewOrders = 'View my orders';
 
   /// Under the button when something is missing.
   static String missingLine({required bool details, required bool address}) {
@@ -134,9 +161,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   OrderApiException? _placeError;
   bool _signInNeeded = false;
 
-  /// One key per attempt (the same order body); kept for every retry.
-  String? _attemptBody;
-  String? _idempotencyKey;
+  /// The server answered with an order an earlier try made (not this
+  /// cart's): said over the bar, with "View my orders".
+  PlacedOrder? _earlierOrder;
 
   final TextEditingController _instructions = TextEditingController();
   String? _instructionsFor;
@@ -222,8 +249,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final area = _delivery.area;
     final lines = _lineRequests;
     if (!_api.available || area == null || lines.isEmpty) {
+      // Nothing to quote (everything sold out): no old totals stay up,
+      // and nothing can be ordered.
       _quoteSeq++;
-      if (mounted) setState(() => _quoting = false);
+      _quoteKey = null;
+      if (mounted) {
+        setState(() {
+          _quoting = false;
+          _quote = null;
+          _quoteError = null;
+        });
+      }
       return;
     }
     final request = DeliveryRequest(mode: _delivery.mode, area: area);
@@ -245,6 +281,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _quote = quote;
         _quoting = false;
       });
+      // The cart shows the store's prices now (a price that changed
+      // since it was added, as a 409 said).
+      for (final line in quote.lines) {
+        if (line.available && line.unitPriceFils > 0) {
+          _cart.updatePrice(line.variantId, line.unitPriceFils);
+        }
+      }
       if (quote.problems.isNotEmpty) _applyProblems(quote.problems, quote);
     } on OrderApiException catch (e) {
       if (!mounted || seq != _quoteSeq) return;
@@ -261,6 +304,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// back to Fresh Market), shows "Your order changed" with a sentence
   /// for each, and says it to screen readers. The cart's change brings a
   /// new quote with the new totals.
+  ///
+  /// [quote] is the server's own fresh quote that came with [problems]
+  /// (null when it sent none: the numbers are then the server's sentence,
+  /// never the older quote's).
   void _applyProblems(List<QuoteProblem> problems, Quote? quote) {
     final changes = <_Change>[];
     for (final problem in problems) {
@@ -301,9 +348,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (id != null && now != null) _cart.updatePrice(id, now);
           changes.add(
             _Change(
-              name == null || now == null
-                  ? 'A price changed since you added it.'
-                  : '$name now costs ${formatMoney(now)}.',
+              name != null && now != null
+                  ? '$name now costs ${formatMoney(now)}.'
+                  : problem.message.isNotEmpty
+                  ? problem.message
+                  : 'A price changed since you added it.',
             ),
           );
         case QuoteProblemKind.notExpress:
@@ -326,9 +375,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     announce(
       context,
       '${CheckoutScreen.changedTitle}. '
-      '${changes.map((c) => c.text).join(' ')} ${CheckoutScreen.changedEnd}',
+      '${changes.map((c) => c.text).join(' ')} ${_changedEnd()}',
     );
   }
+
+  /// Nothing left that can be bought (everything sold out).
+  bool get _allSoldOut => _cart.isNotEmpty && !_cart.hasAvailableLines;
+
+  /// The last sentence of "Your order changed".
+  String _changedEnd() => _allSoldOut
+      ? '${CheckoutScreen.allSoldOut} ${CheckoutScreen.allSoldOutEnd}'
+      : CheckoutScreen.changedEnd;
 
   // ---- what is missing ---------------------------------------------------
 
@@ -349,6 +406,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         !_placing &&
         !_quoting &&
         _quoteError == null &&
+        _lineRequests.isNotEmpty &&
         quote != null &&
         quote.itemCount > 0 &&
         !quote.belowMinimum &&
@@ -386,49 +444,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // ---- placing -----------------------------------------------------------
 
+  /// Sends [order] for the signed-in customer: with a fresh token once
+  /// after a 401, and with a new key once when the server says this key
+  /// belongs to another customer. The key is the cart's
+  /// ([CartStore.orderKey]): the same one until the order's outcome is
+  /// known, so a try after a failure (after editing a note, or closing and
+  /// opening checkout again, or reopening the app) can never make a second
+  /// order.
+  Future<PlacedOrder> _send(OrderRequest order) async {
+    var token = await _session.accessToken();
+    if (token == null) throw const OrderUnauthorized();
+    var refreshed = false;
+    var renewedKey = false;
+    while (true) {
+      final key = _cart.orderKey(account: _session.email);
+      try {
+        return await _api.placeOrder(
+          order,
+          accessToken: token!,
+          idempotencyKey: key,
+        );
+      } on OrderUnauthorized {
+        // Once: a fresh token, then the same order with the same key.
+        if (refreshed) rethrow;
+        refreshed = true;
+        token = await _session.accessToken(forceRefresh: true);
+        if (token == null) rethrow;
+      } on OrderInvalid catch (e) {
+        if (renewedKey || !e.aboutIdempotencyKey) rethrow;
+        renewedKey = true;
+        _cart.settleOrder();
+      }
+    }
+  }
+
   Future<void> _placeOrder() async {
     if (!_canPlace) return;
     final order = _orderRequest();
     if (order == null) return;
-    final body = jsonEncode(order.toJson());
-    if (body != _attemptBody || _idempotencyKey == null) {
-      _attemptBody = body;
-      _idempotencyKey = OrderApi.newIdempotencyKey();
-    }
-    final key = _idempotencyKey!;
     setState(() {
       _placing = true;
       _placeError = null;
       _signInNeeded = false;
+      _earlierOrder = null;
       _changes = const [];
     });
     announce(context, CheckoutScreen.placing);
     final address = _address!;
     final email = _session.email;
     try {
-      var token = await _session.accessToken();
-      if (token == null) throw const OrderUnauthorized();
-      PlacedOrder placed;
-      try {
-        placed = await _api.placeOrder(
-          order,
-          accessToken: token,
-          idempotencyKey: key,
-        );
-      } on OrderUnauthorized {
-        // Once: a fresh token, then the same order with the same key.
-        token = await _session.accessToken(forceRefresh: true);
-        if (token == null) rethrow;
-        placed = await _api.placeOrder(
-          order,
-          accessToken: token,
-          idempotencyKey: key,
-        );
+      final placed = await _send(order);
+      // The order exists: its outcome is known, even if checkout was
+      // closed while it was on its way.
+      _cart.settleOrder();
+      final expected = order.expectedTotalFils;
+      if (placed.replayed && expected != null && placed.totalFils != expected) {
+        // An earlier try's order (another basket) went through: this cart
+        // was not ordered, so it stays, and the shopper is told.
+        if (!mounted) return;
+        setState(() => _earlierOrder = placed);
+        announce(context, CheckoutScreen.earlierOrderLine(placed));
+        return;
       }
-      if (!mounted) return;
       _cart.clear();
-      _idempotencyKey = null;
-      _attemptBody = null;
+      if (!mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => OrderPlacedScreen(
@@ -446,10 +525,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() => _signInNeeded = true);
       announce(context, CheckoutScreen.signInAgain);
     } on OrderChanged catch (e) {
+      // Refused for certain (nothing was made): the next try is new.
+      _cart.settleOrder();
       if (!mounted) return;
-      _idempotencyKey = null;
-      _attemptBody = null;
-      _applyProblems(e.problems, e.quote ?? _quote);
+      final fresh = e.quote;
+      if (fresh != null) setState(() => _quote = fresh);
+      _applyProblems(e.problems, fresh);
       if (_changes.isEmpty) {
         setState(
           () => _changes = const [
@@ -459,6 +540,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       unawaited(_requote(force: true));
     } on OrderApiException catch (e) {
+      // No answer, a 5xx, 422 or 429: the cart keeps the key, so trying
+      // again sends the same one.
       if (!mounted) return;
       setState(() => _placeError = e);
       announce(context, e.userMessage);
@@ -518,7 +601,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   children: [
                     if (_changes.isNotEmpty) ...[
-                      _ChangedNotice(changes: _changes),
+                      _ChangedNotice(changes: _changes, end: _changedEnd()),
                       const SizedBox(height: 16),
                     ],
                     const _Caption(CheckoutScreen.deliverToCaption),
@@ -553,6 +636,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       quote: quote,
                       loading: _quoting,
                       error: _quoteError,
+                      allSoldOut: _allSoldOut,
                       struck: [
                         for (final c in _changes)
                           if (c.struck != null) c.struck!,
@@ -593,6 +677,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         actionLabel: CheckoutScreen.signInLabel,
                         onAction: _signInAgain,
                         ink: true,
+                      )
+                    : _earlierOrder != null
+                    ? _Problem(
+                        message: CheckoutScreen.earlierOrderLine(
+                          _earlierOrder!,
+                        ),
+                        actionLabel: CheckoutScreen.viewOrders,
+                        onAction: () => AppNav.openOrders(context),
                       )
                     : _placeError == null
                     ? null
@@ -733,62 +825,77 @@ class _DeliverToSection extends StatelessWidget {
         address.area.label,
       ].join(' · ');
       final who = CartDeliverToCard.contactLine(contact);
+      // At a large font size "Change" goes under the lines, so they keep
+      // the card's width (the mobile stays whole).
+      final large = _largeText(context);
+      final change = TextButton(
+        key: const ValueKey('checkout-change-address'),
+        onPressed: enabled ? () => changeCartAddress(context) : null,
+        child: const Text('Change', semanticsLabel: 'Change address'),
+      );
+      final row = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              addressLabelIcon(address.label),
+              size: 22,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Semantics(
+              container: true,
+              label:
+                  'Deliver to ${address.semantics}'
+                  '${who.isEmpty ? '' : '. $who'}',
+              excludeSemantics: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${address.label.label} · ${address.address1}',
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    flatArea,
+                    style: AppText.bodySmall.copyWith(
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                  if (who.isNotEmpty)
+                    Text(
+                      who,
+                      style: AppText.bodySmall.copyWith(
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (!large) change,
+        ],
+      );
       children.add(
         _Card(
           key: const ValueKey('checkout-address'),
           padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 6, 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: Icon(
-                  addressLabelIcon(address.label),
-                  size: 22,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Semantics(
-                  container: true,
-                  label:
-                      'Deliver to ${address.semantics}'
-                      '${who.isEmpty ? '' : '. $who'}',
-                  excludeSemantics: true,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${address.label.label} · ${address.address1}',
-                        style: AppText.body.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        flatArea,
-                        style: AppText.bodySmall.copyWith(
-                          color: AppColors.secondary,
-                        ),
-                      ),
-                      if (who.isNotEmpty)
-                        Text(
-                          who,
-                          style: AppText.bodySmall.copyWith(
-                            color: AppColors.secondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              TextButton(
-                key: const ValueKey('checkout-change-address'),
-                onPressed: enabled ? () => changeCartAddress(context) : null,
-                child: const Text('Change', semanticsLabel: 'Change address'),
-              ),
-            ],
-          ),
+          child: large
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    row,
+                    // The button's label on the text column.
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 26),
+                      child: change,
+                    ),
+                  ],
+                )
+              : row,
         ),
       );
     } else {
@@ -960,7 +1067,7 @@ class _DeliverySection extends StatelessWidget {
           ? 'Set your location to check Express'
           : 'Not available in ${area.name} yet';
     } else if (!allExpress) {
-      expressLine = 'Selected items only. Not everything in your cart is.';
+      expressLine = 'Not every item in your cart is on Express';
     } else if (express.open) {
       expressLine = '${express.range} · selected items only';
     } else {
@@ -1048,6 +1155,8 @@ class _RadioRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final faded = !enabled && !selected;
+    // At a large font size the fee or "Closed" goes under the lines.
+    final large = _largeText(context);
     return Semantics(
       container: true,
       button: true,
@@ -1103,10 +1212,14 @@ class _RadioRow extends StatelessWidget {
                           color: AppColors.secondary,
                         ),
                       ),
+                      if (large && trailing != null) trailing!,
                     ],
                   ),
                 ),
-                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+                if (!large && trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing!,
+                ],
               ],
             ),
           ),
@@ -1143,6 +1256,7 @@ class _OrderSection extends StatelessWidget {
     required this.quote,
     required this.loading,
     required this.error,
+    required this.allSoldOut,
     required this.struck,
     required this.onRetry,
   });
@@ -1150,6 +1264,9 @@ class _OrderSection extends StatelessWidget {
   final Quote? quote;
   final bool loading;
   final OrderApiException? error;
+
+  /// Nothing in the order can be bought any more.
+  final bool allSoldOut;
   final List<CartLine> struck;
   final VoidCallback onRetry;
 
@@ -1157,21 +1274,55 @@ class _OrderSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = context.watch<CartStore>();
     final quote = this.quote;
+    if (allSoldOut) {
+      return _Card(
+        key: const ValueKey('checkout-sold-out'),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final line in cart.lines) _StruckRow(line: line),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Text(
+              CheckoutScreen.allSoldOut,
+              style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              CheckoutScreen.allSoldOutEnd,
+              style: AppText.bodySmall.copyWith(color: AppColors.secondary),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton(
+                key: const ValueKey('checkout-back-to-cart'),
+                onPressed: () => AppNav.goToTab(context, AppTab.cart),
+                child: const Text(CheckoutScreen.backToCart),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     if (error != null && !loading) {
+      final offline = error is OrderNetworkError;
       return _Card(
         key: const ValueKey('checkout-quote-error'),
         padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 12),
         child: Row(
           children: [
-            const Icon(
-              Icons.wifi_off_rounded,
+            Icon(
+              offline ? Icons.wifi_off_rounded : Icons.info_outline,
               size: 20,
               color: AppColors.secondary,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                "We couldn't get today's prices. ${error!.userMessage}",
+                CheckoutScreen.quoteErrorText(error!),
                 style: AppText.bodySmall,
               ),
             ),
@@ -1288,6 +1439,7 @@ class _LineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final large = _largeText(context);
     final size = cartLine?.sizeLabel ?? formatSize(line.variantTitle);
     final name = size == null ? line.title : '${line.title} · $size';
     return Semantics(
@@ -1309,11 +1461,15 @@ class _LineRow extends StatelessWidget {
                 children: [
                   Text(name, style: AppText.productName.copyWith(fontSize: 15)),
                   Text('× ${line.quantity}', style: AppText.caption),
+                  if (large)
+                    MoneyText(line.lineTotalFils, style: AppText.price),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            MoneyText(line.lineTotalFils, style: AppText.price),
+            if (!large) ...[
+              const SizedBox(width: 8),
+              MoneyText(line.lineTotalFils, style: AppText.price),
+            ],
           ],
         ),
       ),
@@ -1438,9 +1594,12 @@ class _SumRow extends StatelessWidget {
 /// "Your order changed": a saving-orange outline, what changed in plain
 /// words, and what to do.
 class _ChangedNotice extends StatelessWidget {
-  const _ChangedNotice({required this.changes});
+  const _ChangedNotice({required this.changes, required this.end});
 
   final List<_Change> changes;
+
+  /// The last sentence: what to do now.
+  final String end;
 
   @override
   Widget build(BuildContext context) {
@@ -1452,9 +1611,10 @@ class _ChangedNotice extends StatelessWidget {
         border: Border.all(color: AppColors.saving, width: 1.5),
       ),
       padding: const EdgeInsets.all(14),
+      // Not a live region: it is said once when it appears (announce), so
+      // TalkBack does not read it twice.
       child: Semantics(
         container: true,
-        liveRegion: true,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1477,8 +1637,7 @@ class _ChangedNotice extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${changes.map((c) => c.text).join(' ')} '
-                    '${CheckoutScreen.changedEnd}',
+                    '${changes.map((c) => c.text).join(' ')} $end',
                     style: AppText.bodySmall,
                   ),
                 ],
@@ -1716,3 +1875,7 @@ class _Unavailable extends StatelessWidget {
     );
   }
 }
+
+/// Above 1.3x text, rows stack their end parts under their lines.
+bool _largeText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(10) / 10 > 1.3;

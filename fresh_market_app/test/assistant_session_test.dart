@@ -32,7 +32,7 @@ void main() {
       expect(session.messages[1].text, 'Add 2 cucumbers');
       expect(
         session.lastReply!.text,
-        'Done. I added 2 × Cucumber (500 GM) to your cart at \u20C3 2.50 each.',
+        'Done. I added 2 × Cucumber (500 GM) to your cart at \u20C3\u00A02.50 each.',
       );
       expect(session.lastReply!.suggestions, contains('Open my cart'));
       expect(cart.itemCount, 2);
@@ -107,11 +107,7 @@ void main() {
       handle: 'kiwi-pack',
       variants: [Variant(id: 3031, title: 'Default Title', priceCents: 1895)],
     );
-    final shop = FakeShopifyApi(
-      collections: {
-        'fruits': [box, pack],
-      },
-    );
+    final shop = FakeShopifyApi(collections: {'fruits': [box, pack]});
     await session.send('find kiwi green', api: shop, cart: cart);
     expect(session.lastReply!.suggestions, contains('Add 1 Kiwi Green Zespri'));
     await session.send('Add 1 Kiwi Green Zespri', api: shop, cart: cart);

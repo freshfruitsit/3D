@@ -28,7 +28,12 @@ class LoadingView extends StatelessWidget {
 
 /// An off-white placeholder block for loading skeletons.
 class SkeletonBox extends StatelessWidget {
-  const SkeletonBox({super.key, this.width, this.height, this.radius = 6});
+  const SkeletonBox({
+    super.key,
+    this.width,
+    this.height,
+    this.radius = 6,
+  });
 
   /// Null fills the available width.
   final double? width;
@@ -118,7 +123,9 @@ class ErrorView extends StatelessWidget {
               Expanded(
                 child: Text(
                   message,
-                  style: AppText.bodySmall.copyWith(color: AppColors.secondary),
+                  style: AppText.bodySmall.copyWith(
+                    color: AppColors.secondary,
+                  ),
                 ),
               ),
               TextButton(onPressed: onRetry, child: const Text('Try again')),
@@ -209,7 +216,11 @@ class _Message extends StatelessWidget {
               child: Icon(icon, size: 32, color: AppColors.ink),
             ),
             const SizedBox(height: 16),
-            Text(title, textAlign: TextAlign.center, style: AppText.heading),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppText.heading,
+            ),
             if (message != null) ...[
               const SizedBox(height: 6),
               Text(

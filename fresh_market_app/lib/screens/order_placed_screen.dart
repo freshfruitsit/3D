@@ -168,9 +168,9 @@ class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
                   FilledButton(
                     key: const ValueKey('order-placed-view-orders'),
                     style: AppButtons.dark,
-                    // My orders takes this screen's place (back goes to
-                    // the cart, now empty).
-                    onPressed: () => AppNav.openOrders(context, replace: true),
+                    // My orders opens in Account, in this screen's place
+                    // (back goes to Account).
+                    onPressed: () => AppNav.openOrders(context),
                     child: const Text(
                       OrderPlacedScreen.viewOrders,
                       textAlign: TextAlign.center,

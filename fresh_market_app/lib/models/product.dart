@@ -35,30 +35,30 @@ class Variant {
   /// Whole-number discount (46 for "-46%"), or null when not on sale.
   int? get salePercent {
     if (!onSale) return null;
-    final percent = ((compareAtCents! - priceCents) * 100 / compareAtCents!)
-        .round();
+    final percent =
+        ((compareAtCents! - priceCents) * 100 / compareAtCents!).round();
     return percent < 1 ? null : percent;
   }
 
   String get priceText => formatMoney(priceCents);
 
   factory Variant.fromJson(Map<String, dynamic> json) => Variant(
-    id: (json['id'] as num).toInt(),
-    title: (json['title'] as String?) ?? defaultTitle,
-    priceCents: parseMoney(json['price']) ?? 0,
-    compareAtCents: parseMoney(json['compare_at_price']),
-    available: json['available'] as bool? ?? true,
-  );
+        id: (json['id'] as num).toInt(),
+        title: (json['title'] as String?) ?? defaultTitle,
+        priceCents: parseMoney(json['price']) ?? 0,
+        compareAtCents: parseMoney(json['compare_at_price']),
+        available: json['available'] as bool? ?? true,
+      );
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'price': moneyToDecimalString(priceCents),
-    'compare_at_price': compareAtCents == null
-        ? null
-        : moneyToDecimalString(compareAtCents!),
-    'available': available,
-  };
+        'id': id,
+        'title': title,
+        'price': moneyToDecimalString(priceCents),
+        'compare_at_price': compareAtCents == null
+            ? null
+            : moneyToDecimalString(compareAtCents!),
+        'available': available,
+      };
 }
 
 /// A product option such as "Weight" with its values.
@@ -69,12 +69,12 @@ class ProductOption {
   final List<String> values;
 
   factory ProductOption.fromJson(Map<String, dynamic> json) => ProductOption(
-    name: (json['name'] as String?) ?? '',
-    values: [
-      for (final v in (json['values'] as List? ?? const []))
-        if (v is String) v,
-    ],
-  );
+        name: (json['name'] as String?) ?? '',
+        values: [
+          for (final v in (json['values'] as List? ?? const []))
+            if (v is String) v,
+        ],
+      );
 
   Map<String, dynamic> toJson() => {'name': name, 'values': values};
 }
@@ -150,26 +150,26 @@ class Product {
   /// This product with every variant marked sold out (for a product the
   /// store no longer has).
   Product soldOut() => Product(
-    id: id,
-    title: title,
-    handle: handle,
-    descriptionHtml: descriptionHtml,
-    vendor: vendor,
-    productType: productType,
-    tags: tags,
-    variants: [
-      for (final v in variants)
-        Variant(
-          id: v.id,
-          title: v.title,
-          priceCents: v.priceCents,
-          compareAtCents: v.compareAtCents,
-          available: false,
-        ),
-    ],
-    images: images,
-    options: options,
-  );
+        id: id,
+        title: title,
+        handle: handle,
+        descriptionHtml: descriptionHtml,
+        vendor: vendor,
+        productType: productType,
+        tags: tags,
+        variants: [
+          for (final v in variants)
+            Variant(
+              id: v.id,
+              title: v.title,
+              priceCents: v.priceCents,
+              compareAtCents: v.compareAtCents,
+              available: false,
+            ),
+        ],
+        images: images,
+        options: options,
+      );
 
   Variant? variantById(int id) {
     for (final v in variants) {
@@ -207,10 +207,10 @@ class Product {
 
   /// Fact chips for product detail, in display order.
   List<ProductFact> get facts => [
-    if (isExpress) ProductFact.express,
-    if (isLocal) ProductFact.local,
-    if (isByAir) ProductFact.byAir,
-  ];
+        if (isExpress) ProductFact.express,
+        if (isLocal) ProductFact.local,
+        if (isByAir) ProductFact.byAir,
+      ];
 
   /// The size of [variant] (the default variant when null) the way a shop
   /// floor writes it ("500 g", "1 kg"): its title when it has one,
@@ -227,8 +227,10 @@ class Product {
   /// The 12px secondary line under a product name: the size first, then
   /// the origin, joined with " · " ("500 g · New Zealand"), so an ellipsis
   /// only ever cuts the origin. Empty when neither exists.
-  String sizeLine([Variant? variant]) =>
-      [?sizeText(variant), ?origin].join(' · ');
+  String sizeLine([Variant? variant]) => [
+        ?sizeText(variant),
+        ?origin,
+      ].join(' · ');
 
   /// The description as plain text with the HTML removed.
   String get description => stripHtml(descriptionHtml);
@@ -252,8 +254,8 @@ class Product {
       final src = image is String
           ? image
           : image is Map
-          ? image['src']
-          : null;
+              ? image['src']
+              : null;
       if (src is String && src.isNotEmpty) images.add(_absoluteUrl(src));
     }
     if (images.isEmpty) {
@@ -261,8 +263,8 @@ class Product {
       final src = single is String
           ? single
           : single is Map
-          ? (single['src'] ?? single['url'])
-          : null;
+              ? (single['src'] ?? single['url'])
+              : null;
       if (src is String && src.isNotEmpty) images.add(_absoluteUrl(src));
     }
 
@@ -270,11 +272,13 @@ class Product {
       id: (json['id'] as num).toInt(),
       title: (json['title'] as String?) ?? '',
       handle: (json['handle'] as String?) ?? '',
-      descriptionHtml:
-          (json['body_html'] ?? json['description'] ?? json['body'] ?? '')
-              as String,
+      descriptionHtml: (json['body_html'] ??
+              json['description'] ??
+              json['body'] ??
+              '') as String,
       vendor: (json['vendor'] as String?) ?? '',
-      productType: (json['product_type'] ?? json['type'] ?? '') as String,
+      productType:
+          (json['product_type'] ?? json['type'] ?? '') as String,
       tags: tags,
       variants: [
         for (final v in (json['variants'] as List? ?? const []))
@@ -291,25 +295,25 @@ class Product {
   /// Serialises in the `products.json` shape, so [Product.fromJson] reads it
   /// back. Used to keep favourites on the device.
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'handle': handle,
-    'body_html': descriptionHtml,
-    'vendor': vendor,
-    'product_type': productType,
-    'tags': tags,
-    'variants': [for (final v in variants) v.toJson()],
-    'images': [
-      for (final src in images) {'src': src},
-    ],
-    'options': [for (final o in options) o.toJson()],
-  };
+        'id': id,
+        'title': title,
+        'handle': handle,
+        'body_html': descriptionHtml,
+        'vendor': vendor,
+        'product_type': productType,
+        'tags': tags,
+        'variants': [for (final v in variants) v.toJson()],
+        'images': [
+          for (final src in images) {'src': src},
+        ],
+        'options': [for (final o in options) o.toJson()],
+      };
 
   /// Parses the `{products:[...]}` body of a collection page.
   static List<Product> listFromJson(Map<String, dynamic> json) => [
-    for (final p in (json['products'] as List? ?? const []))
-      if (p is Map<String, dynamic>) Product.fromJson(p),
-  ];
+        for (final p in (json['products'] as List? ?? const []))
+          if (p is Map<String, dynamic>) Product.fromJson(p),
+      ];
 }
 
 /// A quantity and unit as the store writes them ("500 GM", "1 KG",
@@ -322,22 +326,17 @@ final RegExp _sizePattern = RegExp(
 );
 
 String? _unit(String raw) => switch (raw.toLowerCase()) {
-  'kg' || 'kgs' || 'kilo' || 'kilos' => 'kg',
-  'g' || 'gm' || 'gms' || 'gram' || 'grams' => 'g',
-  'ml' => 'ml',
-  'l' ||
-  'lt' ||
-  'ltr' ||
-  'ltrs' ||
-  'litre' ||
-  'litres' ||
-  'liter' ||
-  'liters' => 'L',
-  'pc' || 'pcs' || 'piece' || 'pieces' => 'pcs',
-  'pack' || 'packs' => 'pack',
-  'bunch' || 'bunches' => 'bunch',
-  _ => null,
-};
+      'kg' || 'kgs' || 'kilo' || 'kilos' => 'kg',
+      'g' || 'gm' || 'gms' || 'gram' || 'grams' => 'g',
+      'ml' => 'ml',
+      'l' || 'lt' || 'ltr' || 'ltrs' || 'litre' || 'litres' || 'liter' ||
+      'liters' =>
+        'L',
+      'pc' || 'pcs' || 'piece' || 'pieces' => 'pcs',
+      'pack' || 'packs' => 'pack',
+      'bunch' || 'bunches' => 'bunch',
+      _ => null,
+    };
 
 String _sizeOf(RegExpMatch m) => '${m[1]} ${_unit(m[2]!)}';
 
@@ -375,9 +374,9 @@ String shopifyImageUrl(String url, {int? width}) {
   if (width == null || url.isEmpty) return url;
   final uri = Uri.tryParse(_absoluteUrl(url));
   if (uri == null) return url;
-  return uri
-      .replace(queryParameters: {...uri.queryParameters, 'width': '$width'})
-      .toString();
+  return uri.replace(
+    queryParameters: {...uri.queryParameters, 'width': '$width'},
+  ).toString();
 }
 
 /// Turns product description HTML into readable plain text: block tags
@@ -427,16 +426,18 @@ const Map<String, String> _entities = {
   'hellip': '…',
 };
 
-String _decodeEntities(String text) =>
-    text.replaceAllMapped(RegExp(r'&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);'), (m) {
-      final body = m.group(1)!;
-      if (body.startsWith('#x') || body.startsWith('#X')) {
-        final code = int.tryParse(body.substring(2), radix: 16);
-        return code == null ? m.group(0)! : String.fromCharCode(code);
-      }
-      if (body.startsWith('#')) {
-        final code = int.tryParse(body.substring(1));
-        return code == null ? m.group(0)! : String.fromCharCode(code);
-      }
-      return _entities[body] ?? m.group(0)!;
-    });
+String _decodeEntities(String text) => text.replaceAllMapped(
+      RegExp(r'&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);'),
+      (m) {
+        final body = m.group(1)!;
+        if (body.startsWith('#x') || body.startsWith('#X')) {
+          final code = int.tryParse(body.substring(2), radix: 16);
+          return code == null ? m.group(0)! : String.fromCharCode(code);
+        }
+        if (body.startsWith('#')) {
+          final code = int.tryParse(body.substring(1));
+          return code == null ? m.group(0)! : String.fromCharCode(code);
+        }
+        return _entities[body] ?? m.group(0)!;
+      },
+    );

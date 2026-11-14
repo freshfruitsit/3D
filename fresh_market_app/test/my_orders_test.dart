@@ -2,16 +2,22 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/models/order.dart';
+import 'package:fresh_market_app/screens/account_screen.dart';
 import 'package:fresh_market_app/screens/my_orders_screen.dart';
+import 'package:fresh_market_app/screens/order_placed_screen.dart';
 import 'package:fresh_market_app/services/customer_account_api.dart';
 import 'package:fresh_market_app/services/customer_auth.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
+import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
+import 'package:fresh_market_app/widgets/floating_nav_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/order_fakes.dart';
 import 'support/test_app.dart';
@@ -74,6 +80,13 @@ void main() {
         OrderStatus.refunded,
       );
     });
+
+    test('finished (Buy again) once delivered, cancelled or refunded', () {
+      expect(
+        [for (final st in OrderStatus.values) if (st.finished) st],
+        [OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.refunded],
+      );
+    });
   });
 
   group('an order from the Customer Account API', () {
@@ -97,7 +110,7 @@ void main() {
       final now = DateTime.utc(2026, 11, 13, 10);
       expect(
         MyOrdersScreen.summaryLine(order, now),
-        'Today · 3 items · ⃃ 147.50 · Cash on Delivery',
+        'Today · 3 items · ⃃\u00A0147.50 · Cash on Delivery',
       );
     });
 
@@ -173,10 +186,40 @@ void main() {
         'fulfillments(first: 1, sortKey: CREATED_AT, reverse: true)',
         'latestShipmentStatus',
         'lineItems(first: 20)',
-        'nodes { title quantity image { url } variantId }',
+        'nodes { title name quantity image { url } variantId }',
       ]) {
         expect(query, contains(field));
       }
+    });
+
+    test('ACCESS_DENIED is an error to try again, not "sign in again" '
+        '(only a 401 or UNAUTHENTICATED is)', () async {
+      final fake = FakeCustomerApi()..errorCode = 'ACCESS_DENIED';
+      await expectLater(
+        fake.api().orders('t'),
+        throwsA(isA<CustomerApiError>()),
+      );
+      fake.errorCode = 'UNAUTHENTICATED';
+      await expectLater(
+        fake.api().orders('t'),
+        throwsA(isA<CustomerApiUnauthorized>()),
+      );
+    });
+
+    testWidgets('My orders: ACCESS_DENIED shows the error with Try again, '
+        'not the sign-in page, and nothing is refreshed', (tester) async {
+      final fake = FakeCustomerApi()..errorCode = 'ACCESS_DENIED';
+      final oauth = FakeOAuthClient();
+      await pumpScreen(
+        tester,
+        const MyOrdersScreen(),
+        session: await signedInSession(client: oauth),
+        customerApi: fake.api(),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('orders-error')), findsOneWidget);
+      expect(find.byKey(const ValueKey('orders-signed-out')), findsNothing);
+      expect(oauth.refreshCalls, 0);
     });
 
     test('the customer; 401, GraphQL errors and the network', () async {
@@ -255,32 +298,35 @@ void main() {
     }
 
     testWidgets('cards: number, status, date · items · total · payment, '
-        'photos, Buy again', (tester) async {
+        'photos; Buy again once the order is finished', (tester) async {
       await open(tester);
       expect(find.text('My orders'), findsOneWidget);
       expect(customer.tokens.single, 'access-1');
       expect(find.text('#1001'), findsOneWidget);
       expect(find.text('On the way'), findsOneWidget);
       expect(
-        find.text('Today · 3 items · ⃃ 147.50 · Cash on Delivery'),
+        find.text('Today · 3 items · ⃃\u00A0147.50 · Cash on Delivery'),
         findsOneWidget,
       );
       expect(find.text('#1000'), findsOneWidget);
       expect(find.text('Delivered'), findsOneWidget);
-      expect(find.text('Yesterday · 4 items · ⃃ 96.00 · Paid'), findsOneWidget);
-      expect(find.text(MyOrdersScreen.buyAgain), findsNWidgets(2));
+      expect(find.text('Yesterday · 4 items · ⃃\u00A096.00 · Paid'), findsOneWidget);
+      // Only on the delivered order (as in the approved design), not on
+      // the one still on its way.
+      expect(find.text(MyOrdersScreen.buyAgain), findsOneWidget);
+      expect(find.byKey(const ValueKey('buy-again-#1001')), findsNothing);
       // "On the way" is the green delivery highlight; Buy again is ink.
       final pill = tester.widget<Text>(find.text('On the way'));
       expect(pill.style!.color, AppColors.green);
       final buy = tester.widget<OutlinedButton>(
-        find.byKey(const ValueKey('buy-again-#1001')),
+        find.byKey(const ValueKey('buy-again-#1000')),
       );
       expect(
         buy.style!.side!.resolve(const <WidgetState>{})!.color,
         AppColors.ink,
       );
       expect(
-        tester.getSize(find.byKey(const ValueKey('buy-again-#1001'))).height,
+        tester.getSize(find.byKey(const ValueKey('buy-again-#1000'))).height,
         greaterThanOrEqualTo(44),
       );
     });
@@ -342,6 +388,11 @@ void main() {
 
     testWidgets('Buy again adds what the store still has, as many as '
         'ordered, and says what it could not', (tester) async {
+      // #1001 delivered too (cash taken).
+      customer.orders[0] = orderJson(
+        financialStatus: 'PAID',
+        fulfillmentStatus: 'FULFILLED',
+      );
       final cart = await open(tester);
       await tester.tap(find.byKey(const ValueKey('buy-again-#1001')));
       await tester.pumpAndSettle();
@@ -360,6 +411,27 @@ void main() {
           "Added 3 items to your cart. 1 item isn't available right now.",
         ),
         findsOneWidget,
+      );
+    });
+
+    test('Buy again: an empty title (a product line) is looked up by its '
+        'name, with or without the variant ending', () async {
+      const line = OrderLine(
+        title: '',
+        name: 'Cucumber - 1 KG',
+        quantity: 1,
+        variantId: 2005,
+      );
+      expect(line.searchTerms, ['Cucumber - 1 KG', 'Cucumber']);
+      final hit = await MyOrdersScreen.findVariant(
+        FakeShopifyApi.sample(),
+        line,
+      );
+      expect(hit, isNotNull);
+      expect(hit!.$2.id, 2005);
+      expect(
+        const OrderLine(title: 'Kiwi', name: 'Kiwi', quantity: 1).searchTerms,
+        ['Kiwi'],
       );
     });
 
@@ -385,6 +457,92 @@ void main() {
         ),
         isNull,
       );
+    });
+  });
+
+  group('My orders sits in the Account tab', () {
+    Future<ShellController> app(WidgetTester tester) async {
+      usePhoneSize(tester);
+      SharedPreferences.setMockInitialValues({});
+      final shell = ShellController();
+      await tester.pumpWidget(
+        FreshMarketApp(
+          api: FakeShopifyApi.sample(),
+          cart: CartStore(),
+          favourites: FavouritesStore(),
+          deliveryStore: testDelivery(),
+          locationServices: testLocationServices(),
+          session: await signedInSession(),
+          customerApi: FakeCustomerApi(orders: [orderJson()]).api(),
+          shell: shell,
+          showIntro: false,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      return shell;
+    }
+
+    Future<void> frames(WidgetTester tester) async {
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+    }
+
+    testWidgets('from Account: with the bottom bar; back goes to Account', (
+      tester,
+    ) async {
+      final shell = await app(tester);
+      shell.select(AppTab.account);
+      await frames(tester);
+      await tester.tap(find.byKey(const ValueKey('account-orders')));
+      await frames(tester);
+      expect(find.byType(MyOrdersScreen), findsOneWidget);
+      expect(find.text('#1001'), findsOneWidget);
+      expect(find.byType(FloatingNavBar), findsOneWidget);
+      expect(shell.tab, AppTab.account);
+      await tester.tap(find.byTooltip('Back'));
+      await frames(tester);
+      expect(find.byType(MyOrdersScreen), findsNothing);
+      expect(find.byType(AccountScreen), findsOneWidget);
+    });
+
+    testWidgets('from Order placed: it closes, Account shows My orders with '
+        'the bar', (tester) async {
+      final shell = await app(tester);
+      final root = Navigator.of(
+        tester.element(find.byType(AppShell)),
+        rootNavigator: true,
+      );
+      unawaited(
+        root.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const OrderPlacedScreen(
+              order: PlacedOrder(
+                orderId: 'gid://shopify/Order/1001',
+                orderName: '#1001',
+                totalFils: 14750,
+                deliveryPromise: 'Today within 6 hours',
+              ),
+              deliveryPromise: 'Today within 6 hours',
+              addressLine: 'Home · Bay Square, Building 5 · Flat 302',
+            ),
+          ),
+        ),
+      );
+      await frames(tester);
+      // Order placed covers the bar.
+      expect(find.byType(FloatingNavBar), findsNothing);
+      expect(find.byType(OrderPlacedScreen), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('order-placed-view-orders')));
+      await frames(tester);
+      expect(
+        find.byType(OrderPlacedScreen, skipOffstage: false),
+        findsNothing,
+      );
+      expect(shell.tab, AppTab.account);
+      expect(find.byType(MyOrdersScreen), findsOneWidget);
+      expect(find.byType(FloatingNavBar), findsOneWidget);
     });
   });
 }

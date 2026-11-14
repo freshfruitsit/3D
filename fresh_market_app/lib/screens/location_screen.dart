@@ -633,7 +633,9 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
-                  style: AppText.bodySmall.copyWith(color: AppColors.secondary),
+                  style: AppText.bodySmall.copyWith(
+                    color: AppColors.secondary,
+                  ),
                 ),
               ],
             ),
@@ -723,9 +725,8 @@ class _GpsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = locating
-        ? LocationScreen.locating
-        : LocationScreen.useMyLocation;
+    final label =
+        locating ? LocationScreen.locating : LocationScreen.useMyLocation;
     return Semantics(
       button: true,
       enabled: !locating,
@@ -772,7 +773,9 @@ class _GpsButton extends StatelessWidget {
                         style: AppText.body.copyWith(
                           fontWeight: FontWeight.w600,
                           height: 1.3,
-                          color: locating ? AppColors.secondary : AppColors.ink,
+                          color: locating
+                              ? AppColors.secondary
+                              : AppColors.ink,
                         ),
                       ),
                     ),
@@ -822,7 +825,9 @@ class _NoticeBox extends StatelessWidget {
                     color: AppColors.ink,
                   ),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(notice.text, style: AppText.bodySmall)),
+                  Expanded(
+                    child: Text(notice.text, style: AppText.bodySmall),
+                  ),
                 ],
               ),
             ),
@@ -1041,7 +1046,10 @@ class ExpressTag extends StatelessWidget {
         children: [
           const Icon(Icons.bolt, size: 14, color: AppColors.green),
           const SizedBox(width: 2),
-          Text('Express', style: AppText.tag.copyWith(color: AppColors.green)),
+          Text(
+            'Express',
+            style: AppText.tag.copyWith(color: AppColors.green),
+          ),
         ],
       ),
     );

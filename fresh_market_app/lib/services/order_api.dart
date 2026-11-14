@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:http/http.dart' as http;
 
 import '../config/store_config.dart';
@@ -170,6 +171,11 @@ final class OrderInvalid extends OrderApiException {
   final String field;
   final String message;
 
+  /// The Idempotency-Key was used by another customer (someone else
+  /// signed in on this phone since that try): nothing was made for this
+  /// customer, and a new key is needed.
+  bool get aboutIdempotencyKey => field.toLowerCase() == 'idempotency-key';
+
   @override
   String get userMessage =>
       message.isEmpty ? 'Something in your order needs a look.' : message;
@@ -209,13 +215,18 @@ class OrderApi {
   /// empty or unusable one makes every call throw [OrderingUnavailable].
   /// [retryDelays] are the waits before each retry of an order; [sleep]
   /// waits (tests skip it).
+  ///
+  /// The customer's access token goes to this server, so [base] must be
+  /// `https`; plain `http` is taken only by debug and test builds
+  /// ([allowCleartext]) or for the phone itself (localhost).
   OrderApi({
     String base = StoreConfig.orderApiBase,
     http.Client? client,
     this.timeout = const Duration(seconds: 20),
     this.retryDelays = const [Duration(seconds: 1), Duration(seconds: 3)],
     Future<void> Function(Duration)? sleep,
-  }) : baseUri = _parseBase(base),
+    bool allowCleartext = !kReleaseMode,
+  }) : baseUri = _parseBase(base, allowCleartext: allowCleartext),
        _client = client ?? http.Client(),
        _sleep = sleep ?? Future<void>.delayed;
 
@@ -231,19 +242,21 @@ class OrderApi {
   /// The app can order: it was built with an order server.
   bool get available => baseUri != null;
 
-  static Uri? _parseBase(String base) {
+  static Uri? _parseBase(String base, {required bool allowCleartext}) {
     var text = base.trim();
     while (text.endsWith('/')) {
       text = text.substring(0, text.length - 1);
     }
     if (text.isEmpty) return null;
     final uri = Uri.tryParse(text);
-    if (uri == null ||
-        (uri.scheme != 'https' && uri.scheme != 'http') ||
-        uri.host.isEmpty) {
-      return null;
+    if (uri == null || uri.host.isEmpty) return null;
+    if (uri.scheme == 'https') return uri;
+    const local = {'localhost', '127.0.0.1', '::1', '[::1]'};
+    if (uri.scheme == 'http' && (allowCleartext || local.contains(uri.host))) {
+      return uri;
     }
-    return uri;
+    // Never a customer's token over plain http.
+    return null;
   }
 
   Uri _endpoint(String path) {
@@ -354,7 +367,11 @@ class OrderApi {
     );
     if (response.statusCode == 201 || response.statusCode == 200) {
       try {
-        return PlacedOrder.fromJson(_json(response));
+        return PlacedOrder.fromJson(
+          _json(response),
+          // The order this key made earlier, sent again.
+          replayed: response.headers['idempotent-replayed'] == 'true',
+        );
       } on FormatException catch (e) {
         // Made, but unreadable: the same key brings the same answer back.
         throw OrderNetworkError(e);

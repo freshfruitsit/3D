@@ -200,6 +200,7 @@ class PlacedOrder {
     required this.totalFils,
     required this.deliveryPromise,
     this.paymentMethod = 'Cash on Delivery',
+    this.replayed = false,
   });
 
   /// "gid://shopify/Order/…".
@@ -211,7 +212,12 @@ class PlacedOrder {
   final String deliveryPromise;
   final String paymentMethod;
 
-  factory PlacedOrder.fromJson(Object? json) {
+  /// The server answered with an order this Idempotency-Key had already
+  /// made (an earlier try that went through), not a new one
+  /// (`Idempotent-Replayed: true`).
+  final bool replayed;
+
+  factory PlacedOrder.fromJson(Object? json, {bool replayed = false}) {
     if (json is! Map) throw const FormatException('an order');
     final promise = json['deliveryPromise'];
     final payment = json['paymentMethod'];
@@ -223,6 +229,7 @@ class PlacedOrder {
       paymentMethod: payment is String && payment.isNotEmpty
           ? payment
           : 'Cash on Delivery',
+      replayed: replayed,
     );
   }
 }
@@ -238,6 +245,10 @@ enum OrderStatus {
   const OrderStatus(this.label);
 
   final String label;
+
+  /// No longer on its way: delivered, cancelled or refunded ("My orders"
+  /// offers "Buy again" on these).
+  bool get finished => this == delivered || this == cancelled || this == refunded;
 
   /// From the Customer Account API's order fields (2026-10), first match
   /// wins:
@@ -291,11 +302,33 @@ class OrderLine {
   const OrderLine({
     required this.title,
     required this.quantity,
+    this.name = '',
     this.imageUrl,
     this.variantId,
   });
 
+  /// `LineItem.title`, which Shopify documents as applying to custom line
+  /// items only (it may be empty for a product's line).
   final String title;
+
+  /// `LineItem.name`: the product's name.
+  final String name;
+
+  /// What to look the line up by in the store's search: [title], then
+  /// [name] (and [name] without a " - 1 KG" variant ending), each once.
+  List<String> get searchTerms {
+    final terms = <String>[];
+    void add(String text) {
+      final t = text.trim();
+      if (t.isNotEmpty && !terms.contains(t)) terms.add(t);
+    }
+
+    add(title);
+    add(name);
+    final dash = name.lastIndexOf(' - ');
+    if (dash > 0) add(name.substring(0, dash));
+    return terms;
+  }
   final int quantity;
   final String? imageUrl;
 
@@ -399,6 +432,7 @@ class CustomerOrder {
           if (node is Map)
             OrderLine(
               title: node['title'] is String ? node['title'] as String : '',
+              name: node['name'] is String ? node['name'] as String : '',
               quantity: node['quantity'] is int ? node['quantity'] as int : 1,
               imageUrl: node['image'] is Map
                   ? (node['image'] as Map)['url'] as String?

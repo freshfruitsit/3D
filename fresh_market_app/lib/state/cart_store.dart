@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../delivery/delivery_rules.dart';
 import '../models/money.dart';
 import '../models/product.dart';
+import '../services/order_api.dart';
 import '../services/shopify_api.dart';
 
 /// One line of the cart. Holds everything needed to draw the row without
@@ -93,15 +94,15 @@ class CartLine {
   /// "500 g · \u20C3 4.75 each", "\u20C3 300.00 each" (the Dirham sign, see
   /// formatMoney). At one unit the line total already says the price.
   String get detailLine => [
-    ?sizeLabel,
-    if (quantity > 1) '${formatMoney(priceCents)} each',
-  ].join(' · ');
+        ?sizeLabel,
+        if (quantity > 1) '${formatMoney(priceCents)} each',
+      ].join(' · ');
 
   /// What screen readers hear for [detailLine] ("500 g, AED 4.75 each").
   String get detailSemantics => [
-    ?sizeLabel,
-    if (quantity > 1) '${moneySemantics(priceCents)} each',
-  ].join(', ');
+        ?sizeLabel,
+        if (quantity > 1) '${moneySemantics(priceCents)} each',
+      ].join(', ');
 
   CartLine withQuantity(int quantity) => copyWith(quantity: quantity);
 
@@ -128,36 +129,72 @@ class CartLine {
   }
 
   factory CartLine.fromJson(Map<String, dynamic> json) => CartLine(
-    variantId: (json['variantId'] as num).toInt(),
-    productId: (json['productId'] as num?)?.toInt() ?? 0,
-    handle: (json['handle'] as String?) ?? '',
-    title: (json['title'] as String?) ?? '',
-    variantTitle: json['variantTitle'] as String?,
-    priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
-    compareAtCents: (json['compareAtCents'] as num?)?.toInt(),
-    imageUrl: json['imageUrl'] as String?,
-    origin: json['origin'] as String?,
-    express: json['express'] as bool?,
-    size: json['size'] as String?,
-    available: json['available'] as bool? ?? true,
-    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-  );
+        variantId: (json['variantId'] as num).toInt(),
+        productId: (json['productId'] as num?)?.toInt() ?? 0,
+        handle: (json['handle'] as String?) ?? '',
+        title: (json['title'] as String?) ?? '',
+        variantTitle: json['variantTitle'] as String?,
+        priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
+        compareAtCents: (json['compareAtCents'] as num?)?.toInt(),
+        imageUrl: json['imageUrl'] as String?,
+        origin: json['origin'] as String?,
+        express: json['express'] as bool?,
+        size: json['size'] as String?,
+        available: json['available'] as bool? ?? true,
+        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      );
 
   Map<String, dynamic> toJson() => {
-    'variantId': variantId,
-    'productId': productId,
-    'handle': handle,
-    'title': title,
-    'variantTitle': variantTitle,
-    'priceCents': priceCents,
-    'compareAtCents': compareAtCents,
-    'imageUrl': imageUrl,
-    'origin': origin,
-    'express': express,
-    'size': size,
-    'available': available,
-    'quantity': quantity,
-  };
+        'variantId': variantId,
+        'productId': productId,
+        'handle': handle,
+        'title': title,
+        'variantTitle': variantTitle,
+        'priceCents': priceCents,
+        'compareAtCents': compareAtCents,
+        'imageUrl': imageUrl,
+        'origin': origin,
+        'express': express,
+        'size': size,
+        'available': available,
+        'quantity': quantity,
+      };
+}
+
+/// A try at placing the cart's order whose outcome is not known yet: no
+/// answer, a 5xx, or the app closed while it was on its way. It may have
+/// gone through, so the next try sends the same Idempotency-Key, and the
+/// order server then answers with that order instead of making a second
+/// one (see `fresh_market_server/README.md`).
+@immutable
+class PendingOrder {
+  const PendingOrder({required this.key, required this.lastTry, this.account});
+
+  /// The Idempotency-Key the try was sent with.
+  final String key;
+
+  /// When it was last sent.
+  final DateTime lastTry;
+
+  /// The account it was sent for (its email); null when not known, as
+  /// after a restart (the email is not written to the device's storage).
+  final String? account;
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'lastTry': lastTry.millisecondsSinceEpoch,
+      };
+
+  static PendingOrder? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final key = json['key'];
+    final at = json['lastTry'];
+    if (key is! String || key.isEmpty || at is! int) return null;
+    return PendingOrder(
+      key: key,
+      lastTry: DateTime.fromMillisecondsSinceEpoch(at, isUtc: true),
+    );
+  }
 }
 
 /// The shopping cart: lines keyed by variant id, kept on the device.
@@ -170,6 +207,14 @@ class CartStore extends ChangeNotifier {
 
   static const String prefsKey = 'cart_v1';
 
+  /// Where [pendingOrder] is kept (a random key and a time only).
+  static const String pendingOrderPrefsKey = 'pending_order_v1';
+
+  /// How long after its last try an order whose outcome is not known
+  /// keeps its key. The server settles any order within a minute; this
+  /// covers the shopper trying again later, or after reopening the app.
+  static const Duration pendingOrderLifetime = Duration(hours: 1);
+
   /// The most of one variant a cart line can hold.
   static const int maxQuantity = 99;
 
@@ -177,6 +222,54 @@ class CartStore extends ChangeNotifier {
 
   /// Insertion-ordered: the first product added stays on top.
   final Map<int, CartLine> _lines = {};
+
+  PendingOrder? _pendingOrder;
+
+  /// The try at placing this cart's order whose outcome is not known yet
+  /// (see [orderKey]); null when there is none.
+  PendingOrder? get pendingOrder => _pendingOrder;
+
+  /// The Idempotency-Key to send this cart's order with now, for
+  /// [account] (the signed-in email, when known).
+  ///
+  /// It is the key of the last try ([pendingOrder]) while that try's
+  /// outcome is not known: tried within [pendingOrderLifetime] and for the
+  /// same account. Its order may already exist, and the server answers
+  /// with it instead of making a second one, whatever changed in checkout
+  /// since (a note, the address) or after checkout was closed and opened
+  /// again. Otherwise it is a new key. Either way it is kept, on the
+  /// device too, until [settleOrder]. Listeners are not told (nothing on
+  /// screen shows it).
+  String orderKey({String? account, DateTime? now, String Function()? newKey}) {
+    final at = (now ?? DateTime.now()).toUtc();
+    final pending = _pendingOrder;
+    final sameAccount = pending?.account == null ||
+        account == null ||
+        pending!.account == account;
+    final key = pending != null &&
+            sameAccount &&
+            at.difference(pending.lastTry) < pendingOrderLifetime
+        ? pending.key
+        : (newKey ?? OrderApi.newIdempotencyKey)();
+    _pendingOrder = PendingOrder(
+      key: key,
+      lastTry: at,
+      account: account ?? (key == pending?.key ? pending?.account : null),
+    );
+    _prefs?.setString(
+      pendingOrderPrefsKey,
+      jsonEncode(_pendingOrder!.toJson()),
+    );
+    return key;
+  }
+
+  /// The order's outcome is known: it was made (201), or refused for
+  /// certain (409). The next try is a new order with a new key.
+  void settleOrder() {
+    if (_pendingOrder == null) return;
+    _pendingOrder = null;
+    _prefs?.remove(pendingOrderPrefsKey);
+  }
 
   List<CartLine> get lines => List.unmodifiable(_lines.values);
 
@@ -306,17 +399,15 @@ class CartStore extends ChangeNotifier {
 
     // handle -> fresh product, or null when the store no longer has it.
     final fresh = <String, Product?>{};
-    await Future.wait(
-      handles.map((handle) async {
-        try {
-          fresh[handle] = await api.product(handle, refresh: true);
-        } on HttpStatusException catch (e) {
-          if (e.isNotFound) fresh[handle] = null;
-        } on ApiException {
-          // Unknown for now; keep the line.
-        }
-      }),
-    );
+    await Future.wait(handles.map((handle) async {
+      try {
+        fresh[handle] = await api.product(handle, refresh: true);
+      } on HttpStatusException catch (e) {
+        if (e.isNotFound) fresh[handle] = null;
+      } on ApiException {
+        // Unknown for now; keep the line.
+      }
+    }));
 
     var removed = 0;
     var changed = false;
@@ -363,6 +454,14 @@ class CartStore extends ChangeNotifier {
   }
 
   void _restore() {
+    try {
+      final pending = _prefs?.getString(pendingOrderPrefsKey);
+      if (pending != null) {
+        _pendingOrder = PendingOrder.fromJson(jsonDecode(pending));
+      }
+    } catch (_) {
+      _pendingOrder = null;
+    }
     final raw = _prefs?.getString(prefsKey);
     if (raw == null || raw.isEmpty) return;
     try {

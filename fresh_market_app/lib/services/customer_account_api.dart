@@ -103,7 +103,7 @@ query Orders {
           nodes { status latestShipmentStatus }
         }
         lineItems(first: 20) {
-          nodes { title quantity image { url } variantId }
+          nodes { title name quantity image { url } variantId }
           pageInfo { hasNextPage }
         }
       }
@@ -190,9 +190,10 @@ query Orders {
       final code = first is Map && first['extensions'] is Map
           ? (first['extensions'] as Map)['code']
           : null;
-      if (code == 'UNAUTHENTICATED' || code == 'ACCESS_DENIED') {
-        throw const CustomerApiUnauthorized();
-      }
+      // Bad credentials are an HTTP 401 (above). ACCESS_DENIED is a
+      // permission the app lacks (protected customer data, a scope), which
+      // signing in again does not fix: an error, not "sign in again".
+      if (code == 'UNAUTHENTICATED') throw const CustomerApiUnauthorized();
       throw CustomerApiError('$code');
     }
     final data = body['data'];

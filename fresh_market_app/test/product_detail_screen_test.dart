@@ -38,7 +38,7 @@ void main() {
     expect(find.text('Local UAE'), findsNothing);
     expect(find.textContaining('Golden, juicy and sweet.'), findsOneWidget);
     expect(find.textContaining('<p>'), findsNothing);
-    expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3\u00A019.95'), findsOneWidget);
     expect(find.byType(SalePill), findsNothing);
     expect(find.text('View cart'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -53,7 +53,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('1 kg · New Zealand'), findsOneWidget);
-    expect(find.text('Add to cart · \u20C3 39.75'), findsOneWidget);
+    expect(find.text('Add to cart · \u20C3\u00A039.75'), findsOneWidget);
   });
 
   testWidgets(
@@ -73,11 +73,11 @@ void main() {
       await tester.pump();
       await tester.tap(find.bySemanticsLabel('Increase quantity'));
       await tester.pump();
-      expect(find.text('Add to cart · \u20C3 59.85'), findsOneWidget);
+      expect(find.text('Add to cart · \u20C3\u00A059.85'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Decrease quantity'));
       await tester.pump();
-      expect(find.text('Add to cart · \u20C3 39.90'), findsOneWidget);
+      expect(find.text('Add to cart · \u20C3\u00A039.90'), findsOneWidget);
 
       await tester.tap(find.byType(FilledButton));
       await tester.pumpAndSettle();
@@ -86,7 +86,7 @@ void main() {
       expect(find.text('2 added to cart · 2 in your cart'), findsOneWidget);
       expect(find.text('View cart'), findsOneWidget);
       // Quantity goes back to 1 and the cart button shows the badge.
-      expect(find.text('Add to cart · \u20C3 19.95'), findsOneWidget);
+      expect(find.text('Add to cart · \u20C3\u00A019.95'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
     },
   );
@@ -129,7 +129,7 @@ void main() {
   testWidgets('a sale shows the old price and the sale pill', (tester) async {
     await pumpScreen(tester, ProductDetailScreen(product: beef));
 
-    expect(find.text('\u20C3 62.50'), findsOneWidget);
+    expect(find.text('\u20C3\u00A062.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
     expect(find.text('\u221246%'), findsOneWidget);
     // One variant called "Default Title": no variant buttons.

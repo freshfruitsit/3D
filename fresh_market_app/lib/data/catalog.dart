@@ -53,12 +53,8 @@ class BrandEntry {
 
 /// A portrait banner of the "Offers" row on Home.
 class PromoEntry {
-  const PromoEntry(
-    this.asset,
-    this.handle,
-    this.title, {
-    this.onSaleOnly = false,
-  });
+  const PromoEntry(this.asset, this.handle, this.title,
+      {this.onSaleOnly = false});
 
   final String asset;
 
@@ -86,30 +82,18 @@ abstract final class Catalog {
   static const List<CategoryEntry> categories = [
     CategoryEntry('Fruits', 'assets/categories/fruits.png', 'fruits'),
     CategoryEntry(
-      'Vegetables',
-      'assets/categories/vegetables.png',
-      'vegetables',
-    ),
+        'Vegetables', 'assets/categories/vegetables.png', 'vegetables'),
     CategoryEntry('Meat', 'assets/categories/meat.png', 'fresh-meat'),
     CategoryEntry('Berries', 'assets/categories/berries.png', 'berries'),
     CategoryEntry(
-      'Flowers',
-      'assets/categories/flowers.png',
-      'ambrosia-flowers',
-    ),
+        'Flowers', 'assets/categories/flowers.png', 'ambrosia-flowers'),
     CategoryEntry('Hampers', 'assets/categories/hampers.png', 'hampers'),
     CategoryEntry('Citrus', 'assets/categories/citrus.png', 'citrus'),
     CategoryEntry('Mangoes', 'assets/categories/mangoes.png', 'mangoes'),
     CategoryEntry(
-      'Melons',
-      'assets/categories/melons.png',
-      'melons-pineapples',
-    ),
+        'Melons', 'assets/categories/melons.png', 'melons-pineapples'),
     CategoryEntry(
-      'Tropical',
-      'assets/categories/tropical.png',
-      'tropical-exotic',
-    ),
+        'Tropical', 'assets/categories/tropical.png', 'tropical-exotic'),
     CategoryEntry('Greens', 'assets/categories/greens.png', 'lettuce-greens'),
     CategoryEntry('Herbs', 'assets/categories/herbs.png', 'fresh-herbs'),
   ];
@@ -132,20 +116,13 @@ abstract final class Catalog {
 
   /// Home's "Best Deals" rail: the store's products that are really on
   /// sale, biggest saving first (see [Deals]).
-  static const HomeRail saleRail = HomeRail(
-    'Best Deals',
-    Deals.sourceHandle,
-    onSaleOnly: true,
-  );
-  static const HomeRail freshPick = HomeRail(
-    'Fresh Pick For You',
-    'best-sellers',
-  );
+  static const HomeRail saleRail =
+      HomeRail('Best Deals', Deals.sourceHandle, onSaleOnly: true);
+  static const HomeRail freshPick =
+      HomeRail('Fresh Pick For You', 'best-sellers');
   static const HomeRail berries = HomeRail('Berries', 'berries');
-  static const HomeRail blooms = HomeRail(
-    'Seasonal Blooms',
-    'ambrosia-flowers',
-  );
+  static const HomeRail blooms =
+      HomeRail('Seasonal Blooms', 'ambrosia-flowers');
 
   /// Rails shown above the "Brands We Love" grid.
   static const List<HomeRail> railsBeforeBrands = [topDeals, saleRail];
@@ -182,17 +159,10 @@ abstract final class Catalog {
   static const List<PromoEntry> promos = [
     PromoEntry('assets/promos/bulk.jpg', 'bulk-buy', 'Bulk Buy'),
     // "Deals of the day": the products that are really on sale.
-    PromoEntry(
-      'assets/promos/deals.jpg',
-      Deals.sourceHandle,
-      'Best Deals',
-      onSaleOnly: true,
-    ),
-    PromoEntry(
-      'assets/promos/essentials.jpg',
-      'deals-on-essentials',
-      'Deals on Essentials',
-    ),
+    PromoEntry('assets/promos/deals.jpg', Deals.sourceHandle, 'Best Deals',
+        onSaleOnly: true),
+    PromoEntry('assets/promos/essentials.jpg', 'deals-on-essentials',
+        'Deals on Essentials'),
     PromoEntry('assets/promos/ambrosia.jpg', 'ambrosia', 'Ambrosia'),
   ];
 

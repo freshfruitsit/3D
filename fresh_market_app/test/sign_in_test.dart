@@ -113,6 +113,26 @@ void main() {
       expect(oauth.authorizeCalls, 0);
     });
 
+    testWidgets('no order server in this build: "Ordering isn\'t available '
+        'yet" at once, without asking to sign in first', (tester) async {
+      await pumpScreen(
+        tester,
+        const CartScreen(),
+        cart: CartStore()..add(kiwi, kiwi.variants[0]),
+        delivery: testDelivery(),
+        session: signedOutSession(client: oauth),
+        // No orderApi: the one the tests are built with (no
+        // ORDER_API_BASE).
+        customerApi: customer.api(),
+      );
+      await tapCheckout(tester);
+      await tester.pumpAndSettle();
+      expect(find.text(SignInSheet.title), findsNothing);
+      expect(oauth.authorizeCalls, 0);
+      expect(find.byKey(const ValueKey('checkout-unavailable')), findsOneWidget);
+      expect(find.text(CheckoutScreen.unavailableTitle), findsOneWidget);
+    });
+
     testWidgets("Sign in with email opens Shopify's sign-in, then checkout "
         'by itself; said to screen readers', (tester) async {
       final said = _announcements(tester);

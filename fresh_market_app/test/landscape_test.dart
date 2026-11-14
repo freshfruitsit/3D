@@ -52,14 +52,15 @@ Widget _app({
   CartStore? cart,
   DeliveryStore? delivery,
   bool showIntro = false,
-}) => FreshMarketApp(
-  api: FakeShopifyApi.sample(),
-  cart: cart ?? CartStore(),
-  favourites: FavouritesStore(),
-  deliveryStore: delivery,
-  locationServices: testLocationServices(),
-  showIntro: showIntro,
-);
+}) =>
+    FreshMarketApp(
+      api: FakeShopifyApi.sample(),
+      cart: cart ?? CartStore(),
+      favourites: FavouritesStore(),
+      deliveryStore: delivery,
+      locationServices: testLocationServices(),
+      showIntro: showIntro,
+    );
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -108,9 +109,8 @@ void main() {
     await _scrollThrough(tester, page);
   });
 
-  testWidgets('product detail scrolls under its sticky Add to cart bar', (
-    tester,
-  ) async {
+  testWidgets('product detail scrolls under its sticky Add to cart bar',
+      (tester) async {
     _useLandscape(tester);
     await tester.pumpWidget(_app(delivery: testDelivery()));
     await _settle(tester);
@@ -134,9 +134,7 @@ void main() {
       await tester.pump();
       for (var c = 0; c < cards.evaluate().length; c++) {
         final centre = tester.getCenter(cards.at(c));
-        if (centre.dy > 0 &&
-            centre.dy < barTop - 60 &&
-            centre.dx > 0 &&
+        if (centre.dy > 0 && centre.dy < barTop - 60 && centre.dx > 0 &&
             centre.dx < _landscape.width) {
           clear = cards.at(c);
           break;
@@ -165,9 +163,8 @@ void main() {
     );
   });
 
-  testWidgets('cart: lines scroll and Checkout stays reachable', (
-    tester,
-  ) async {
+  testWidgets('cart: lines scroll and Checkout stays reachable',
+      (tester) async {
     _useLandscape(tester);
     final cart = CartStore();
     for (final product in sampleProducts()) {
@@ -176,12 +173,10 @@ void main() {
     }
     await tester.pumpWidget(_app(cart: cart, delivery: testDelivery()));
     await _settle(tester);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(FloatingNavBar),
-        matching: find.text(AppTab.cart.label),
-      ),
-    );
+    await tester.tap(find.descendant(
+      of: find.byType(FloatingNavBar),
+      matching: find.text(AppTab.cart.label),
+    ));
     await _settle(tester);
     expect(find.byType(CartScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -246,17 +241,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the intro keeps Skip and Start shopping on screen', (
-    tester,
-  ) async {
+  testWidgets('the intro keeps Skip and Start shopping on screen',
+      (tester) async {
     _useLandscape(tester);
     final player = FakeIntroPlayer();
     var done = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: IntroScreen(onDone: () => done++, playerFactory: () => player),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(
+      home: IntroScreen(onDone: () => done++, playerFactory: () => player),
+    ));
     await _settle(tester);
     expect(tester.takeException(), isNull);
     for (final key in [IntroScreen.skipKey, IntroScreen.startKey]) {

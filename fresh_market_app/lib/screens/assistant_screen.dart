@@ -259,19 +259,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
       count == 0
           ? 'Nothing was added.'
           : 'Added $count ${count == 1 ? 'product' : 'products'} to your '
-                'cart: ${_joinNames(added)}.',
+              'cart: ${_joinNames(added)}.',
     );
     if (soldOut.isNotEmpty) {
-      text.write(
-        ' ${_joinNames(soldOut)} '
-        '${soldOut.length == 1 ? 'is' : 'are'} sold out.',
-      );
+      text.write(' ${_joinNames(soldOut)} '
+          '${soldOut.length == 1 ? 'is' : 'are'} sold out.');
     }
     if (full.isNotEmpty) {
-      text.write(
-        ' Your cart already holds the most it can of '
-        '${_joinNames(full)} (${CartStore.maxQuantity}).',
-      );
+      text.write(' Your cart already holds the most it can of '
+          '${_joinNames(full)} (${CartStore.maxQuantity}).');
     }
     _session.note(
       count == 0
@@ -386,10 +382,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       const SizedBox(height: _messageGap),
                   itemBuilder: (context, index) {
                     if (busy && index == 0) return const _TypingBubble();
-                    final message =
-                        messages[messages.length -
-                            1 -
-                            (busy ? index - 1 : index)];
+                    final message = messages[
+                        messages.length - 1 - (busy ? index - 1 : index)];
                     return message.fromUser
                         ? _UserBubble(text: message.text)
                         : _AssistantBlock(
@@ -427,13 +421,14 @@ const double _messageGap = 16;
 /// [text] as a screen reader should say it: the Dirham sign (which voices
 /// do not know) read as "AED", the way [moneySemantics] says a price.
 String spokenMoney(String text) => text.contains(dirhamSign)
-    ? text.replaceAll('$dirhamSign ', 'AED ').replaceAll(dirhamSign, 'AED ')
+    ? text.replaceAll(RegExp('$dirhamSign[ $moneySpace]?'), 'AED ')
     : text;
 
 /// [text] with a no-break space after each Dirham sign, so a sentence
-/// never wraps between the sign and its amount.
+/// never wraps between the sign and its amount ([formatMoney] already
+/// writes one; this also covers a plain space typed elsewhere).
 String keepMoneyTogether(String text) =>
-    text.replaceAll('$dirhamSign ', '$dirhamSign\u00A0');
+    text.replaceAll('$dirhamSign ', '$dirhamSign$moneySpace');
 
 /// "a", "a and b", "a, b and c".
 String _joinNames(List<String> names) => names.length < 2
@@ -462,24 +457,22 @@ String _linkTarget(String link) {
 String linkFailureMessage(String link) {
   final target = _linkTarget(link);
   return switch (_linkScheme(link)) {
-    'tel' =>
-      target.isEmpty
-          ? "Couldn't open the phone app."
-          : "Couldn't open the phone app. Call $target instead.",
-    'mailto' =>
-      target.isEmpty
-          ? "Couldn't open the email app."
-          : "Couldn't open the email app. Write to $target instead.",
+    'tel' => target.isEmpty
+        ? "Couldn't open the phone app."
+        : "Couldn't open the phone app. Call $target instead.",
+    'mailto' => target.isEmpty
+        ? "Couldn't open the email app."
+        : "Couldn't open the email app. Write to $target instead.",
     'https' => "Couldn't open the store page.",
     _ => "Couldn't open that link.",
   };
 }
 
 IconData _linkIcon(String link) => switch (_linkScheme(link)) {
-  'tel' => Icons.phone,
-  'mailto' => Icons.mail,
-  _ => Icons.open_in_new,
-};
+      'tel' => Icons.phone,
+      'mailto' => Icons.mail,
+      _ => Icons.open_in_new,
+    };
 
 class _Header extends StatelessWidget {
   const _Header({required this.onNewChat});
@@ -514,9 +507,8 @@ class _Header extends StatelessWidget {
           CircleIconButton(
             icon: Icons.add_comment_outlined,
             tooltip: 'New chat',
-            iconColor: onNewChat == null
-                ? AppColors.disabledText
-                : AppColors.ink,
+            iconColor:
+                onNewChat == null ? AppColors.disabledText : AppColors.ink,
             onPressed: onNewChat,
           ),
         ],
@@ -636,34 +628,33 @@ class _AssistantBlock extends StatelessWidget {
       ChangeLocationAction() => true,
       _ => false,
     };
-    final VoidCallback? onTap = done || (busy && talks)
-        ? null
-        : () => onAction(action);
+    final VoidCallback? onTap =
+        done || (busy && talks) ? null : () => onAction(action);
     return switch (action) {
       AddProductsAction() => _ActionButton(
-        label: action.label,
-        onTap: onTap,
-        icon: done ? Icons.check : Icons.add_shopping_cart,
-        look: _ActionLook.filled,
-        done: done,
-      ),
+          label: action.label,
+          onTap: onTap,
+          icon: done ? Icons.check : Icons.add_shopping_cart,
+          look: _ActionLook.filled,
+          done: done,
+        ),
       ClearCartAction() => _ActionButton(
-        label: action.label,
-        onTap: onTap,
-        icon: done ? Icons.check : Icons.remove_shopping_cart,
-        look: _ActionLook.danger,
-        done: done,
-      ),
+          label: action.label,
+          onTap: onTap,
+          icon: done ? Icons.check : Icons.remove_shopping_cart,
+          look: _ActionLook.danger,
+          done: done,
+        ),
       OpenLinkAction(:final uri) => _ActionButton(
-        label: action.label,
-        onTap: onTap,
-        icon: _linkIcon(uri),
-      ),
+          label: action.label,
+          onTap: onTap,
+          icon: _linkIcon(uri),
+        ),
       ChangeLocationAction() => _ActionButton(
-        label: action.label,
-        onTap: onTap,
-        icon: Icons.location_on_outlined,
-      ),
+          label: action.label,
+          onTap: onTap,
+          icon: Icons.location_on_outlined,
+        ),
       // Express is the one place green marks a non-buying button.
       OpenCollectionAction(:final handle)
           when handle == ExpressCollection.handle =>
@@ -803,15 +794,15 @@ class _OptionTile extends StatelessWidget {
   ) => a11y.fittingFontSize(label, style, scaler, width);
 
   static IconData iconFor(QuickOptionKind kind) => switch (kind) {
-    QuickOptionKind.offers => Icons.local_offer_outlined,
-    QuickOptionKind.categories => Icons.grid_view_rounded,
-    QuickOptionKind.recipes => Icons.restaurant_menu,
-    QuickOptionKind.local => Icons.place_outlined,
-    QuickOptionKind.gifts => Icons.card_giftcard,
-    QuickOptionKind.popular => Icons.trending_up,
-    QuickOptionKind.cart => Icons.shopping_bag_outlined,
-    QuickOptionKind.contact => Icons.support_agent,
-  };
+        QuickOptionKind.offers => Icons.local_offer_outlined,
+        QuickOptionKind.categories => Icons.grid_view_rounded,
+        QuickOptionKind.recipes => Icons.restaurant_menu,
+        QuickOptionKind.local => Icons.place_outlined,
+        QuickOptionKind.gifts => Icons.card_giftcard,
+        QuickOptionKind.popular => Icons.trending_up,
+        QuickOptionKind.cart => Icons.shopping_bag_outlined,
+        QuickOptionKind.contact => Icons.support_agent,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -1015,21 +1006,12 @@ class _ActionButton extends StatelessWidget {
     final (Color fill, Color edge, Color ink) = !enabled
         ? (AppColors.disabledFill, AppColors.hairline, AppColors.disabledText)
         : switch (look) {
-            _ActionLook.outlined => (
-              AppColors.surface,
-              AppColors.ink,
-              AppColors.ink,
-            ),
-            _ActionLook.filled => (
-              AppColors.green,
-              AppColors.green,
-              AppColors.onDark,
-            ),
-            _ActionLook.danger => (
-              AppColors.surface,
-              AppColors.ink,
-              AppColors.ink,
-            ),
+            _ActionLook.outlined =>
+              (AppColors.surface, AppColors.ink, AppColors.ink),
+            _ActionLook.filled =>
+              (AppColors.green, AppColors.green, AppColors.onDark),
+            _ActionLook.danger =>
+              (AppColors.surface, AppColors.ink, AppColors.ink),
           };
     final chevron = look == _ActionLook.outlined;
     // The ink outline is 1.5px, like the app's outlined buttons.
@@ -1045,9 +1027,7 @@ class _ActionButton extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: fill,
-        shape: StadiumBorder(
-          side: BorderSide(color: edge, width: edgeWidth),
-        ),
+        shape: StadiumBorder(side: BorderSide(color: edge, width: edgeWidth)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -1130,8 +1110,7 @@ class _TypingBubbleState extends State<_TypingBubble>
                     padding: EdgeInsets.only(left: i == 0 ? 0 : 5),
                     child: Opacity(
                       // Each dot peaks a third of a cycle after the last.
-                      opacity:
-                          0.3 +
+                      opacity: 0.3 +
                           0.7 *
                               (1 -
                                   (((_controller.value - i / 3) % 1.0) * 2 - 1)

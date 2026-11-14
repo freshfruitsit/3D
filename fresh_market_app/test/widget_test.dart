@@ -15,9 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/test_app.dart';
 
 void main() {
-  testWidgets('app starts on Home and the bottom bar switches tabs', (
-    tester,
-  ) async {
+  testWidgets('app starts on Home and the bottom bar switches tabs',
+      (tester) async {
     usePhoneSize(tester);
     SharedPreferences.setMockInitialValues({});
     final shell = ShellController();
@@ -25,36 +24,30 @@ void main() {
     final products = sampleProducts();
     cart.add(products[0], products[0].variants[0], quantity: 2);
 
-    await tester.pumpWidget(
-      FreshMarketApp(
-        api: FakeShopifyApi.sample(),
-        cart: cart,
-        favourites: FavouritesStore(),
-        deliveryStore: testDelivery(),
-        locationServices: testLocationServices(),
-        shell: shell,
-        showIntro: false,
-      ),
-    );
+    await tester.pumpWidget(FreshMarketApp(
+      api: FakeShopifyApi.sample(),
+      cart: cart,
+      favourites: FavouritesStore(),
+      deliveryStore: testDelivery(),
+      locationServices: testLocationServices(),
+      shell: shell,
+      showIntro: false,
+    ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(FloatingNavBar), findsOneWidget);
     final bar = find.byType(FloatingNavBar);
     for (final tab in AppTab.values) {
-      expect(
-        find.descendant(of: bar, matching: find.text(tab.label)),
-        findsOneWidget,
-      );
+      expect(find.descendant(of: bar, matching: find.text(tab.label)),
+          findsOneWidget);
     }
     // The cart badge shows the number of units.
     expect(find.descendant(of: bar, matching: find.text('2')), findsOneWidget);
     expect(shell.tab, AppTab.home);
 
     for (final tab in [AppTab.categories, AppTab.cart, AppTab.account]) {
-      await tester.tap(
-        find.descendant(of: bar, matching: find.text(tab.label)),
-      );
+      await tester.tap(find.descendant(of: bar, matching: find.text(tab.label)));
       await tester.pump(const Duration(milliseconds: 500));
       expect(shell.tab, tab);
       expect(tester.widget<FloatingNavBar>(bar).current, tab);
@@ -66,13 +59,13 @@ void main() {
     usePhoneSize(tester);
     SharedPreferences.setMockInitialValues({});
     Widget app() => FreshMarketApp(
-      key: UniqueKey(),
-      api: FakeShopifyApi.sample(),
-      cart: CartStore(),
-      favourites: FavouritesStore(),
-      deliveryStore: testDelivery(),
-      locationServices: testLocationServices(),
-    );
+          key: UniqueKey(),
+          api: FakeShopifyApi.sample(),
+          cart: CartStore(),
+          favourites: FavouritesStore(),
+          deliveryStore: testDelivery(),
+          locationServices: testLocationServices(),
+        );
 
     for (var launch = 0; launch < 2; launch++) {
       await tester.pumpWidget(app());
@@ -96,17 +89,15 @@ void main() {
     usePhoneSize(tester);
     SharedPreferences.setMockInitialValues({});
     final shell = ShellController();
-    await tester.pumpWidget(
-      FreshMarketApp(
-        api: FakeShopifyApi.sample(),
-        cart: CartStore(),
-        favourites: FavouritesStore(),
-        deliveryStore: testDelivery(),
-        locationServices: testLocationServices(),
-        shell: shell,
-        showIntro: false,
-      ),
-    );
+    await tester.pumpWidget(FreshMarketApp(
+      api: FakeShopifyApi.sample(),
+      cart: CartStore(),
+      favourites: FavouritesStore(),
+      deliveryStore: testDelivery(),
+      locationServices: testLocationServices(),
+      shell: shell,
+      showIntro: false,
+    ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -116,10 +107,8 @@ void main() {
     final askRect = tester.getRect(ask);
     final barRect = tester.getRect(bar);
     final screen = tester.getSize(find.byType(AppShell));
-    expect(
-      barRect.top - askRect.bottom,
-      moreOrLessEquals(AskButton.gapAboveNavBar),
-    );
+    expect(barRect.top - askRect.bottom,
+        moreOrLessEquals(AskButton.gapAboveNavBar));
     expect(screen.width - askRect.right, moreOrLessEquals(16));
 
     shell.select(AppTab.cart);
@@ -150,17 +139,15 @@ void main() {
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final shell = ShellController();
-    await tester.pumpWidget(
-      FreshMarketApp(
-        api: FakeShopifyApi.sample(),
-        cart: CartStore(),
-        favourites: FavouritesStore(),
-        deliveryStore: testDelivery(),
-        locationServices: testLocationServices(),
-        shell: shell,
-        showIntro: false,
-      ),
-    );
+    await tester.pumpWidget(FreshMarketApp(
+      api: FakeShopifyApi.sample(),
+      cart: CartStore(),
+      favourites: FavouritesStore(),
+      deliveryStore: testDelivery(),
+      locationServices: testLocationServices(),
+      shell: shell,
+      showIntro: false,
+    ));
     await tester.pump();
     shell.select(AppTab.deals);
     await tester.pump();
@@ -183,9 +170,8 @@ void main() {
     }
   });
 
-  testWidgets('product card adds to the cart and turns into a stepper', (
-    tester,
-  ) async {
+  testWidgets('product card adds to the cart and turns into a stepper',
+      (tester) async {
     final cart = CartStore();
     final products = sampleProducts();
     final beef = products[1];
@@ -206,7 +192,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
-    expect(find.text('\u20C3 62.50'), findsOneWidget);
+    expect(find.text('\u20C3\u00A062.50'), findsOneWidget);
     expect(find.text('115.00'), findsOneWidget);
     expect(find.text('\u221246%'), findsOneWidget);
     expect(find.text('500 g · New Zealand'), findsOneWidget);
@@ -225,10 +211,7 @@ void main() {
     );
     // At quantity 1 the minus is a bin, and it removes the line.
     await tester.tap(
-      find.descendant(
-        of: beefCard,
-        matching: find.byIcon(Icons.delete_outline),
-      ),
+      find.descendant(of: beefCard, matching: find.byIcon(Icons.delete_outline)),
     );
     await tester.pump();
     expect(cart.isEmpty, isTrue);

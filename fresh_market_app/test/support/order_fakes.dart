@@ -144,6 +144,9 @@ class FakeOrderServer {
   /// Variant ids with less stock: id -> units left.
   final Map<int, int> stock = {};
 
+  /// Prices the store changed to: id -> fils.
+  final Map<int, int> prices = {};
+
   /// Answers for `POST /api/orders`, used in turn; 201 when empty.
   final List<FutureOr<http.Response> Function(http.Request)> orderAnswers = [];
 
@@ -222,14 +225,15 @@ class FakeOrderServer {
           'message': 'Only $left of $title left.',
         });
       }
-      final total = variant.priceCents * quantity;
+      final price = prices[id] ?? variant.priceCents;
+      final total = price * quantity;
       subtotal += total;
       lines.add({
         'variantId': id,
         'title': title,
         'variantTitle': variant.title == 'Default Title' ? null : variant.title,
         'quantity': quantity,
-        'unitPriceFils': variant.priceCents,
+        'unitPriceFils': price,
         'lineTotalFils': total,
         'available': true,
       });

@@ -14,6 +14,7 @@ import 'screens/product_detail_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/customer_account_api.dart';
+import 'services/order_api.dart';
 import 'services/shopify_api.dart';
 import 'state/account_session.dart';
 import 'state/cart_store.dart';
@@ -360,14 +361,19 @@ abstract final class AppNav {
     }
   }
 
-  /// "My orders" (the signed-in customer's orders), full screen; with
-  /// [replace], in place of the current full-screen page.
-  static Future<void> openOrders(BuildContext context, {bool replace = false}) {
-    final navigator = Navigator.of(context, rootNavigator: true);
+  /// "My orders" (the signed-in customer's orders), inside the Account
+  /// tab with the bottom bar: any full-screen page (Order placed,
+  /// checkout) closes first, and back goes to Account. A screen shown on
+  /// its own (no tab shell) pushes it instead.
+  static Future<void> openOrders(BuildContext context) {
+    final shell = context.read<ShellController>();
     final route = MaterialPageRoute<void>(
       builder: (_) => const MyOrdersScreen(),
     );
-    return replace ? navigator.pushReplacement(route) : navigator.push(route);
+    final root = Navigator.of(context, rootNavigator: true);
+    if (!shell.hasShell) return root.push(route);
+    root.popUntil((r) => r.isFirst);
+    return shell.openInTab(AppTab.account, route);
   }
 
   static const String signOutTitle = 'Sign out?';
@@ -424,7 +430,9 @@ abstract final class AppNav {
   /// closing the sheet or the sign-in page stays on the cart.
   ///
   /// The app's own checkout ([CheckoutScreen]) then opens: Cash on
-  /// Delivery, at the order server's prices.
+  /// Delivery, at the order server's prices. An app built without an
+  /// order server opens it before the sign-in step, on its "Ordering
+  /// isn't available yet" page.
   static Future<void> openCheckout(
     BuildContext context, {
     double? noticeBottomMargin,
@@ -454,6 +462,15 @@ abstract final class AppNav {
     }
     if (!cart.hasAvailableLines) {
       showNotice(context, soldOutOnly, bottomMargin: noticeBottomMargin);
+      return;
+    }
+    if (!context.read<OrderApi>().available) {
+      // Built without an order server: checkout says "Ordering isn't
+      // available yet" at once, without asking to sign in for nothing.
+      ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+      await Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(builder: (_) => const CheckoutScreen()),
+      );
       return;
     }
     // Orders are placed for a signed-in customer only: sign in first,

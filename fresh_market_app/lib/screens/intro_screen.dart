@@ -67,8 +67,7 @@ class _IntroScreenState extends State<IntroScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     final state = WidgetsBinding.instance.lifecycleState;
     _inForeground = state == null || state == AppLifecycleState.resumed;
-    final factory =
-        widget.playerFactory ??
+    final factory = widget.playerFactory ??
         IntroScreen.debugDefaultPlayerFactory ??
         VideoIntroPlayer.new;
     _player = factory()..addListener(_onPlayerChanged);

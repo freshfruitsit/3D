@@ -72,7 +72,8 @@ String _lineText(WidgetTester tester) => tester
 Finder _textN(String text) => find.byWidgetPredicate(
   (w) =>
       w is Text &&
-      (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u00A0', ' ') == text,
+      (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u00A0', ' ') ==
+          text,
   description: 'text "$text"',
 );
 
@@ -182,7 +183,7 @@ void main() {
 
     testWidgets('a plain Text inherits the fallback', (tester) async {
       await pumpScreen(tester, Scaffold(body: Text(formatMoney(1250))));
-      final style = DefaultTextStyle.of(tester.element(find.text('⃃ 12.50')))
+      final style = DefaultTextStyle.of(tester.element(find.text('⃃\u00A012.50')))
           .style;
       expect(style.fontFamilyFallback, contains('Dirham'));
     });
@@ -202,7 +203,7 @@ void main() {
           ),
         ),
       );
-      final price = tester.widget<Text>(find.text('⃃ 62.50'));
+      final price = tester.widget<Text>(find.text('⃃\u00A062.50'));
       expect(price.style!.color, AppColors.saving);
       expect(price.semanticsLabel, 'AED 62.50');
       final old = tester.widget<Text>(find.text('115.00'));
@@ -218,7 +219,7 @@ void main() {
         tester,
         const Scaffold(body: PriceRow(priceCents: 1995)),
       );
-      final price = tester.widget<Text>(find.text('⃃ 19.95'));
+      final price = tester.widget<Text>(find.text('⃃\u00A019.95'));
       expect(price.style!.color, AppColors.ink);
       expect(find.text('19.95'), findsNothing);
     });
@@ -228,7 +229,7 @@ void main() {
         tester,
         const Scaffold(body: MoneyText(10240, prefix: 'Subtotal ')),
       );
-      final text = tester.widget<Text>(find.text('Subtotal ⃃ 102.40'));
+      final text = tester.widget<Text>(find.text('Subtotal ⃃\u00A0102.40'));
       expect(text.semanticsLabel, 'Subtotal AED 102.40');
     });
   });
@@ -331,7 +332,10 @@ void main() {
       expect(range.style!.color, AppColors.green);
 
       await tester.tap(
-        _inKey('delivery-line', _textN(DeliveryLine.expressLabel('30–40 min'))),
+        _inKey(
+          'delivery-line',
+          _textN(DeliveryLine.expressLabel('30–40 min')),
+        ),
       );
       await tester.pump();
       expect(store.mode, DeliveryMode.express);

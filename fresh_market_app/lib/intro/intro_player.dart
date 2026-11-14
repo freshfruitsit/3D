@@ -66,7 +66,9 @@ class VideoIntroPlayer implements IntroPlayer {
   /// the video still plays.
   static Future<ClosedCaptionFile> _loadCaptions() async {
     try {
-      return WebVTTCaptionFile(await rootBundle.loadString(introCaptionsAsset));
+      return WebVTTCaptionFile(
+        await rootBundle.loadString(introCaptionsAsset),
+      );
     } catch (_) {
       return WebVTTCaptionFile('');
     }

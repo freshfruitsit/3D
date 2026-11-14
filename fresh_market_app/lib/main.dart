@@ -39,8 +39,10 @@ Future<void> main() async {
   // CustomerAccountConfig) sign-in shows as not available yet.
   final session = AccountSession(auth: CustomerAuth.app());
   try {
-    await Future.wait([profile.load(), session.load()])
-        .timeout(const Duration(seconds: 3));
+    await Future.wait([
+      profile.load(),
+      session.load(),
+    ]).timeout(const Duration(seconds: 3));
   } catch (_) {
     // Carried on in the background, or dropped.
   }

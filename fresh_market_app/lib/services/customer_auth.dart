@@ -239,20 +239,31 @@ class AppAuthClient implements OAuthClient {
       );
       return _tokens(response, before: tokens);
     } on FlutterAppAuthPlatformException catch (e) {
-      // An OAuth error from Shopify (invalid_grant, ...) means the
-      // refresh token is no good; anything else is the network.
-      if (e.platformErrorDetails.error != null) throw const RefreshRejected();
-      throw AuthNetworkError(e);
+      // Only "Shopify could not be reached" keeps the customer signed in
+      // (to try again later). Anything else (an OAuth error such as
+      // invalid_grant, an answer that could not be read, an ID token that
+      // did not check out) means these tokens will not refresh: the
+      // customer signs in again.
+      if (_isNetwork(e.platformErrorDetails)) throw AuthNetworkError(e);
+      throw const RefreshRejected();
     } on SignInFailed {
       throw const RefreshRejected();
-    } on PlatformException catch (e) {
-      throw AuthNetworkError(e);
+    } on PlatformException {
+      throw const RefreshRejected();
+    } on MissingPluginException {
+      throw const RefreshRejected();
     }
   }
 
-  /// AppAuth-Android's general errors 3 (network) and 4 (server).
+  /// AppAuth-Android's general errors (type 0) 3 (network) and 4 (server
+  /// error): Shopify was not reached, or failed for a moment. Its other
+  /// general errors (5 an unreadable answer, 6 no token response, 8 and 9
+  /// a bad ID token) and every OAuth error have nothing to do with the
+  /// network.
   static bool _isNetwork(FlutterAppAuthPlatformErrorDetails details) =>
-      details.type == '0' && (details.code == '3' || details.code == '4');
+      details.error == null &&
+      details.type == '0' &&
+      (details.code == '3' || details.code == '4');
 }
 
 /// Where the tokens are kept: the phone's encrypted storage (as the

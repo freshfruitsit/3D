@@ -109,9 +109,8 @@ void main() {
   tearDown(() => IntroScreen.debugDefaultPlayerFactory = null);
 
   group('IntroScreen', () {
-    testWidgets('with reduce motion the poster stays and nothing plays', (
-      tester,
-    ) async {
+    testWidgets('with reduce motion the poster stays and nothing plays',
+        (tester) async {
       final player = FakeIntroPlayer();
       var done = 0;
       await pumpIntro(
@@ -129,7 +128,9 @@ void main() {
 
       // Back in the foreground it still does not start by itself.
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      );
       await tester.pump();
       expect(player.playCalls, 0);
 
@@ -139,9 +140,8 @@ void main() {
       expect(done, 1);
     });
 
-    testWidgets('plays muted and shows the poster until the first frame', (
-      tester,
-    ) async {
+    testWidgets('plays muted and shows the poster until the first frame',
+        (tester) async {
       final player = FakeIntroPlayer();
       await pumpIntro(tester, player: player, onDone: () {});
 
@@ -252,10 +252,8 @@ void main() {
     testWidgets('the top controls are 44px touch targets', (tester) async {
       await pumpIntro(tester, player: FakeIntroPlayer(), onDone: () {});
 
-      expect(
-        tester.getSize(find.byKey(IntroScreen.muteKey)),
-        const Size(44, 44),
-      );
+      expect(tester.getSize(find.byKey(IntroScreen.muteKey)),
+          const Size(44, 44));
       final skip = tester.getSize(find.byKey(IntroScreen.skipKey));
       expect(skip.height, 44);
       expect(skip.width, greaterThanOrEqualTo(44));
@@ -270,43 +268,37 @@ void main() {
         (w) =>
             w is Image &&
             w.image is AssetImage &&
-            (w.image as AssetImage).assetName == 'assets/images/logo_wide.png',
+            (w.image as AssetImage).assetName ==
+                'assets/images/logo_wide.png',
       );
       expect(logo, findsOneWidget);
-      final plate = find
-          .ancestor(of: logo, matching: find.byType(Container))
-          .first;
+      final plate =
+          find.ancestor(of: logo, matching: find.byType(Container)).first;
       final decoration =
           tester.widget<Container>(plate).decoration! as BoxDecoration;
       expect(decoration.color, Colors.white);
       expect(decoration.borderRadius, AppDims.buttonBorderRadius);
       expect(tester.getSize(plate).height, 44);
       // Left of Mute and Skip, on the same row.
-      expect(
-        tester.getCenter(plate).dy,
-        closeTo(tester.getCenter(find.byKey(IntroScreen.skipKey)).dy, 0.5),
-      );
+      expect(tester.getCenter(plate).dy,
+          closeTo(tester.getCenter(find.byKey(IntroScreen.skipKey)).dy, 0.5));
       expect(tester.getTopLeft(plate).dx, 16);
 
-      final skip = tester.widget<Material>(
-        find
-            .ancestor(
-              of: find.byKey(IntroScreen.skipKey),
-              matching: find.byType(Material),
-            )
-            .first,
-      );
+      final skip = tester.widget<Material>(find
+          .ancestor(
+            of: find.byKey(IntroScreen.skipKey),
+            matching: find.byType(Material),
+          )
+          .first);
       expect(skip.shape, isA<StadiumBorder>());
       expect(skip.color!.a, lessThan(1));
 
-      final start = tester.widget<Material>(
-        find
-            .descendant(
-              of: find.byKey(IntroScreen.startKey),
-              matching: find.byType(Material),
-            )
-            .first,
-      );
+      final start = tester.widget<Material>(find
+          .descendant(
+            of: find.byKey(IntroScreen.startKey),
+            matching: find.byType(Material),
+          )
+          .first);
       expect(start.color, AppColors.green);
     });
 
@@ -358,9 +350,8 @@ void main() {
       expect(done, 1);
     });
 
-    testWidgets('keeps the poster and working controls when the video fails', (
-      tester,
-    ) async {
+    testWidgets('keeps the poster and working controls when the video fails',
+        (tester) async {
       var done = 0;
       final player = FakeIntroPlayer(failInitialize: true);
       await pumpIntro(tester, player: player, onDone: () => done++);
@@ -378,9 +369,8 @@ void main() {
       expect(done, 1);
     });
 
-    testWidgets('falls back to the poster with the real player in tests', (
-      tester,
-    ) async {
+    testWidgets('falls back to the poster with the real player in tests',
+        (tester) async {
       var done = 0;
       usePhoneSize(tester);
       await tester.pumpWidget(
@@ -398,16 +388,12 @@ void main() {
       expect(done, 1);
     });
 
-    testWidgets('pauses in the background and resumes on return', (
-      tester,
-    ) async {
+    testWidgets('pauses in the background and resumes on return',
+        (tester) async {
       final player = FakeIntroPlayer();
       await pumpIntro(tester, player: player, onDone: () {});
-      addTearDown(
-        () => tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        ),
-      );
+      addTearDown(() => tester.binding
+          .handleAppLifecycleStateChanged(AppLifecycleState.resumed));
       expect(player.playing, isTrue);
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
@@ -423,11 +409,8 @@ void main() {
     testWidgets('does not resume after it has finished', (tester) async {
       final player = FakeIntroPlayer();
       await pumpIntro(tester, player: player, onDone: () {});
-      addTearDown(
-        () => tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        ),
-      );
+      addTearDown(() => tester.binding
+          .handleAppLifecycleStateChanged(AppLifecycleState.resumed));
 
       await tester.tap(find.byKey(IntroScreen.skipKey));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -444,9 +427,8 @@ void main() {
       expect(player.disposed, isTrue);
     });
 
-    testWidgets('keeps clear of the status bar and the gesture bar', (
-      tester,
-    ) async {
+    testWidgets('keeps clear of the status bar and the gesture bar',
+        (tester) async {
       await pumpIntro(
         tester,
         player: FakeIntroPlayer(),
@@ -463,10 +445,8 @@ void main() {
         lessThanOrEqualTo(844 - 34),
       );
       // The picture itself still fills the whole screen.
-      expect(
-        tester.getSize(find.byKey(IntroScreen.posterKey)),
-        const Size(390, 844),
-      );
+      expect(tester.getSize(find.byKey(IntroScreen.posterKey)),
+          const Size(390, 844));
     });
 
     testWidgets('fits a small phone with large text', (tester) async {
@@ -547,9 +527,8 @@ void main() {
   });
 
   group('AccountScreen intro row', () {
-    testWidgets('"Watch the intro again" plays the intro and comes back', (
-      tester,
-    ) async {
+    testWidgets('"Watch the intro again" plays the intro and comes back',
+        (tester) async {
       final player = FakeIntroPlayer();
       IntroScreen.debugDefaultPlayerFactory = () => player;
       await pumpScreen(tester, const AccountScreen());

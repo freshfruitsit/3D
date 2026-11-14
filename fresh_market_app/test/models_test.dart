@@ -8,20 +8,24 @@ import 'support/test_app.dart';
 void main() {
   group('formatMoney', () {
     test('formats minor units the way the store does', () {
-      expect(formatMoney(1250), '\u20C3 12.50');
-      expect(formatMoney(250), '\u20C3 2.50');
-      expect(formatMoney(5), '\u20C3 0.05');
-      expect(formatMoney(0), '\u20C3 0.00');
-      expect(formatMoney(30000), '\u20C3 300.00');
-      expect(formatMoney(125000), '\u20C3 1,250.00');
-      expect(formatMoney(123456789), '\u20C3 1,234,567.89');
-      expect(formatMoney(-500), '-\u20C3 5.00');
+      expect(formatMoney(1250), '\u20C3\u00A012.50');
+      expect(formatMoney(250), '\u20C3\u00A02.50');
+      expect(formatMoney(5), '\u20C3\u00A00.05');
+      expect(formatMoney(0), '\u20C3\u00A00.00');
+      expect(formatMoney(30000), '\u20C3\u00A0300.00');
+      expect(formatMoney(125000), '\u20C3\u00A01,250.00');
+      expect(formatMoney(123456789), '\u20C3\u00A01,234,567.89');
+      expect(formatMoney(-500), '-\u20C3\u00A05.00');
     });
 
-    test('the Dirham sign is U+20C3, then a space', () {
+    test('the Dirham sign is U+20C3, then a no-break space (a line never '
+        'wraps between the sign and its amount)', () {
       expect(dirhamSign, '\u20C3');
       expect(dirhamSign.runes.single, 0x20C3);
-      expect(formatMoney(1250).startsWith('$dirhamSign '), isTrue);
+      expect(moneySpace, '\u00A0');
+      expect(formatMoney(1250), '$dirhamSign\u00A012.50');
+      expect(formatMoney(-500), '-$dirhamSign\u00A05.00');
+      expect(formatMoney(1250), isNot(contains(' ')));
     });
 
     test('screen readers hear AED; the bare amount has no sign', () {
@@ -61,7 +65,7 @@ void main() {
       expect(kiwi.vendor, 'Vegetable Souk Fruits');
       expect(kiwi.variants.map((v) => v.title), ['500 GM', '1 KG']);
       expect(kiwi.variants.map((v) => v.priceCents), [1995, 3975]);
-      expect(kiwi.variants.first.priceText, '\u20C3 19.95');
+      expect(kiwi.variants.first.priceText, '\u20C3\u00A019.95');
       expect(kiwi.variants.first.onSale, isFalse);
       expect(kiwi.variants.first.salePercent, isNull);
       expect(kiwi.imageUrl, startsWith('https://cdn.shopify.com/'));
@@ -101,10 +105,8 @@ void main() {
       expect(copy.tags, kiwi.tags);
       expect(copy.images, kiwi.images);
       expect(copy.variants.map((v) => v.id), kiwi.variants.map((v) => v.id));
-      expect(
-        copy.variants.map((v) => v.priceCents),
-        kiwi.variants.map((v) => v.priceCents),
-      );
+      expect(copy.variants.map((v) => v.priceCents),
+          kiwi.variants.map((v) => v.priceCents));
       expect(copy.optionName, 'Weight');
     });
   });
@@ -126,11 +128,7 @@ void main() {
       expect(beef.hasVariantChoice, isFalse);
 
       const notReally = Variant(
-        id: 1,
-        title: 'x',
-        priceCents: 500,
-        compareAtCents: 500,
-      );
+          id: 1, title: 'x', priceCents: 500, compareAtCents: 500);
       expect(notReally.onSale, isFalse);
       expect(notReally.salePercent, isNull);
       expect(notReally.oldPriceCents, isNull);
@@ -168,31 +166,16 @@ void main() {
   });
 
   test('default variant skips sold-out variants', () {
-    const p = Product(
-      id: 1,
-      title: 'p',
-      handle: 'p',
-      variants: [
-        Variant(id: 1, title: '250 GM', priceCents: 100, available: false),
-        Variant(id: 2, title: '1 KG', priceCents: 300),
-      ],
-    );
+    const p = Product(id: 1, title: 'p', handle: 'p', variants: [
+      Variant(id: 1, title: '250 GM', priceCents: 100, available: false),
+      Variant(id: 2, title: '1 KG', priceCents: 300),
+    ]);
     expect(p.defaultVariant!.id, 2);
     expect(p.available, isTrue);
 
-    const soldOut = Product(
-      id: 2,
-      title: 'p',
-      handle: 'p',
-      variants: [
-        Variant(
-          id: 3,
-          title: 'Default Title',
-          priceCents: 100,
-          available: false,
-        ),
-      ],
-    );
+    const soldOut = Product(id: 2, title: 'p', handle: 'p', variants: [
+      Variant(id: 3, title: 'Default Title', priceCents: 100, available: false),
+    ]);
     expect(soldOut.defaultVariant!.id, 3);
     expect(soldOut.available, isFalse);
   });

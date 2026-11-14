@@ -18,9 +18,14 @@ String formatAmount(int cents) {
 }
 
 /// Formats an amount held in minor units (fils) with the Dirham sign:
-/// `\u20C3 12.50`, `\u20C3 1,250.00` (sign, space, amount).
+/// `\u20C3 12.50`, `\u20C3 1,250.00` (sign, space, amount). The space is a
+/// no-break space ([moneySpace]), so a line never wraps between the sign
+/// and its amount (at large text sizes too).
 String formatMoney(int cents) =>
-    '${cents < 0 ? '-' : ''}$dirhamSign ${formatAmount(cents.abs())}';
+    '${cents < 0 ? '-' : ''}$dirhamSign$moneySpace${formatAmount(cents.abs())}';
+
+/// The no-break space between the Dirham sign and the amount.
+const String moneySpace = '\u00A0';
 
 /// What a screen reader says for an amount: `AED 12.50`. Use it as the
 /// `semanticsLabel` of any Text that shows [formatMoney].

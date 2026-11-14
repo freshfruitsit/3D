@@ -85,10 +85,7 @@ void main() {
     // The result rows sit in a white card with a hairline.
     final rows = tester.widget<Container>(
       find
-          .ancestor(
-            of: find.text('Business Bay'),
-            matching: find.byType(Container),
-          )
+          .ancestor(of: find.text('Business Bay'), matching: find.byType(Container))
           .first,
     );
     expect(rows.decoration, AppDecor.card);
@@ -121,9 +118,8 @@ void main() {
     // Stacked: the time sits under the option's title, not beside it.
     expect(
       tester.getRect(_when('25–35 min')).top,
-      greaterThan(
-        tester.getRect(find.text('Express · selected items')).bottom - 0.5,
-      ),
+      greaterThan(tester.getRect(find.text('Express · selected items')).bottom -
+          0.5),
     );
 
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
@@ -135,8 +131,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    final buttonColor =
-        button.style ??
+    final buttonColor = button.style ??
         Theme.of(tester.element(find.byType(FilledButton)))
             .filledButtonTheme
             .style!;
@@ -147,9 +142,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an area outside the Express zone at night: Express in grey', (
-    tester,
-  ) async {
+  testWidgets('an area outside the Express zone at night: Express in grey',
+      (tester) async {
     await pumpScreen(
       tester,
       LocationScreen(firstLaunch: true, onPicked: (_) {}),
@@ -159,18 +153,20 @@ void main() {
     final notAvailable = tester.widget<Text>(_when('Not available'));
     expect(notAvailable.style!.color, AppColors.secondary);
     final bolt = tester.widget<Icon>(
-      find
-          .descendant(
-            of: find.byType(LocationScreen),
-            matching: find.byIcon(Icons.bolt),
-          )
-          .last,
+      find.descendant(
+        of: find.byType(LocationScreen),
+        matching: find.byIcon(Icons.bolt),
+      ).last,
     );
     expect(bolt.color, AppColors.tertiary);
   });
 
   testWidgets('the close button lines up with the title', (tester) async {
-    await pumpScreen(tester, const LocationScreen(), delivery: testDelivery());
+    await pumpScreen(
+      tester,
+      const LocationScreen(),
+      delivery: testDelivery(),
+    );
     final title = tester.getRect(find.text('Change delivery location'));
     final close = tester.getRect(find.byTooltip('Close'));
     // Centred on the title's first line (a long title may wrap).
@@ -179,9 +175,8 @@ void main() {
     expect(close.height, greaterThanOrEqualTo(AppDims.touch));
   });
 
-  testWidgets('a location problem shows an off-white note with its button', (
-    tester,
-  ) async {
+  testWidgets('a location problem shows an off-white note with its button',
+      (tester) async {
     await pumpScreen(
       tester,
       LocationScreen(firstLaunch: true, onPicked: (_) {}),

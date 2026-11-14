@@ -13,7 +13,8 @@ import 'package:material_ui/material_ui.dart';
 import 'support/test_app.dart';
 
 void main() {
-  testWidgets('shows the title, search field and all 12 tiles', (tester) async {
+  testWidgets('shows the title, search field and all 12 tiles',
+      (tester) async {
     await pumpScreen(tester, const CategoriesScreen());
 
     expect(find.text('Categories'), findsOneWidget);
@@ -52,9 +53,8 @@ void main() {
     expect(find.byType(SearchScreen), findsOneWidget);
   });
 
-  testWidgets('white canvas, the ink heading tag and a subtle search field', (
-    tester,
-  ) async {
+  testWidgets('white canvas, the ink heading tag and a subtle search field',
+      (tester) async {
     await pumpScreen(tester, const CategoriesScreen());
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, AppColors.canvas);
@@ -66,14 +66,12 @@ void main() {
       findsOneWidget,
     );
     expect(SectionTag.fill, AppColors.ink);
-    final search = tester.widget<Material>(
-      find
-          .descendant(
-            of: find.byType(SearchFieldButton),
-            matching: find.byType(Material),
-          )
-          .first,
-    );
+    final search = tester.widget<Material>(find
+        .descendant(
+          of: find.byType(SearchFieldButton),
+          matching: find.byType(Material),
+        )
+        .first);
     expect(search.color, AppColors.subtle);
     // The grid starts below the search field, inside the gutter.
     final first = tester.getRect(find.byKey(const ValueKey('category-0')));
