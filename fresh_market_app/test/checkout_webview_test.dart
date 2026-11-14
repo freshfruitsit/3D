@@ -447,7 +447,8 @@ void main() {
       expect(
         log,
         contains(
-          'js     Failed for [email] [phone] at '
+          // The shopper's own email is one of the filled-in values.
+          'js     Failed for [removed] [phone] at '
           'https://testtfm.myshopify.com/checkouts/cn/<id>/en-ae',
         ),
       );

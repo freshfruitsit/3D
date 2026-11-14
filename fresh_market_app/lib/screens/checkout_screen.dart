@@ -207,10 +207,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _start(WebViewController controller) async {
     _startWatchdog();
     _pageFinished = false;
+    final first = !_prepared;
     try {
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       await controller.setNavigationDelegate(_delegate());
-      if (!_prepared) {
+      if (first) {
         _prepared = true;
         await _prepare(controller);
       }
@@ -224,7 +225,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _openInBrowser();
       return;
     }
-    unawaited(_logWebViewVersion(controller));
+    if (first) unawaited(_logWebViewVersion(controller));
   }
 
   /// Settings checkout works without; none of them may stop it loading.
