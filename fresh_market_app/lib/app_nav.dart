@@ -77,16 +77,19 @@ abstract final class AppNav {
   /// Says [message] above the floating bottom bar and the Ask button, or
   /// [bottomMargin] above the bottom of a screen that has neither. With
   /// [actionLabel] and [onAction] the notice carries a button ("Undo").
+  /// A screen with its own [ScaffoldMessenger] (checkout) passes it as
+  /// [messenger].
   static void showNotice(
     BuildContext context,
     String message, {
     double? bottomMargin,
     String? actionLabel,
     VoidCallback? onAction,
+    ScaffoldMessengerState? messenger,
   }) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    messenger
+    final target = messenger ?? ScaffoldMessenger.maybeOf(context);
+    if (target == null) return;
+    target
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
@@ -388,10 +391,36 @@ abstract final class AppNav {
       }
       return;
     }
+    // A notice still up (a "Removed … Undo" has no time limit) must not
+    // stay behind checkout: its Undo would change the cart being bought,
+    // or refill it after the order.
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    await _closeKeyboard(context);
+    if (!context.mounted) return;
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(builder: (_) => CheckoutScreen(url: url)),
     );
   }
+
+  /// Closes the keyboard (the details sheet, the assistant) and waits a
+  /// moment for it to go, so the checkout WebView is created once at its
+  /// full size rather than resized as the keyboard slides away.
+  static Future<void> _closeKeyboard(BuildContext context) async {
+    // Only a text field lets go of focus: a focused Checkout button gets
+    // it back when checkout closes (keyboard and D-pad users).
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+        null) {
+      focus!.unfocus();
+    }
+    for (var i = 0; i < _keyboardChecks; i++) {
+      if (!context.mounted || View.of(context).viewInsets.bottom <= 0) return;
+      await Future<void>.delayed(_keyboardCheckEvery);
+    }
+  }
+
+  static const int _keyboardChecks = 12;
+  static const Duration _keyboardCheckEvery = Duration(milliseconds: 50);
 
   /// Moves the delivery location to the pin of the saved address checkout
   /// fills in (the same area, but its pin can be up to 3 km away), so the

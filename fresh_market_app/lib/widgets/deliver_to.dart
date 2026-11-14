@@ -642,6 +642,8 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
       );
       return;
     }
+    // The keyboard starts closing now, before checkout opens.
+    FocusScope.of(context).unfocus();
     Navigator.of(context).pop(
       CheckoutSheetResult(
         contact: ContactDetails(
@@ -680,7 +682,11 @@ class _CheckoutDetailsSheetState extends State<CheckoutDetailsSheet> {
                 ),
                 child: Form(
                   key: _form,
+                  // The app saves these details itself ("Save for next
+                  // time"): no "Save to autofill?" from Android over the
+                  // checkout page that opens next.
                   child: AutofillGroup(
+                    onDisposeAction: AutofillContextAction.cancel,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
