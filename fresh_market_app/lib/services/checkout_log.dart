@@ -9,8 +9,8 @@ class CheckoutEvent {
 
   final Duration at;
 
-  /// `app`, `page`, `load`, `url`, `nav`, `error`, `http`, `ssl`, `js` or
-  /// `order`.
+  /// `app`, `page`, `load`, `url`, `nav`, `touch`, `error`, `http`,
+  /// `ssl`, `js` or `order`.
   final String kind;
   final String text;
 

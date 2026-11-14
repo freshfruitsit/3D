@@ -158,6 +158,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   late final CheckoutLog _log = CheckoutLog.begin(widget.url);
 
+  /// Writes the app going to the background and back to the log (the
+  /// phone's browser, a payment app, a system dialog over checkout).
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onStateChange: (state) => _log.add('app', 'app ${state.name}'),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -166,6 +172,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       'checkout opened, $_prefilledFields fields filled in',
       link: widget.url.toString(),
     );
+    _lifecycle;
     _controller = _createWebView();
     if (_controller == null) {
       _log.add('app', 'no WebView: opening the browser');
@@ -178,6 +185,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _watchdog?.cancel();
+    _lifecycle.dispose();
     _log.add('app', 'checkout screen closed');
     super.dispose();
   }
@@ -653,7 +661,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       Expanded(
                         key: const ValueKey('checkout-webview'),
-                        child: WebViewWidget(controller: controller),
+                        // Notes touches (never where) so the log shows
+                        // whether the page was used before it stopped.
+                        // A Listener takes no part in the page's gestures.
+                        child: Listener(
+                          onPointerUp: (_) => _log.add('touch', 'tap/scroll'),
+                          child: WebViewWidget(controller: controller),
+                        ),
                       ),
                     ],
                   ),

@@ -400,6 +400,11 @@ void main() {
       page.progress(70);
       page.progress(100);
       page.pageFinished(checkoutPage);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('fake-webview')));
+      await tester.tap(find.byKey(const ValueKey('fake-webview')));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       page.console(
         'Failed for sara.ahmed@example.com +971 50 123 4567 at $checkoutPage',
       );
@@ -441,6 +446,9 @@ void main() {
           'en-ae',
         ),
       );
+      expect(log, contains('touch  tap/scroll (x2)'));
+      expect(log, contains('app    app inactive'));
+      expect(log, contains('app    app resumed'));
       expect(log, contains('load   10%+'));
       expect(log, contains('load   50%+'));
       expect(log, contains('load   100%'));

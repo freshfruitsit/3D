@@ -171,7 +171,11 @@ class FakeNavigationDelegate extends PlatformNavigationDelegate {
 class _FakeWebViewWidget extends PlatformWebViewWidget {
   _FakeWebViewWidget(super.params) : super.implementation();
 
+  /// Fills its box and, like a platform view, takes touches.
   @override
-  Widget build(BuildContext context) =>
-      const SizedBox.expand(key: ValueKey('fake-webview'));
+  Widget build(BuildContext context) => const ColoredBox(
+    key: ValueKey('fake-webview'),
+    color: Color(0x00000000),
+    child: SizedBox.expand(),
+  );
 }
