@@ -1,0 +1,7 @@
+# Upload only what the functions need (allowlist).
+/*
+!api
+!lib
+!public
+!package.json
+!vercel.json
