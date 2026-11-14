@@ -80,6 +80,40 @@ describe('POST /api/quote', () => {
     assert.equal(body.subtotalFils, 500);
   });
 
+  test('items not sold in the app say nothing about themselves; sold-out ones on sale keep their name', async () => {
+    const t = setup();
+    const add = (id, opts) => t.shop.variants.set(`gid://shopify/ProductVariant/${id}`, variant(id, { price: '9.99', product: `Secret ${id}`, ...opts }));
+    add(5001, { status: 'DRAFT' });
+    add(5002, { status: 'ARCHIVED' });
+    add(5003, { listed: false }); // ACTIVE but on no sales channel
+    add(5004, { giftCard: true });
+    add(5005, { sellingPlan: true });
+    const ids = [5001, 5002, 5003, 5004, 5005];
+    const { body } = await quote(t, quoteBody({ lines: [...ids.map((variantId) => ({ variantId, quantity: 1 })), { variantId: 2008, quantity: 1 }] }));
+    for (const l of body.lines.slice(0, 5)) {
+      assert.deepEqual({ title: l.title, variantTitle: l.variantTitle, unitPriceFils: l.unitPriceFils, available: l.available }, { title: '', variantTitle: '', unitPriceFils: 0, available: false }, String(l.variantId));
+    }
+    assert.deepEqual(body.problems.slice(0, 5).map((p) => [p.variantId, p.kind, p.message]), ids.map((id) => [id, 'sold_out', 'This item is no longer sold.']));
+    assert.doesNotMatch(JSON.stringify(body), /Secret|999/);
+    // On sale but sold out: public anyway.
+    assert.deepEqual([body.lines[5].title, body.lines[5].unitPriceFils, body.problems[5].message], ['Blueberries', 2050, 'Blueberries is sold out.']);
+    assert.equal(body.subtotalFils, 0);
+  });
+
+  test('SHOPIFY_PUBLICATION_ID: the product must be on that publication instead', async () => {
+    const t = setup({ env: { SHOPIFY_PUBLICATION_ID: 'gid://shopify/Publication/77' } });
+    t.shop.variants.set('gid://shopify/ProductVariant/5006', variant(5006, { price: '1.00', listed: false, published: true }));
+    t.shop.variants.set('gid://shopify/ProductVariant/5007', variant(5007, { price: '1.00', listed: true, published: false }));
+    const { body } = await quote(t, quoteBody({ lines: [{ variantId: 5006, quantity: 1 }, { variantId: 5007, quantity: 1 }] }));
+    assert.deepEqual(body.lines.map((l) => l.available), [true, false]);
+    const [call] = t.shop.ops('FreshMarketVariants');
+    assert.equal(call.variables.pub, 'gid://shopify/Publication/77');
+    // Without the setting the query neither declares nor sends $pub.
+    const plain = setup();
+    await quote(plain, quoteBody());
+    assert.equal('pub' in plain.shop.ops('FreshMarketVariants')[0].variables, false);
+  });
+
   test('tracked stock below the quantity: qty_reduced, or sold_out at zero', async () => {
     const t = setup();
     const { body } = await quote(t, quoteBody({ lines: [{ variantId: 2009, quantity: 5 }] }));
@@ -139,6 +173,20 @@ describe('POST /api/quote', () => {
 
     const big = await t.quote(post('/api/quote', JSON.stringify({ pad: 'x'.repeat(70_000) })));
     assert.equal(big.status, 413);
+
+    // Chunked upload without Content-Length: reading stops just past 64 KB.
+    let pulled = 0;
+    const chunk = new TextEncoder().encode('x'.repeat(16 * 1024));
+    const stream = new ReadableStream({
+      pull(c) {
+        pulled++;
+        if (pulled > 200) c.close();
+        else c.enqueue(chunk);
+      },
+    });
+    const chunked = await t.quote(new Request('https://x.test/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: stream, duplex: 'half' }));
+    assert.equal(chunked.status, 413);
+    assert.ok(pulled <= 8, `pulled ${pulled} chunks`);
 
     const invalid = await t.quote(post('/api/quote', quoteBody({ lines: [{ variantId: 2001, quantity: -1 }] })));
     assert.equal(invalid.status, 422);
@@ -217,7 +265,7 @@ describe('GET /api/health', () => {
     const t = setup();
     const res = await t.health(new Request('https://x.test/api/health'));
     assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), { ok: true, version: '1.0.0' });
+    assert.deepEqual(await res.json(), { ok: true, version: '1.1.0' });
     assert.equal((await t.health(new Request('https://x.test/api/health', { method: 'POST' }))).status, 405);
   });
 });

@@ -564,6 +564,87 @@ describe('POST /api/orders: Shopify trouble', () => {
   });
 });
 
+describe('POST /api/orders: review fixes', () => {
+  test('a pin far from the delivery area: 422 on delivery.pin before any Shopify call', async () => {
+    const t = setup();
+    const { status, body } = await order(t, orderBody({
+      lines: [{ variantId: 2001, quantity: 1 }],
+      delivery: { mode: 'express', area: { ...MIRDIF }, pin: '25.12000,56.33000', promise: '' },
+    }));
+    assert.equal(status, 422);
+    assert.equal(body.field, 'delivery.pin');
+    assert.equal(t.shop.customerRequests + t.shop.calls.length, 0);
+  });
+
+  test('an order Shopify does not leave payment pending: 201, alert in the log, check-payment tag', async () => {
+    const t = setup();
+    t.shop.financialStatus = 'PAID';
+    const { status } = await order(t);
+    assert.equal(status, 201);
+    assert.ok(t.shop.orders[0].tags.includes('check-payment'));
+    const line = t.logs.find((l) => l.route === 'orders');
+    assert.deepEqual([line.alert, line.financialStatus, line.outcome], ['cod_not_pending', 'PAID', 'created']);
+    // A normal COD order gets neither.
+    const ok = setup();
+    await order(ok);
+    assert.equal(ok.shop.ops('FreshMarketTagsAdd').length, 0);
+    assert.equal('alert' in ok.logs[0], false);
+  });
+
+  test('a GraphQL error that quotes a customer value is logged without it', async () => {
+    const t = setup();
+    t.shop.override('FreshMarketDraftCreate', () => new Response(JSON.stringify({ errors: [{ message: 'Variable $input of type DraftOrderInput! was provided invalid value for email (Could not coerce value "sara@example.com" to Email)', extensions: { code: 'argumentLiteralsIncompatible' } }] }), { status: 200 }));
+    const { status } = await order(t);
+    assert.equal(status, 500);
+    const logs = JSON.stringify(t.logs);
+    assert.equal(logs.includes('sara@example.com'), false);
+    assert.match(logs, /Could not coerce value \\"…\\" to Email/);
+  });
+
+  test('too little time left: draftOrderComplete is not started (503 retryable); the retry finishes the same draft', async () => {
+    const t = setup({ budgetMs: 4_500 });
+    t.shop.readyAfterPolls = 4; // three pauses: 400 + 600 + 800 ms
+    const first = await order(t);
+    assert.equal(first.status, 503);
+    assert.equal(first.body.retryable, true);
+    assert.equal(t.shop.ops('FreshMarketDraftComplete').length, 0);
+    assert.equal(t.shop.lockOf(CUSTOMER.id).until, 0, 'lock let go');
+    assert.equal(t.shop.lockOf(CUSTOMER.id).draftId, 'gid://shopify/DraftOrder/900001', 'draft remembered');
+
+    const second = await order(t);
+    assert.equal(second.status, 201);
+    assert.equal(t.shop.ops('FreshMarketDraftCreate').length, 1);
+    assert.equal(t.shop.orders.length, 1);
+  });
+
+  test('no mutation at all with less than 3 s left: 503 retryable, nothing written', async () => {
+    const t = setup({ budgetMs: 2_500 });
+    const { status, body } = await order(t);
+    assert.equal(status, 503);
+    assert.equal(body.retryable, true);
+    assert.equal(t.shop.lockWrites, 0);
+    assert.equal(t.shop.drafts.length, 0);
+  });
+
+  test('a Shopify call that hangs is cut off at the deadline: 503 retryable JSON, not a platform timeout', async () => {
+    const t = setup({ budgetMs: 1_000 });
+    const fetch = t.deps.fetch;
+    t.deps.fetch = (url, init) =>
+      String(url).includes('/account/customer/api/')
+        ? new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)))
+        : fetch(url, init);
+    const { createOrdersHandler } = await import('../lib/handlers.js');
+    const started = Date.now();
+    // AbortSignal.timeout's timer does not keep Node running; an open request would.
+    const keepAlive = setInterval(() => {}, 50);
+    const res = await createOrdersHandler(t.deps)(post('/api/orders', orderBody(), orderHeaders())).finally(() => clearInterval(keepAlive));
+    const waited = Date.now() - started;
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).retryable, true);
+    assert.ok(waited >= 900 && waited < 5_000, `waited ${waited} ms`);
+  });
+});
+
 describe('POST /api/orders: malformed input', () => {
   test('bad JSON 400, field errors 422, GET 405', async () => {
     const t = setup();

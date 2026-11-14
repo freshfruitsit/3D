@@ -329,8 +329,11 @@ export async function placeOrder(ctx, { token, idemKey, body, logFields }) {
     if (!draftId) {
       const draftInput = buildDraftInput({ customerId: ownerId, email: customer.email, input, quote, tag, promise, termsId });
       draftId = await createDraft(ctx, draftInput);
-      // Remember the draft before anything else, so a retry finds this very draft.
-      held = await updateLock(ctx, ownerId, held, { draftId }, logFields);
+      // Remember the draft before anything else, so a retry finds this very
+      // draft (set locally first: if this write fails, the release in
+      // `finally` still records it).
+      held = { ...held, value: { ...held.value, draftId } };
+      held = await updateLock(ctx, ownerId, held, {}, logFields);
     }
     logFields.draft = numericId(draftId);
 

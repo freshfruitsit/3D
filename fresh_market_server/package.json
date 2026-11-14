@@ -1,6 +1,6 @@
 {
   "name": "fresh-market-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Native checkout server for the Fresh Market app: quotes baskets and creates cash-on-delivery orders in Shopify.",
   "type": "module",

@@ -19,7 +19,9 @@ import {
 } from '../lib/delivery.js';
 import { normaliseMobile, parseBearer, parseIdempotencyKey, parseOrderBody, parseQuoteBody, parseVariantId } from '../lib/validate.js';
 import { loadConfig } from '../lib/config.js';
-import { ConfigError } from '../lib/errors.js';
+import { ConfigError, scrub, scrubContacts } from '../lib/errors.js';
+import { callTimeout } from '../lib/shopify-admin.js';
+import { countRecent, lockValue, parseLock } from '../lib/orders.js';
 import { ENV, uae } from './helpers/fake-shopify.js';
 import { orderBody, quoteBody } from './helpers/setup.js';
 
@@ -226,6 +228,11 @@ describe('validation', () => {
     assert.deepEqual(field({ instructions: 42 }), ['instructions']);
     assert.deepEqual(field({ note: 'line one\r\nline two' }), []);
     assert.deepEqual(field({ delivery: { ...orderBody().delivery, pin: 'here' } }), ['delivery.pin']);
+    // The pin must be the area's point (the app sends area.pin); Fujairah is 100 km from Mirdif.
+    assert.deepEqual(field({ delivery: { ...orderBody().delivery, mode: 'express', pin: '25.12000,56.33000' } }), ['delivery.pin']);
+    assert.deepEqual(field({ delivery: { ...orderBody().delivery, pin: '25.2201,55.4201' } }), []);
+    // What the driver gets is always the point the rules were checked on.
+    assert.equal(parseOrderBody(orderBody({ delivery: { ...orderBody().delivery, pin: '25.2201,55.4201' } }), limits).delivery.pin, '25.22000,55.42000');
     assert.deepEqual(field({ expectedTotalFils: -1 }), ['expectedTotalFils']);
     assert.equal(parseOrderBody(orderBody({ note: 'a\r\n\r\n\r\n\u0007b' }), limits).note, 'a\n\nb');
   });
@@ -265,6 +272,46 @@ describe('config', () => {
       (e) => /DELIVERY_FEE_AED/.test(e.message) && /SHOPIFY_API_VERSION/.test(e.message) && !/shhh|twenty/.test(e.message),
     );
     assert.throws(() => loadConfig({ ...ENV, MAX_LINES: '500' }), /MAX_LINES/);
+    assert.throws(() => loadConfig({ ...ENV, SHOPIFY_PUBLICATION_ID: 'Online Store' }), /SHOPIFY_PUBLICATION_ID/);
+    assert.equal(loadConfig({ ...ENV, SHOPIFY_PUBLICATION_ID: 'gid://shopify/Publication/12' }).publicationId, 'gid://shopify/Publication/12');
+  });
+});
+
+describe('logs and time', () => {
+  test('Shopify text is scrubbed of quoted values, emails and phones', () => {
+    assert.equal(scrub('Could not coerce value "sara@example.com" to Email'), 'Could not coerce value "…" to Email');
+    assert.equal(scrub('Phone +971 50 123 4567 for a@b.co is invalid'), 'Phone [phone] for [email] is invalid');
+    assert.equal(scrubContacts('Turn on "Include sales tax" for x@y.ae'), 'Turn on "Include sales tax" for [email]');
+  });
+
+  test('fetch timeouts never run past the deadline (but are at least 1 s)', () => {
+    const ctx = (left) => ({ now: () => 1000, deadline: 1000 + left });
+    assert.equal(callTimeout(ctx(50_000), 15_000), 15_000);
+    assert.equal(callTimeout(ctx(4_000), 15_000), 4_000);
+    assert.equal(callTimeout(ctx(-5), 15_000), 1_000);
+  });
+});
+
+describe('order lock', () => {
+  const gid = (t, n) => `gid://shopify/${t}/${n}`;
+
+  test('only well-formed lock values are trusted', () => {
+    assert.deepEqual(parseLock(null), { digest: null, lock: null });
+    assert.deepEqual(parseLock({ value: 'not json', compareDigest: 'd1' }), { digest: 'd1', lock: null });
+    assert.deepEqual(parseLock({ value: '{"v":2}', compareDigest: 'd2' }), { digest: 'd2', lock: null });
+    const { lock } = parseLock({ value: JSON.stringify({ v: 1, key: 'k', until: 5, draftId: 'nope', orderId: gid('Order', 1), totalFils: 1.5, recent: [{ id: gid('Order', 1), t: 9 }, { id: 'x', t: 1 }], extra: 'dropped' }), compareDigest: 'd3' });
+    assert.deepEqual(lock, { v: 1, key: 'k', owner: '', until: 5, draftId: '', orderId: gid('Order', 1), orderName: '', totalFils: 0, promise: '', recent: [{ id: gid('Order', 1), t: 9 }] });
+    assert.equal('extra' in lockValue({ extra: 1 }), false);
+  });
+
+  test('the hourly count joins the lock list with search, once per order', () => {
+    const me = gid('Customer', 7);
+    const data = {
+      recentOrders: { nodes: [{ id: gid('Order', 1), createdAt: new Date(5_000).toISOString(), customer: { id: me } }, { id: gid('Order', 9), createdAt: new Date(5_000).toISOString(), customer: { id: gid('Customer', 8) } }] },
+      recentDrafts: { nodes: [{ id: gid('DraftOrder', 3), status: 'OPEN', createdAt: new Date(6_000).toISOString(), tags: ['app'], customer: { id: me } }] },
+    };
+    const lock = { recent: [{ id: gid('Order', 1), t: 5_000 }, { id: gid('Order', 2), t: 7_000 }, { id: gid('Order', 0), t: 100 }] };
+    assert.deepEqual(countRecent(data, lock, me, 1_000), { count: 3, oldestMs: 5_000 });
   });
 });
 
@@ -276,6 +323,6 @@ describe('Vercel entry points', () => {
     }
     const { default: health } = await import('../api/health.js');
     const res = await health.fetch(new Request('https://x.test/api/health'));
-    assert.deepEqual(await res.json(), { ok: true, version: '1.0.0' });
+    assert.deepEqual(await res.json(), { ok: true, version: '1.1.0' });
   });
 });
