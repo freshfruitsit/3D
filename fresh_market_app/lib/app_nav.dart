@@ -409,8 +409,7 @@ abstract final class AppNav {
     // Only a text field lets go of focus: a focused Checkout button gets
     // it back when checkout closes (keyboard and D-pad users).
     final focus = FocusManager.instance.primaryFocus;
-    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
-        null) {
+    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
       focus!.unfocus();
     }
     for (var i = 0; i < _keyboardChecks; i++) {

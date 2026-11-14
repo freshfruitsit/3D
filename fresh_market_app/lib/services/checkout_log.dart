@@ -194,17 +194,12 @@ class CheckoutLog {
   }) {
     var out = text;
     if (urls) {
-      out = out.replaceAllMapped(
-        _link,
-        (m) => safeUrl(m[0], private: private),
-      );
+      out = out.replaceAllMapped(_link, (m) => safeUrl(m[0], private: private));
     }
     for (final value in private) {
       out = out.replaceAll(value, '[removed]');
     }
-    return out
-        .replaceAll(_email, '[email]')
-        .replaceAll(_phone, '[phone]');
+    return out.replaceAll(_email, '[email]').replaceAll(_phone, '[phone]');
   }
 
   /// The values the checkout link was filled in with (names, email,

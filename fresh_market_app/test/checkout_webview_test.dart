@@ -250,8 +250,13 @@ void main() {
         log.events.where((e) => e.kind == 'js'),
         hasLength(CheckoutLog.noisyLimit),
       );
-      expect(log.events.map((e) => e.text), contains('more page errors not '
-          'recorded'));
+      expect(
+        log.events.map((e) => e.text),
+        contains(
+          'more page errors not '
+          'recorded',
+        ),
+      );
       expect(log.events.last.kind, 'page');
     });
 
@@ -414,7 +419,10 @@ void main() {
         404,
       );
       page.resourceError('https://analytics.example/x?e=1', mainFrame: false);
-      expect(await page.request('tel:+971501234567'), NavigationDecision.prevent);
+      expect(
+        await page.request('tel:+971501234567'),
+        NavigationDecision.prevent,
+      );
       expect(
         await page.request('mailto:sara.ahmed@example.com'),
         NavigationDecision.prevent,
@@ -589,9 +597,7 @@ void main() {
       );
     });
 
-    testWidgets('two store links in a row close checkout once', (
-      tester,
-    ) async {
+    testWidgets('two store links in a row close checkout once', (tester) async {
       final page = await open(tester);
       expect(
         await page.request('https://testtfm.myshopify.com/cart'),
@@ -648,8 +654,10 @@ void main() {
       page.pageStarted('https://www.paypal.com/checkoutnow?token=EC-1');
       await tester.pump();
       expect(hint, findsOneWidget);
-      expect(find.text(CheckoutScreen.offSiteHint('www.paypal.com')),
-          findsOneWidget);
+      expect(
+        find.text(CheckoutScreen.offSiteHint('www.paypal.com')),
+        findsOneWidget,
+      );
       expect(
         CheckoutScreen.offSiteHint('www.paypal.com'),
         startsWith("You're on paypal.com."),
@@ -683,7 +691,10 @@ void main() {
       expect(offCheckoutHost('https://www.paypal.com/x?y=1'), 'www.paypal.com');
       expect(offCheckoutHost('https://shop.app/pay'), 'shop.app');
       expect(offCheckoutHost(checkoutPage), isNull);
-      expect(offCheckoutHost('https://checkout.shopify.com/1/sandboxes'), isNull);
+      expect(
+        offCheckoutHost('https://checkout.shopify.com/1/sandboxes'),
+        isNull,
+      );
       expect(offCheckoutHost('https://other.myshopify.com/'), isNull);
       expect(offCheckoutHost('about:blank'), isNull);
       expect(offCheckoutHost(null), isNull);
@@ -759,9 +770,7 @@ void main() {
       expect(find.text('Delivering to Mirdif'), findsNothing);
     });
 
-    testWidgets('no WebView: the browser takes over as before', (
-      tester,
-    ) async {
+    testWidgets('no WebView: the browser takes over as before', (tester) async {
       webView.available = false;
       final launched = mockLauncher(tester);
       await pumpScreen(tester, CheckoutScreen(url: prefilledUrl));

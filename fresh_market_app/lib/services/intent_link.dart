@@ -31,9 +31,8 @@ class IntentLink {
     );
     final extras = <String, String>{};
     if (marker >= 0) {
-      for (final field in text
-          .substring(marker + _extrasMarker.length)
-          .split(';')) {
+      for (final field
+          in text.substring(marker + _extrasMarker.length).split(';')) {
         if (field == 'end') break;
         final eq = field.indexOf('=');
         if (eq <= 0) continue;

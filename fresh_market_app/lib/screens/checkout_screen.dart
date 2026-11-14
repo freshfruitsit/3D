@@ -415,7 +415,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _notice(CheckoutScreen.linkFailed);
       return;
     }
-    _log.add('nav', "app link: its app didn't open, loading", link: '$fallback');
+    _log.add(
+      'nav',
+      "app link: its app didn't open, loading",
+      link: '$fallback',
+    );
     if (leavesCheckoutUrl('$fallback')) {
       _leave();
       return;
@@ -538,9 +542,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _copyLog() async {
     _log.add('app', 'log copied');
     try {
-      await Clipboard.setData(
-        ClipboardData(text: CheckoutLog.supportReport()),
-      );
+      await Clipboard.setData(ClipboardData(text: CheckoutLog.supportReport()));
     } catch (_) {
       if (mounted) _notice(CheckoutScreen.logNotCopied);
       return;
