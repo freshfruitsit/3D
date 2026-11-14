@@ -267,20 +267,35 @@ void main() {
   });
 
   group('AccountScreen', () {
-    testWidgets('shows the sign-in card with a Coming soon tag, not a '
-        'dead button', (tester) async {
+    testWidgets('signed out: "Sign in to order" first, with the ink '
+        '"Sign in with email"; no "Coming soon" note', (tester) async {
       await pumpScreen(tester, const AccountScreen());
 
       expect(find.text('Account'), findsOneWidget);
-      // A smaller note now: the details card above it is what the
-      // shopper fills in (saved addresses live there).
-      expect(find.text('Sign in to see your orders'), findsOneWidget);
+      final card = find.byKey(const ValueKey('account-session'));
       expect(
-        find.text('Sign-in is not available in this version.'),
+        find.descendant(of: card, matching: find.text('Sign in to order')),
         findsOneWidget,
       );
-      expect(find.text('Coming soon'), findsOneWidget);
-      expect(find.byType(FilledButton), findsNothing);
+      expect(
+        find.text(
+          "Use your email. We'll send you a 6-digit code, no password "
+          'needed. You stay signed in on this phone.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+      // First under the title, above the details card.
+      expect(
+        tester.getTopLeft(card).dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(const ValueKey('account-details'))).dy,
+        ),
+      );
+      expect(find.text('Sign in to see your orders'), findsNothing);
+      expect(find.text('Coming soon'), findsNothing);
+      expect(find.text('My orders'), findsNothing);
+      expect(find.text(AccountScreen.signOutLabel), findsNothing);
       expect(find.text('0'), findsOneWidget);
     });
 
@@ -369,6 +384,8 @@ void main() {
       );
 
       // The sheet: the website's contact text and the three links.
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
       await tester.tap(row);
       await tester.pumpAndSettle();
       expect(find.text(AssistantBrain.contactText), findsOneWidget);
@@ -459,17 +476,18 @@ void main() {
       expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
     });
 
-    testWidgets('Account has no green and no dead Sign in button',
+    testWidgets('Account has no green: "Sign in with email" is ink',
         (tester) async {
       await pumpScreen(tester, const AccountScreen());
-      expect(find.widgetWithText(FilledButton, 'Sign in'), findsNothing);
-      final tag = tester.widget<Container>(
-        find.byKey(const ValueKey('sign-in-coming-soon')),
+      final button = find.widgetWithText(FilledButton, 'Sign in with email');
+      expect(button, findsOneWidget);
+      expect(find.byType(FilledButton), findsOneWidget);
+      final material = tester.widget<Material>(
+        find.descendant(of: button, matching: find.byType(Material)).first,
       );
-      expect(
-        (tag.decoration! as ShapeDecoration).color,
-        AppColors.subtle,
-      );
+      expect(material.color, AppColors.ink);
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      expect(find.byKey(const ValueKey('sign-in-coming-soon')), findsNothing);
     });
 
     testWidgets('checkout: a retry is ink, opening again is green',

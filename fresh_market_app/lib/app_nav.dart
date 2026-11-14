@@ -13,12 +13,16 @@ import 'screens/my_details_screen.dart';
 import 'screens/product_detail_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/search_screen.dart';
+import 'screens/shopify_account_screen.dart';
 import 'services/shopify_api.dart';
+import 'services/shopify_web.dart';
+import 'state/account_session.dart';
 import 'state/cart_store.dart';
 import 'state/profile_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/a11y.dart';
 import 'widgets/deliver_to.dart';
+import 'widgets/sign_in_sheet.dart';
 
 /// Every way of moving between screens. Screens call these instead of
 /// building routes themselves, so the bottom bar rules stay in one place:
@@ -283,6 +287,86 @@ abstract final class AppNav {
       ? 'your saved address'
       : 'your ${address.label.label} address';
 
+  /// Said to screen readers when sign-in completes.
+  static const String signedInAnnouncement = 'Signed in';
+
+  /// Shopify's sign-in page (email, then a 6-digit code) inside the app,
+  /// full screen. It closes by itself once signed in, which is said to
+  /// screen readers. [forCheckout]: opened by checkout (see
+  /// [SignInOutcome.inBrowser]). Null when closed without signing in.
+  static Future<SignInOutcome?> openSignIn(
+    BuildContext context, {
+    bool forCheckout = false,
+  }) async {
+    final outcome = await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<SignInOutcome>(
+        fullscreenDialog: true,
+        builder: (_) => ShopifyAccountScreen(forCheckout: forCheckout),
+      ),
+    );
+    if (outcome == SignInOutcome.signedIn && context.mounted) {
+      announce(context, signedInAnnouncement);
+    }
+    return outcome;
+  }
+
+  /// The customer's orders (Shopify's account page) inside the app, full
+  /// screen.
+  static Future<void> openOrders(BuildContext context) =>
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) =>
+              const ShopifyAccountScreen(mode: ShopifyAccountMode.orders),
+        ),
+      );
+
+  static const String signOutTitle = 'Sign out?';
+  static const String signOutMessage = "You'll need to sign in again to order.";
+  static const String signOutLabel = 'Sign out';
+  static const String signedOutMessage = "You're signed out.";
+
+  /// "Sign out" asks first, then signs out of Shopify in the app's
+  /// WebViews (their cookies) and forgets the session on the phone. The
+  /// shopper's details for checkout ("My details", addresses) stay.
+  /// True when signed out.
+  static Future<bool> signOut(
+    BuildContext context, {
+    double? noticeBottomMargin,
+  }) async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(signOutTitle),
+        content: const Text(signOutMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const ValueKey('sign-out-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(signOutLabel),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !context.mounted) return false;
+    final session = context.read<AccountSession>();
+    try {
+      await ShopifyWeb.clearCookies().timeout(ShopifyWeb.platformWait);
+    } catch (_) {
+      // The WebViews keep their cookies; the app is signed out all the
+      // same, and the store asks again at checkout.
+    }
+    await session.signOut();
+    if (context.mounted) {
+      showNotice(context, signedOutMessage, bottomMargin: noticeBottomMargin);
+    }
+    return true;
+  }
+
   /// Checkout for the current cart, full screen. Does nothing when the
   /// cart is empty.
   ///
@@ -293,6 +377,12 @@ abstract final class AppNav {
   /// bottom bar, or [noticeBottomMargin] above the bottom of a screen that
   /// has none (see [showNotice]). The checkout link carries the website's
   /// delivery cart attributes.
+  ///
+  /// Orders need a signed-in account
+  /// ([AccountSession.signInNeededToOrder]): signed out, the "Sign in to
+  /// place your order" sheet comes next. "Sign in with email" opens the
+  /// sign-in page, and checkout goes on as below once signed in; "Not
+  /// now", closing the sheet or the sign-in page stays on the cart.
   ///
   /// Checkout opens with the shopper's saved details filled in (see
   /// [CheckoutPrefill]). With nothing saved, the first checkout offers the
@@ -324,6 +414,16 @@ abstract final class AppNav {
         bottomMargin: noticeBottomMargin,
       );
       return;
+    }
+    // The store takes orders from signed-in customers only (and asks at
+    // checkout too): sign in first, then checkout goes on.
+    final session = context.read<AccountSession>();
+    await session.load().timeout(_profileWait, onTimeout: () {});
+    if (!context.mounted) return;
+    if (session.signInNeededToOrder) {
+      if (!await showSignInSheet(context) || !context.mounted) return;
+      final outcome = await openSignIn(context, forCheckout: true);
+      if (outcome == null || !context.mounted) return;
     }
     // Express is chosen but closed: say so before the order goes to the
     // store as Express, and offer Fresh Market.

@@ -17,6 +17,7 @@ import 'package:fresh_market_app/screens/checkout_screen.dart';
 import 'package:fresh_market_app/screens/location_screen.dart';
 import 'package:fresh_market_app/screens/my_details_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
+import 'package:fresh_market_app/state/account_session.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
@@ -187,16 +188,21 @@ void main() {
       final add = find.widgetWithText(OutlinedButton, 'Add details');
       expect(add, findsOneWidget);
       expect(tester.getSize(add).height, greaterThanOrEqualTo(44));
-      // No green on Account; nothing to delete yet.
-      expect(find.byType(FilledButton), findsNothing);
-      expect(find.text(AccountScreen.deleteLabel), findsNothing);
-      // Sign-in is a small note below, still with its tag.
-      expect(find.text('Coming soon'), findsOneWidget);
+      // No green on Account (the one filled button, "Sign in with
+      // email", is ink); nothing to delete yet.
+      final filled = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(
-        tester.getTopLeft(find.text('Coming soon')).dy,
-        greaterThan(tester.getTopLeft(card).dy),
+        filled.style!.backgroundColor!.resolve(const <WidgetState>{}),
+        AppColors.ink,
       );
-      // The first thing under the title.
+      expect(find.text(AccountScreen.deleteLabel), findsNothing);
+      // Under the account card, above the addresses.
+      expect(
+        tester.getTopLeft(card).dy,
+        greaterThan(
+          tester.getBottomLeft(find.byKey(const ValueKey('account-session'))).dy,
+        ),
+      );
       expect(
         tester.getTopLeft(card).dy,
         lessThan(tester.getTopLeft(find.text('Delivery addresses')).dy),
@@ -985,23 +991,20 @@ void main() {
       );
     });
 
-    testWidgets('the sign-in note keeps its width; its tag sits under it', (
+    testWidgets('the sign-in card keeps its width; its button is whole', (
       tester,
     ) async {
       await atDoubleText(tester, const AccountScreen());
-      final caption = find.text('Sign-in is not available in this version.');
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('sign-in-coming-soon')),
-        300,
-        scrollable: find.byType(Scrollable).first,
+      final line = find.textContaining("We'll send you a 6-digit code");
+      // The text column is the card's width, not a one-word strip.
+      expect(tester.getSize(line).width, greaterThan(220));
+      final button = find.widgetWithText(FilledButton, 'Sign in with email');
+      expect(tester.getTopLeft(button).dy, greaterThan(tester.getBottomLeft(line).dy));
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      final label = tester.renderObject<RenderParagraph>(
+        find.descendant(of: button, matching: find.byType(RichText)),
       );
-      await tester.pump();
-      expect(
-        tester.getTopLeft(find.byKey(const ValueKey('sign-in-coming-soon'))).dy,
-        greaterThanOrEqualTo(tester.getBottomLeft(caption).dy),
-      );
-      // The text column is the row's width, not a one-word strip.
-      expect(tester.getSize(caption).width, greaterThan(220));
+      expect(label.didExceedMaxLines, isFalse);
     });
 
     testWidgets('only Save is pinned: the privacy note scrolls with the '
@@ -1298,6 +1301,7 @@ void main() {
         const AccountScreen(),
         profile: filledProfile(),
         delivery: testDelivery(),
+        session: AccountSession()..signIn(email: 'sara@example.com'),
       );
       expect(find.bySemanticsLabel('Edit my details'), findsOneWidget);
       expect(find.text(saraMobile), findsOneWidget);
@@ -1311,10 +1315,10 @@ void main() {
           .getTopLeft(find.byIcon(Icons.support_agent_outlined))
           .dx;
       final textX = tester.getTopLeft(find.text(AccountScreen.helpLabel)).dx;
-      expect(tester.getTopLeft(find.byIcon(Icons.login)).dx, iconX);
+      expect(tester.getTopLeft(find.byIcon(Icons.logout)).dx, iconX);
       expect(tester.getTopLeft(find.byIcon(Icons.delete_outline)).dx, iconX);
       expect(
-        tester.getTopLeft(find.text('Sign in to see your orders')).dx,
+        tester.getTopLeft(find.text(AccountScreen.signOutLabel)).dx,
         textX,
       );
       expect(tester.getTopLeft(find.text(AccountScreen.deleteLabel)).dx, textX);

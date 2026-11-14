@@ -3,14 +3,16 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../app.dart';
 import '../app_nav.dart';
 import '../services/checkout_log.dart';
+import '../services/customer_account.dart';
 import '../services/intent_link.dart';
+import '../services/shopify_web.dart';
+import '../state/account_session.dart';
 import '../state/cart_store.dart';
 import '../theme/app_theme.dart';
 
@@ -38,17 +40,7 @@ bool _isShopifyHost(String host) =>
 /// True for the web storefront pages that the checkout page links to (the
 /// store logo, "return to cart", product links). The app has its own
 /// screens for those, so checkout closes instead of showing the website.
-bool leavesCheckoutUrl(String url) {
-  final uri = Uri.tryParse(url);
-  if (uri == null || uri.host != CartStore.storeHost) return false;
-  final path = uri.path;
-  return path.isEmpty ||
-      path == '/' ||
-      path == '/cart' ||
-      path == '/cart/' ||
-      path.startsWith('/collections') ||
-      path.startsWith('/products');
-}
+bool leavesCheckoutUrl(String url) => ShopifyWeb.isStorefrontPage(url);
 
 /// The host of a web page outside Shopify's checkout ("www.paypal.com", a
 /// bank's page), or null for checkout's own pages and for anything that
@@ -112,24 +104,12 @@ class CheckoutScreen extends StatefulWidget {
   static const String continueShoppingLabel = 'Continue shopping';
 
   /// Allows the cookies PayPal and Shop Pay need in their frames inside
-  /// checkout (Android only). True when it was done. Tests replace it.
+  /// checkout (Android only; see [ShopifyWeb.allowThirdPartyCookies]).
+  /// True when it was done. Tests replace it.
   @visibleForTesting
   static Future<bool> Function(WebViewController controller)
-  allowThirdPartyCookies = _allowThirdPartyCookies;
-
-  static Future<bool> _allowThirdPartyCookies(
-    WebViewController controller,
-  ) async {
-    final platform = controller.platform;
-    // PayPal and Shop Pay run in frames from their own sites inside
-    // checkout and need their cookies there. Android's WebView blocks
-    // such third-party cookies unless asked (Chrome allows them).
-    if (platform is! AndroidWebViewController) return false;
-    final cookies = WebViewCookieManager().platform;
-    if (cookies is! AndroidWebViewCookieManager) return false;
-    await cookies.setAcceptThirdPartyCookies(platform, true);
-    return true;
-  }
+  allowThirdPartyCookies = (controller) =>
+      ShopifyWeb.allowThirdPartyCookies(controller);
 
   /// Shown above a page outside checkout (see [offCheckoutHost]).
   static String offSiteHint(String host) =>
@@ -169,6 +149,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// The optional WebView settings are made once.
   bool _prepared = false;
+
+  /// Set once checkout's own sign-in finished (see [_checkSignedIn]).
+  bool _signInSeen = false;
 
   /// The host of the page outside checkout being shown, if any.
   String? _offSiteHost;
@@ -310,6 +293,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _log.add('page', 'started', link: url);
       _progressLogged = 0;
       _trackPage(url);
+      _checkSignedIn(url);
       _checkOrderPlaced(url);
       _setProgress(0);
     },
@@ -329,6 +313,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     onUrlChange: (change) {
       _log.add('url', '', link: change.url);
       _trackPage(change.url);
+      _checkSignedIn(change.url);
       _checkOrderPlaced(change.url);
     },
     onWebResourceError: (error) {
@@ -397,6 +382,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     switch (target.scheme.toLowerCase()) {
       case 'http' || 'https':
+        // Shopify's answer to checkout's own "Sign in" passes here as a
+        // redirect, never shown as a page.
+        if (request.isMainFrame) _checkSignedIn(url);
         if (request.isMainFrame && leavesCheckoutUrl(url)) {
           // A link back to the web storefront: return to the app.
           _log.add(
@@ -524,6 +512,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
+  /// Checkout's own "Sign in" (the store's
+  /// `/customer_authentication/login`) came back with a code: the customer
+  /// is signed in, in this WebView and every other one of the app. The
+  /// email is not known here (one already known is kept).
+  void _checkSignedIn(String? url) {
+    if (_signInSeen || url == null || !mounted) return;
+    if (!CustomerAccount.isSignInCallback(url)) return;
+    _signInSeen = true;
+    _log.add('app', 'signed in');
+    context.read<AccountSession?>()?.signIn();
+  }
+
   /// Empties the cart, once, when the order confirmation page shows.
   void _checkOrderPlaced(String? url) {
     if (_orderPlaced || url == null || !mounted) return;
@@ -564,18 +564,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// Opens [target] in another app; with [appOnly], never in a browser
   /// (Android 11 and later).
-  Future<bool> _launchExternally(Uri target, {bool appOnly = false}) async {
-    try {
-      return await launchUrl(
-        target,
-        mode: appOnly
-            ? LaunchMode.externalNonBrowserApplication
-            : LaunchMode.externalApplication,
-      );
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> _launchExternally(Uri target, {bool appOnly = false}) =>
+      ShopifyWeb.launchExternally(target, appOnly: appOnly);
 
   Future<void> _openInBrowser() async {
     if (mounted) setState(() => _browser = _BrowserState.opening);

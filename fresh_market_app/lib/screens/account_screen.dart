@@ -5,6 +5,7 @@ import '../app_nav.dart';
 import '../assistant/assistant_brain.dart';
 import '../delivery/delivery.dart';
 import '../profile/customer_details.dart';
+import '../state/account_session.dart';
 import '../state/favourites_store.dart';
 import '../state/profile_store.dart';
 import '../theme/app_theme.dart';
@@ -13,11 +14,13 @@ import '../widgets/details_fields.dart';
 import 'assistant_screen.dart';
 import 'intro_screen.dart';
 
-/// The Account tab: the shopper's details for checkout ("Your details"
-/// and the delivery addresses, saved encrypted on the phone), the
-/// delivery location, the way into the favourites list, a replay of the
-/// intro, the store's customer service ("Help & contact"), a small note
-/// that sign-in is coming (not a dead button) and "Delete my details".
+/// The Account tab: the store account first (signed out, "Sign in to
+/// order" with "Sign in with email"; signed in, who is signed in and "My
+/// orders"), then the shopper's details for checkout ("Your details" and
+/// the delivery addresses, saved encrypted on the phone), the delivery
+/// location, the way into the favourites list, a replay of the intro, the
+/// store's customer service ("Help & contact"), "Sign out" and "Delete my
+/// details".
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key, this.launcher});
 
@@ -36,6 +39,7 @@ class AccountScreen extends StatelessWidget {
     final favourites = context.select<FavouritesStore, int>((s) => s.count);
     final area = context.select<DeliveryStore, DeliveryArea?>((s) => s.area);
     final hasDetails = context.select<ProfileStore, bool>((s) => s.hasDetails);
+    final signedIn = context.select<AccountSession, bool>((s) => s.signedIn);
 
     return Scaffold(
       body: SafeArea(
@@ -52,6 +56,8 @@ class AccountScreen extends StatelessWidget {
               header: true,
               child: const Text('Account', style: AppText.title),
             ),
+            const SizedBox(height: 16),
+            const _SessionCard(),
             const SizedBox(height: 16),
             const _DetailsCard(),
             const SizedBox(height: 24),
@@ -115,29 +121,21 @@ class AccountScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const _SignInNote(),
-            if (hasDetails) ...[
-              const SizedBox(height: 16),
-              // The whole row is the target; the icon and text on the
-              // card rows' columns.
-              TextButton(
-                key: const ValueKey('delete-details'),
-                style: TextButton.styleFrom(
-                  alignment: AlignmentDirectional.centerStart,
-                  minimumSize: const Size.fromHeight(AppDims.controlTarget),
-                  padding: const EdgeInsets.symmetric(horizontal: _rowInset),
-                ),
-                onPressed: () => _confirmDelete(context),
-                child: const Row(
-                  children: [
-                    Icon(Icons.delete_outline, size: 22),
-                    SizedBox(width: _iconGap),
-                    Flexible(child: Text(deleteLabel)),
-                  ],
-                ),
+            if (signedIn || hasDetails) const SizedBox(height: 16),
+            if (signedIn)
+              _BottomAction(
+                key: const ValueKey('sign-out'),
+                icon: Icons.logout,
+                label: signOutLabel,
+                onPressed: () => AppNav.signOut(context),
               ),
-            ],
+            if (hasDetails)
+              _BottomAction(
+                key: const ValueKey('delete-details'),
+                icon: Icons.delete_outline,
+                label: deleteLabel,
+                onPressed: () => _confirmDelete(context),
+              ),
           ],
         ),
       ),
@@ -145,6 +143,7 @@ class AccountScreen extends StatelessWidget {
   }
 
   static const String deleteLabel = 'Delete my details';
+  static const String signOutLabel = 'Sign out';
 
   /// The card rows' columns, which the rows under the cards follow: the
   /// icon 16 in from the card's 1px border, the text 14 after the 22 icon.
@@ -181,9 +180,6 @@ class AccountScreen extends StatelessWidget {
     await context.read<ProfileStore>().deleteAll();
     if (context.mounted) AppNav.showNotice(context, deletedMessage);
   }
-
-  /// The tag on the sign-in note.
-  static const String comingSoon = 'Coming soon';
 
   /// The store's customer service in a sheet over the bottom bar: the
   /// website's contact text, then Call, Email and the contact page. The
@@ -377,6 +373,8 @@ class _DetailsCard extends StatelessWidget {
     final contact = context.select<ProfileStore, ContactDetails>(
       (s) => s.contact,
     );
+    // Signed in, the account card above has the avatar.
+    final avatar = !context.select<AccountSession, bool>((s) => s.signedIn);
     void edit() => AppNav.openMyDetails(context);
 
     if (contact.isEmpty) {
@@ -390,8 +388,7 @@ class _DetailsCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _Avatar(),
-                const SizedBox(width: 12),
+                if (avatar) ...[const _Avatar(), const SizedBox(width: 12)],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,8 +457,10 @@ class _DetailsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                _Avatar(initials: _initials(contact)),
-                const SizedBox(width: 12),
+                if (avatar) ...[
+                  _Avatar(initials: _initials(contact)),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(child: heading),
               ],
             ),
@@ -488,8 +487,10 @@ class _DetailsCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Avatar(initials: _initials(contact)),
-          const SizedBox(width: 12),
+          if (avatar) ...[
+            _Avatar(initials: _initials(contact)),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,11 +510,12 @@ class _DetailsCard extends StatelessWidget {
   ].where((n) => n.isNotEmpty).map((n) => n.characters.first).join();
 }
 
-/// The round off-white avatar: the initials, or a person icon.
+/// The round off-white avatar: the initials, or [icon] (a person).
 class _Avatar extends StatelessWidget {
-  const _Avatar({this.initials = ''});
+  const _Avatar({this.initials = '', this.icon = Icons.person_outline});
 
   final String initials;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -527,7 +529,7 @@ class _Avatar extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: initials.isEmpty
-            ? const Icon(Icons.person_outline, size: 26, color: AppColors.ink)
+            ? Icon(icon, size: 26, color: AppColors.ink)
             : Text(
                 initials.toUpperCase(),
                 maxLines: 1,
@@ -644,56 +646,166 @@ class _AddressesSection extends StatelessWidget {
   }
 }
 
-/// Sign-in is not in this version: a quiet note with a "Coming soon" tag,
-/// not a dead button. The tag sits under the two lines, so at a large font
-/// size the text keeps the row's width.
-class _SignInNote extends StatelessWidget {
-  const _SignInNote();
+/// A full-width ink text button under the cards ("Sign out", "Delete my
+/// details"): the whole row is the target; the icon and text on the card
+/// rows' columns.
+class _BottomAction extends StatelessWidget {
+  const _BottomAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      key: const ValueKey('account-sign-in'),
-      padding: const EdgeInsets.symmetric(horizontal: AccountScreen._rowInset),
+    return TextButton(
+      style: TextButton.styleFrom(
+        alignment: AlignmentDirectional.centerStart,
+        minimumSize: const Size.fromHeight(AppDims.controlTarget),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AccountScreen._rowInset,
+        ),
+      ),
+      onPressed: onPressed,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.login, size: 22, color: AppColors.ink),
+          Icon(icon, size: 22),
           const SizedBox(width: AccountScreen._iconGap),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Sign in to see your orders',
-                  style: AppText.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Text(
-                  'Sign-in is not available in this version.',
-                  style: AppText.caption,
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  key: const ValueKey('sign-in-coming-soon'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: const ShapeDecoration(
-                    color: AppColors.subtle,
-                    shape: StadiumBorder(),
-                  ),
-                  child: Text(
-                    AccountScreen.comingSoon,
-                    style: AppText.caption.copyWith(
-                      fontWeight: FontWeight.w600,
+          Flexible(child: Text(label)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The store account, first on Account. Signed out: "Sign in to order",
+/// what sign-in takes and the ink "Sign in with email". Signed in: the
+/// initials, "Signed in" and the email, and "My orders".
+class _SessionCard extends StatelessWidget {
+  const _SessionCard();
+
+  static const String signedOutTitle = 'Sign in to order';
+  static const String signedOutLine =
+      "Use your email. We'll send you a 6-digit code, no password needed. "
+      'You stay signed in on this phone.';
+  static const String signInLabel = 'Sign in with email';
+  static const String signedInCaption = 'Signed in';
+
+  /// Shown for the email when the app did not see it.
+  static const String unknownEmail = 'Your Fresh Market account';
+  static const String ordersLabel = 'My orders';
+  static const String ordersSubtitle = 'Track orders and see past ones';
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<AccountSession>();
+    if (!session.signedIn) return _signedOut(context);
+
+    final contact = context.select<ProfileStore, ContactDetails>(
+      (s) => s.contact,
+    );
+    final email = session.email;
+    var initials = _DetailsCard._initials(contact);
+    if (initials.isEmpty && email != null) initials = email.characters.first;
+    return Container(
+      key: const ValueKey('account-session'),
+      decoration: AppDecor.card,
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              container: true,
+              label: email == null
+                  ? signedInCaption
+                  : '$signedInCaption as $email',
+              excludeSemantics: true,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    _Avatar(initials: initials),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(signedInCaption, style: AppText.caption),
+                          Text(
+                            email ?? unknownEmail,
+                            style: AppText.cardHeading,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
+            const Divider(height: 1),
+            _AccountRow(
+              key: const ValueKey('account-orders'),
+              icon: Icons.shopping_bag_outlined,
+              label: ordersLabel,
+              subtitle: ordersSubtitle,
+              onTap: () => AppNav.openOrders(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _signedOut(BuildContext context) {
+    return Container(
+      key: const ValueKey('account-session'),
+      decoration: AppDecor.card,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Avatar(icon: Icons.lock_outline),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: const Text(
+                        signedOutTitle,
+                        style: AppText.cardHeading,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      signedOutLine,
+                      style: AppText.bodySmall.copyWith(
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Ink: signing in is not buying.
+          FilledButton(
+            key: const ValueKey('account-sign-in'),
+            style: AppButtons.dark,
+            onPressed: () => AppNav.openSignIn(context),
+            child: const Text(signInLabel, textAlign: TextAlign.center),
           ),
         ],
       ),

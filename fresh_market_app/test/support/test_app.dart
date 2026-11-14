@@ -10,6 +10,7 @@ import 'package:fresh_market_app/services/device_location.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/location_services.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
+import 'package:fresh_market_app/state/account_session.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
@@ -28,7 +29,8 @@ void usePhoneSize(WidgetTester tester) {
 /// the way the real app provides them. Anything not passed gets a fresh
 /// in-memory default (`FakeShopifyApi.sample()`, empty stores, a delivery
 /// store with no area, a details store that never shows the first-checkout
-/// sheet, [testLocationServices]).
+/// sheet, a signed-out session that never asks to sign in before checkout,
+/// [testLocationServices]).
 Future<void> pumpScreen(
   WidgetTester tester,
   Widget screen, {
@@ -37,6 +39,7 @@ Future<void> pumpScreen(
   FavouritesStore? favourites,
   DeliveryStore? delivery,
   ProfileStore? profile,
+  AccountSession? session,
   LocationServices? locationServices,
   ShellController? shell,
 }) async {
@@ -48,6 +51,7 @@ Future<void> pumpScreen(
       favourites: favourites ?? FavouritesStore(),
       delivery: delivery,
       profile: profile,
+      session: session,
       locationServices: locationServices ?? testLocationServices(),
       shell: shell,
       child: MaterialApp(

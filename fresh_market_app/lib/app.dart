@@ -10,6 +10,7 @@ import 'screens/home_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'services/location_services.dart';
 import 'services/shopify_api.dart';
+import 'state/account_session.dart';
 import 'state/cart_store.dart';
 import 'state/favourites_store.dart';
 import 'state/profile_store.dart';
@@ -54,6 +55,7 @@ class AppScope extends StatelessWidget {
     required this.favourites,
     this.delivery,
     this.profile,
+    this.session,
     this.locationServices,
     this.shell,
     required this.child,
@@ -70,6 +72,11 @@ class AppScope extends StatelessWidget {
   /// The shopper's details for checkout. When null an empty in-memory
   /// store is created that never shows the first-checkout sheet.
   final ProfileStore? profile;
+
+  /// Whether the shopper is signed in to their store account. When null
+  /// a signed-out in-memory session is created that never asks to sign in
+  /// before checkout.
+  final AccountSession? session;
 
   /// What the location picker may use (phone location, address search,
   /// map); the real ones when null.
@@ -96,6 +103,12 @@ class AppScope extends StatelessWidget {
           ChangeNotifierProvider<ProfileStore>(
             create: (_) => ProfileStore(askAtCheckout: false),
           ),
+        if (session != null)
+          ChangeNotifierProvider<AccountSession>.value(value: session!)
+        else
+          ChangeNotifierProvider<AccountSession>(
+            create: (_) => AccountSession(asksAtCheckout: false),
+          ),
         Provider<LocationServices>.value(
           value: locationServices ?? const LocationServices(),
         ),
@@ -120,6 +133,7 @@ class FreshMarketApp extends StatelessWidget {
     required this.favourites,
     this.deliveryStore,
     this.profile,
+    this.session,
     this.locationServices,
     this.shell,
     this.showIntro = true,
@@ -137,6 +151,9 @@ class FreshMarketApp extends StatelessWidget {
   /// The shopper's saved details (see [AppScope.profile]).
   final ProfileStore? profile;
 
+  /// The store account sign-in (see [AppScope.session]).
+  final AccountSession? session;
+
   /// See [AppScope.locationServices].
   final LocationServices? locationServices;
   final ShellController? shell;
@@ -152,6 +169,7 @@ class FreshMarketApp extends StatelessWidget {
       favourites: favourites,
       delivery: deliveryStore,
       profile: profile,
+      session: session,
       locationServices: locationServices,
       shell: shell,
       child: MaterialApp(

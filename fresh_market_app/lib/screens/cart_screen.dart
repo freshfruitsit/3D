@@ -5,6 +5,7 @@ import '../app.dart';
 import '../app_nav.dart';
 import '../models/money.dart';
 import '../services/shopify_api.dart';
+import '../state/account_session.dart';
 import '../state/cart_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_control.dart';
@@ -27,6 +28,14 @@ class CartScreen extends StatefulWidget {
 
   /// Under the subtotal when some lines are sold out.
   static const String soldOutNote = 'Sold-out items are not included.';
+
+  /// Above Checkout when signed in: "Signed in as sara@example.com", or
+  /// "Signed in" when the email is not known.
+  static String signedInLine(String? email) =>
+      email == null ? 'Signed in' : 'Signed in as $email';
+
+  /// Above Checkout when signed out (orders need an account).
+  static const String signInNeededLine = 'Sign in needed to order';
 
   /// The Checkout label with the total: "Checkout · \u20C3 62.50".
   static String checkoutLabel(int cents) => 'Checkout · ${formatMoney(cents)}';
@@ -435,6 +444,7 @@ class _SummaryCardState extends State<_SummaryCard> {
                   : CartScreen.vatNote,
               style: AppText.caption,
             ),
+            const _AccountLine(),
             const SizedBox(height: 14),
             FilledButton(
               onPressed: widget.canCheckout ? _checkout : null,
@@ -461,6 +471,48 @@ class _SummaryCardState extends State<_SummaryCard> {
             ),
           ],
         ),
+    );
+  }
+}
+
+/// Under the subtotal, above Checkout: who orders. Signed in, a small
+/// green check and "Signed in as …"; signed out, a neutral "Sign in
+/// needed to order" (no green). Nothing when sign-in is not asked for.
+class _AccountLine extends StatelessWidget {
+  const _AccountLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<AccountSession>();
+    final signedIn = session.signedIn;
+    if (!signedIn && !session.signInNeededToOrder) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      key: const ValueKey('cart-account-line'),
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              signedIn ? Icons.check_circle_outline : Icons.lock_outline,
+              size: 16,
+              color: signedIn ? AppColors.green : AppColors.secondary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              signedIn
+                  ? CartScreen.signedInLine(session.email)
+                  : CartScreen.signInNeededLine,
+              style: AppText.caption,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

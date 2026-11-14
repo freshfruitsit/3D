@@ -2,8 +2,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
 /// Stands in for the phone's WebView in tests: records what checkout
-/// loads and lets a test play the page's callbacks (page started, URL
-/// changes, navigation requests, errors, console messages).
+/// (or the account pages) load and lets a test play the page's callbacks
+/// (page started, URL changes, navigation requests, errors, console
+/// messages, JavaScript channel messages).
 ///
 /// Install with [FakeWebViewPlatform.install]; once installed, a test
 /// that needs the browser fallback sets [available] to false.
@@ -59,6 +60,15 @@ class FakeWebViewController extends PlatformWebViewController {
   bool canGoBackValue = false;
   int goBackCalls = 0;
 
+  /// The JavaScript channels added, by name.
+  final Map<String, void Function(JavaScriptMessage)> channels = {};
+
+  /// Every script run in the page, in order.
+  final List<String> scripts = [];
+
+  /// What `runJavaScriptReturningResult` answers.
+  Object scriptResult = '';
+
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
 
@@ -86,6 +96,26 @@ class FakeWebViewController extends PlatformWebViewController {
       'Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP1A; wv) '
       'AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 '
       'Chrome/131.0.6778.39 Mobile Safari/537.36';
+
+  @override
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
+    channels[params.name] = params.onMessageReceived;
+  }
+
+  @override
+  Future<void> runJavaScript(String javaScript) async {
+    scripts.add(javaScript);
+  }
+
+  @override
+  Future<Object> runJavaScriptReturningResult(String javaScript) async {
+    scripts.add(javaScript);
+    return scriptResult;
+  }
+
+  /// The page sends [message] on the channel [name].
+  void post(String name, String message) =>
+      channels[name]!(JavaScriptMessage(message: message));
 
   @override
   Future<bool> canGoBack() async => canGoBackValue;

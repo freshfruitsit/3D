@@ -8,6 +8,7 @@ import 'delivery/place_search.dart';
 import 'profile/profile_vault.dart';
 import 'services/location_services.dart';
 import 'services/shopify_api.dart';
+import 'state/account_session.dart';
 import 'state/cart_store.dart';
 import 'state/favourites_store.dart';
 import 'state/profile_store.dart';
@@ -32,8 +33,14 @@ Future<void> main() async {
   // cannot be read in time the app starts without them (they arrive when
   // the read finishes).
   final profile = ProfileStore(vault: const SecureProfileVault());
+  // Whether the shopper is signed in to their store account (and with
+  // which email), encrypted on the phone the same way.
+  final session = AccountSession(vault: const SecureAccountVault());
   try {
-    await profile.load().timeout(const Duration(seconds: 3));
+    await Future.wait([
+      profile.load(),
+      session.load(),
+    ]).timeout(const Duration(seconds: 3));
   } catch (_) {
     // Carried on in the background, or dropped.
   }
@@ -45,6 +52,7 @@ Future<void> main() async {
       favourites: FavouritesStore(prefs: prefs),
       deliveryStore: DeliveryStore(prefs: prefs),
       profile: profile,
+      session: session,
       // Address search like the website's (Photon); the phone's location
       // and the OpenStreetMap map are on by default.
       locationServices: LocationServices(search: PlaceSearch()),
