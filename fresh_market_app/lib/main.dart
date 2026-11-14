@@ -6,6 +6,7 @@ import 'app.dart';
 import 'delivery/delivery_store.dart';
 import 'delivery/place_search.dart';
 import 'profile/profile_vault.dart';
+import 'services/customer_auth.dart';
 import 'services/location_services.dart';
 import 'services/shopify_api.dart';
 import 'state/account_session.dart';
@@ -33,14 +34,13 @@ Future<void> main() async {
   // cannot be read in time the app starts without them (they arrive when
   // the read finishes).
   final profile = ProfileStore(vault: const SecureProfileVault());
-  // Whether the shopper is signed in to their store account (and with
-  // which email), encrypted on the phone the same way.
-  final session = AccountSession(vault: const SecureAccountVault());
+  // The shopper's store account: Shopify's Customer Account API tokens,
+  // encrypted on the phone the same way. Without a client ID (see
+  // CustomerAccountConfig) sign-in shows as not available yet.
+  final session = AccountSession(auth: CustomerAuth.app());
   try {
-    await Future.wait([
-      profile.load(),
-      session.load(),
-    ]).timeout(const Duration(seconds: 3));
+    await Future.wait([profile.load(), session.load()])
+        .timeout(const Duration(seconds: 3));
   } catch (_) {
     // Carried on in the background, or dropped.
   }

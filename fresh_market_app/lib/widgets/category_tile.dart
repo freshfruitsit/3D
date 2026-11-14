@@ -76,10 +76,7 @@ class SquareTile extends StatelessWidget {
     var lines = 1;
     for (final label in labels) {
       final painter = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: labelStyle(context, width, label),
-        ),
+        text: TextSpan(text: label, style: labelStyle(context, width, label)),
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
         textScaler: MediaQuery.textScalerOf(context),
@@ -242,8 +239,8 @@ class CategoryGrid extends StatelessWidget {
   /// The categories shown with [limit].
   static List<CategoryEntry> shown([int? limit]) =>
       limit == null || limit >= Catalog.categories.length
-          ? Catalog.categories
-          : Catalog.categories.sublist(0, limit);
+      ? Catalog.categories
+      : Catalog.categories.sublist(0, limit);
 
   @override
   Widget build(BuildContext context) {

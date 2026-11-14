@@ -185,10 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: BrandRail(),
             ),
             for (final rail in Catalog.railsAfterBrands)
-              _rail(
-                rail,
-                afterTileRow: rail == Catalog.railsAfterBrands.first,
-              ),
+              _rail(rail, afterTileRow: rail == Catalog.railsAfterBrands.first),
             const _Section(
               title: 'Offers',
               icon: Icons.campaign,
@@ -270,7 +267,11 @@ class _Section extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(
         top:
-            gapAbove(context, afterGrid: afterGrid, afterTileRow: afterTileRow) -
+            gapAbove(
+              context,
+              afterGrid: afterGrid,
+              afterTileRow: afterTileRow,
+            ) -
             inset,
       ),
       child: Column(

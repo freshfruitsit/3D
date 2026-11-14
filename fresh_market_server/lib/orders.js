@@ -7,6 +7,32 @@
 // is not used: its deprecation reason reads "Create a draft with payment
 // terms rather than marking the draft as pending."
 //
+// One order at a time per customer. Shopify has no idempotency for draft or
+// order mutations (the `@idempotent` list in
+// https://shopify.dev/docs/apps/build/graphql-admin/implementing-idempotency
+// names none), and its search can lag behind new drafts and orders. So the
+// server keeps a small lock in an app-owned metafield on the customer
+// ($app:checkout, type json) and changes it only with metafieldsSet's
+// compare-and-set: "If `compareDigest` is set for any metafield, the mutation
+// will only set that metafield if the persisted metafield value matches the
+// digest used on `compareDigest`. If the metafield doesn't exist yet, but you
+// want to guarantee that the operation will run in a safe manner, set
+// `compareDigest` to `null`." (mutations/metafieldsSet; MetafieldsSetUserErrorCode
+// STALE_OBJECT "The metafield has been modified since it was loaded."). The
+// lock is read by customer id, not searched, and holds:
+//   {v, key, owner, until, draftId, orderId, orderName, totalFils, promise,
+//    recent: [{id, t}]}
+// - key/orderId: the last order's Idempotency-Key and order, so a retry is
+//   answered without search;
+// - until: while a request holds it, others with the same customer wait,
+//   then get 503 retryable; it runs out on its own after LOCK_TTL_MS;
+// - draftId: the draft the holder made, so a retry after a crash finishes
+//   or replays that very draft;
+// - recent: this customer's orders of the last hour, for the hourly limit.
+// App-owned metafields use the reserved namespace `$app`
+// (https://shopify.dev/docs/apps/build/metafields). metafieldsSet "Requires
+// the same access level needed to mutate the owner resource": write_customers.
+//
 // Docs relied on (copies in server_docs/):
 // - draftOrderCreate / DraftOrderInput (purchasingEntity, email,
 //   presentmentCurrencyCode, acceptAutomaticDiscounts, lineItems "Accepts a
@@ -31,31 +57,52 @@
 //   filters; "If you specify an invalid field, then the query is ignored and
 //   all results are returned" (https://shopify.dev/docs/api/usage/search-syntax),
 //   so every search result is re-checked here.
-// - customerByIdentifier(identifier: {emailAddress}) "Requires
-//   `read_customers`".
+// - customer(id:) and customerByIdentifier(identifier: {emailAddress})
+//   "Requires `read_customers`".
+// - OrderDisplayFinancialStatus.PENDING: "Orders have this status when ...
+//   manual payment methods are being used."
+// - tagsAdd(id, tags) on an Order (write_orders).
 
-import { adminGraphql } from './shopify-admin.js';
+import { randomUUID } from 'node:crypto';
+import { adminGraphql, firstMessage } from './shopify-admin.js';
 import { verifyCustomer } from './shopify-customer.js';
 import { ApiError, ConfigError, UpstreamError, rateLimited, validationError } from './errors.js';
-import { buildQuote, variantsFromData, VARIANT_FIELDS } from './quote.js';
+import { buildQuote, fetchVariants } from './quote.js';
 import { MODE_LABEL, SHIPPING_TITLE, placeLabel, provinceCode } from './delivery.js';
 import { decimalToFils, filsToDecimal, formatAed } from './money.js';
 import { parseOrderBody } from './validate.js';
 
 export const PAYMENT_METHOD = 'Cash on Delivery';
 export const SOURCE = 'Fresh Market app';
+/** Added to an order that Shopify did not leave payment pending, for staff. */
+export const CHECK_PAYMENT_TAG = 'check-payment';
+
+export const LOCK_NAMESPACE = '$app';
+export const LOCK_KEY = 'checkout';
+/** How long a request may hold the lock. Longer than Vercel's maxDuration (60 s). */
+export const LOCK_TTL_MS = 90_000;
+/** The holder starts no mutation in the last LOCK_MARGIN_MS of its lock. */
+const LOCK_MARGIN_MS = 20_000;
+/** While another request holds the lock: wait this long between looks, at most this often. */
+const WAIT_POLL_MS = 1_000;
+const WAIT_MAX_POLLS = 10;
+/** Retry-After for "your order is still being placed". */
+const IN_PROGRESS_RETRY_S = 3;
 
 const termsCache = { id: '' };
+/** Customer Account API id -> Admin id, only when Shopify says they differ (see placeOrder). */
+const adminIdCache = new Map();
 export function resetOrderCaches() {
   termsCache.id = '';
+  adminIdCache.clear();
 }
 
 const MONEY = 'shopMoney { amount }';
+const LOCK_FIELDS = `lock: metafield(namespace: "${LOCK_NAMESPACE}", key: "${LOCK_KEY}") { value compareDigest }`;
 
-export const PREPARE_QUERY = `query FreshMarketPrepare($ids: [ID!]!, $idem: String!, $recent: String!, $recentDrafts: String!, $recentFirst: Int!, $wantTerms: Boolean!) {
-  shop { currencyCode }
-  nodes(ids: $ids) { ... on ProductVariant {${VARIANT_FIELDS}
-  } }
+/** Everything needed before any decision, but not the (larger) variant read. */
+export const GATE_QUERY = `query FreshMarketGate($customerId: ID!, $idem: String!, $recent: String!, $recentDrafts: String!, $recentFirst: Int!, $wantTerms: Boolean!) {
+  customer(id: $customerId) { id ${LOCK_FIELDS} }
   idemDrafts: draftOrders(first: 5, query: $idem) {
     nodes { id status tags customer { id } customAttributes { key value }
       order { id name totalPriceSet { ${MONEY} } customAttributes { key value } } }
@@ -72,6 +119,17 @@ export const PREPARE_QUERY = `query FreshMarketPrepare($ids: [ID!]!, $idem: Stri
   paymentTermsTemplates(paymentTermsType: FULFILLMENT) @include(if: $wantTerms) { id name paymentTermsType }
 }`;
 
+export const LOCK_QUERY = `query FreshMarketLock($customerId: ID!) {
+  customer(id: $customerId) { id ${LOCK_FIELDS} }
+}`;
+
+export const LOCK_SET_MUTATION = `mutation FreshMarketLockSet($metafields: [MetafieldsSetInput!]!) {
+  metafieldsSet(metafields: $metafields) {
+    metafields { key namespace compareDigest }
+    userErrors { field message code }
+  }
+}`;
+
 export const CREATE_MUTATION = `mutation FreshMarketDraftCreate($input: DraftOrderInput!) {
   draftOrderCreate(input: $input) {
     draftOrder { id name ready status }
@@ -84,7 +142,8 @@ export const STATE_QUERY = `query FreshMarketDraftState($id: ID!, $idem: String!
     id ready status taxesIncluded
     totalPriceSet { ${MONEY} }
     lineItems(first: $lineFirst) { nodes { variant { id } quantity originalUnitPriceSet { ${MONEY} } } }
-    order { id name totalPriceSet { ${MONEY} } }
+    customAttributes { key value }
+    order { id name totalPriceSet { ${MONEY} } customAttributes { key value } }
   }
   draftOrders(first: 5, query: $idem) { nodes { id status tags customer { id } } }
 }`;
@@ -104,12 +163,16 @@ export const DELETE_MUTATION = `mutation FreshMarketDraftDelete($input: DraftOrd
   draftOrderDelete(input: $input) { deletedId userErrors { field message } }
 }`;
 
+export const TAGS_ADD_MUTATION = `mutation FreshMarketTagsAdd($id: ID!, $tags: [String!]!) {
+  tagsAdd(id: $id, tags: $tags) { node { id } userErrors { field message } }
+}`;
+
 export const CUSTOMER_BY_EMAIL_QUERY = `query FreshMarketCustomerByEmail($email: String!) {
   customerByIdentifier(identifier: { emailAddress: $email }) { id }
 }`;
 
 /**
- * @param {import('./shopify-admin.js').Ctx & {log: (f: Record<string, unknown>) => void}} ctx
+ * @param {import('./shopify-admin.js').Ctx & {log: (f: Record<string, unknown>) => void, mutationDeadline?: number}} ctx
  * @param {{token: string, idemKey: string, body: unknown, logFields: Record<string, unknown>}} req
  * @returns {Promise<{status: number, body: Record<string, unknown>, headers?: Record<string, string>}>}
  */
@@ -121,27 +184,30 @@ export async function placeOrder(ctx, { token, idemKey, body, logFields }) {
   const customer = await verifyCustomer(ctx, token);
   logFields.customer = customer.numericId;
 
-  const nowMs = ctx.now();
-  const since = new Date(nowMs - 3600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const startMs = ctx.now();
+  const since = new Date(startMs - 3600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const sinceMs = Date.parse(since);
   const tag = `idem-${idemKey}`;
   const idemQuery = `tag:"${tag}"`;
-  const data = await adminGraphql(
-    ctx,
-    PREPARE_QUERY,
-    {
-      ids: input.lines.map((l) => l.gid),
-      idem: idemQuery,
-      recent: `customer_id:${customer.numericId} created_at:>='${since}'`,
-      recentDrafts: `customer_id:${customer.numericId} status:open tag:app created_at:>='${since}'`,
-      recentFirst: config.maxOrdersPerHour + 1,
-      wantTerms: !config.paymentTermsTemplateId && !termsCache.id,
-    },
-    { label: 'prepare' },
-  );
-  const variants = variantsFromData(data);
+  const lineFirst = Math.max(1, Math.min(100, input.lines.length));
 
-  // 1. Same Idempotency-Key seen before?
-  const existing = findExisting(data, tag, customer.id);
+  // 1. One small read: the customer's lock, this key's drafts and orders, the last hour.
+  let ownerId = adminIdCache.get(customer.id) ?? customer.id;
+  let gate = await readGate(ctx, { ownerId, idemQuery, since });
+  if (!gate?.customer) {
+    // The Customer Account API id should be the Admin customer id; if Admin
+    // has no such customer, look them up once by the verified email.
+    const adminId = customer.email ? await adminCustomerByEmail(ctx, customer.email) : '';
+    if (adminId && adminId !== ownerId) {
+      rememberAdminId(customer.id, adminId);
+      ownerId = adminId;
+      gate = await readGate(ctx, { ownerId, idemQuery, since });
+    }
+    if (!gate?.customer) throw new ConfigError('The signed-in customer was not found through the Admin API (customer(id:) returned null).');
+  }
+
+  // 2. This key seen before (older keys, or another customer's)?
+  const existing = findExisting(gate, tag, ownerId);
   if (existing.otherCustomer) {
     throw validationError([{ field: 'Idempotency-Key', message: 'This Idempotency-Key was already used. Send a new one for a new order.' }]);
   }
@@ -150,105 +216,357 @@ export async function placeOrder(ctx, { token, idemKey, body, logFields }) {
     return replay(existing.order);
   }
 
-  // 2. Per-customer limit (a retry that resumes its own draft is not a new order).
-  if (!existing.openDraftId) {
-    const recent = countRecent(data, customer.id, Date.parse(since));
-    if (recent.count >= config.maxOrdersPerHour) {
-      const retry = recent.oldestMs ? Math.max(60, Math.ceil((recent.oldestMs + 3600_000 - nowMs) / 1000)) : 3600;
-      logFields.outcome = 'limited';
-      throw rateLimited(retry, `You can place at most ${config.maxOrdersPerHour} orders an hour. Please try again later.`);
-    }
-  }
+  // 3. Take the customer's lock: wait for a running order, check the limit,
+  //    quote, then compare-and-set.
+  let snap = parseLock(gate.customer.lock);
+  let polls = 0;
+  let checkedDraft = '';
+  /** An open draft an earlier attempt with this key left behind. */
+  let ownDraft = null;
+  let quote = null;
+  const owner = randomUUID();
+  let held = null;
+  for (let round = 0; !held; round++) {
+    if (round > WAIT_MAX_POLLS + 4) throw inProgress();
+    const lock = snap.lock;
+    const nowMs = ctx.now();
 
-  // 3. Fresh quote from Shopify's prices and stock.
-  const now = new Date(nowMs);
-  const quote = buildQuote({ lines: input.lines, delivery: input.delivery, variants, config, now });
-  const problems = [...quote.problems];
-  if (input.expectedTotalFils !== undefined && input.expectedTotalFils !== quote.totalFils && !problems.length) {
-    problems.push({
-      variantId: null,
-      kind: 'price_changed',
-      message: `Your total changed from ${formatAed(input.expectedTotalFils)} to ${formatAed(quote.totalFils)}.`,
+    if (lock?.key === idemKey && lock.orderId) {
+      logFields.outcome = 'replay';
+      return replayFromLock(lock);
+    }
+    if (isHeld(lock, nowMs)) {
+      if (polls >= WAIT_MAX_POLLS || !(await pause(ctx, WAIT_POLL_MS))) throw inProgress();
+      polls++;
+      logFields.waited = polls;
+      snap = await readLock(ctx, ownerId);
+      continue;
+    }
+
+    // An earlier attempt with this key made a draft: finished, or still open?
+    const candidate = (lock?.key === idemKey && lock.draftId) || existing.openDraftId || '';
+    if (candidate && candidate !== checkedDraft) {
+      checkedDraft = candidate;
+      const state = await draftState(ctx, candidate, idemQuery, lineFirst);
+      if (state?.status === 'COMPLETED' && state.order?.id) {
+        const order = { ...state.order, customAttributes: state.order.customAttributes ?? state.customAttributes };
+        await finishLock(ctx, ownerId, snap, lockAfterOrder({ ...(lock ?? {}), key: idemKey }, { owner, draftId: candidate, order, promise: attr(order.customAttributes, 'Delivery promise'), sinceMs, nowMs }), logFields);
+        logFields.outcome = 'replay';
+        return replay(order);
+      }
+      ownDraft = state?.status === 'OPEN' ? state : null;
+    }
+
+    // Per-customer limit (finishing this key's own draft is not a new order).
+    if (!ownDraft) {
+      const recent = countRecent(gate, lock, ownerId, sinceMs);
+      if (recent.count >= config.maxOrdersPerHour) {
+        const retry = recent.oldestMs ? Math.max(60, Math.ceil((recent.oldestMs + 3600_000 - nowMs) / 1000)) : 3600;
+        logFields.outcome = 'limited';
+        throw rateLimited(retry, `You can place at most ${config.maxOrdersPerHour} orders an hour. Please try again later.`);
+      }
+    }
+
+    // Fresh quote from Shopify's prices and stock (once).
+    if (!quote) {
+      const variants = await fetchVariants(ctx, input.lines);
+      quote = buildQuote({ lines: input.lines, delivery: input.delivery, variants, config, now: new Date(startMs) });
+      const problems = [...quote.problems];
+      if (input.expectedTotalFils !== undefined && input.expectedTotalFils !== quote.totalFils && !problems.length) {
+        problems.push({
+          variantId: null,
+          kind: 'price_changed',
+          message: `Your total changed from ${formatAed(input.expectedTotalFils)} to ${formatAed(quote.totalFils)}.`,
+        });
+      }
+      if (problems.length) {
+        if (ownDraft) await deleteDraft(ctx, ownDraft.id);
+        logFields.outcome = 'quote_changed';
+        return { status: 409, body: { error: 'quote_changed', message: problems[0].message, problems, quote } };
+      }
+      if (quote.subtotalFils < config.minOrderFils) {
+        if (ownDraft) await deleteDraft(ctx, ownDraft.id);
+        throw validationError([{ field: 'lines', message: `The minimum order is ${formatAed(config.minOrderFils)}. Add ${formatAed(config.minOrderFils - quote.subtotalFils)} more.` }]);
+      }
+    }
+
+    const until = ctx.now() + LOCK_TTL_MS;
+    const value = lockValue({
+      key: idemKey,
+      owner,
+      until,
+      draftId: ownDraft?.id ?? '',
+      recent: pruneRecent(lock?.recent, sinceMs),
     });
-  }
-  if (problems.length) {
-    if (existing.openDraftId) await deleteDraft(ctx, existing.openDraftId);
-    logFields.outcome = 'quote_changed';
-    return { status: 409, body: { error: 'quote_changed', message: problems[0].message, problems, quote } };
-  }
-  if (quote.subtotalFils < config.minOrderFils) {
-    if (existing.openDraftId) await deleteDraft(ctx, existing.openDraftId);
-    throw validationError([{ field: 'lines', message: `The minimum order is ${formatAed(config.minOrderFils)}. Add ${formatAed(config.minOrderFils - quote.subtotalFils)} more.` }]);
-  }
-
-  const termsId = config.paymentTermsTemplateId || termsCache.id || pickTermsTemplate(data);
-  termsCache.id = config.paymentTermsTemplateId ? '' : termsId;
-
-  const promise = quote.deliveryPromise;
-  const lineFirst = Math.max(1, Math.min(100, input.lines.length));
-
-  // 4. Resume an open draft left by an earlier attempt with this key, if it still matches.
-  let draftId = '';
-  if (existing.openDraftId) {
-    const state = await draftState(ctx, existing.openDraftId, idemQuery, lineFirst);
-    if (state && state.status === 'OPEN' && sameLines(state, quote)) {
-      draftId = existing.openDraftId;
-      logFields.resumed = true;
+    const res = await writeLock(ctx, ownerId, value, snap.digest);
+    if (res.ok) {
+      held = { value, digest: res.digest };
+      ctx.mutationDeadline = until - LOCK_MARGIN_MS;
     } else {
-      await deleteDraft(ctx, existing.openDraftId);
+      logFields.lockConflicts = (logFields.lockConflicts ?? 0) + 1;
+      snap = await readLock(ctx, ownerId);
     }
   }
 
-  // 5. Create the draft.
-  if (!draftId) {
-    const draftInput = buildDraftInput({ customerId: customer.id, email: customer.email, input, quote, tag, promise, termsId });
-    draftId = await createDraft(ctx, draftInput, customer);
-  }
-  logFields.draft = numericId(draftId);
+  // 4. Holding the lock: make (or finish) the draft and complete it.
+  let finished = false;
+  try {
+    const termsId = config.paymentTermsTemplateId || termsCache.id || pickTermsTemplate(gate);
+    termsCache.id = config.paymentTermsTemplateId ? '' : termsId;
+    const promise = quote.deliveryPromise;
+    if (input.delivery.promise && input.delivery.promise !== promise) logFields.promiseChanged = true;
 
-  // 6. Wait until Shopify has finished calculating; settle duplicate drafts.
-  const state = await waitReady(ctx, { draftId, tag, idemQuery, lineFirst, customerId: customer.id, logFields });
-  if (state.replay) {
-    logFields.outcome = 'replay';
-    return state.replay;
-  }
-  if (state.completed) {
-    // A parallel retry with this key completed this very draft.
-    logFields.outcome = 'replay';
-    return created(state.completed, promise, quote.totalFils);
-  }
-
-  // 7. Shopify's totals must equal the quote the customer accepted.
-  const mismatch = compareDraft(state.draft, quote);
-  if (mismatch) {
-    await deleteDraft(ctx, draftId);
-    if (state.draft.taxesIncluded === false) {
-      throw new ConfigError('Shopify calculated tax on top of prices. Turn on "Include sales tax in product price and shipping rate" in Settings > Taxes and duties.');
+    let draftId = '';
+    if (ownDraft && sameLines(ownDraft, quote)) {
+      draftId = ownDraft.id;
+      logFields.resumed = true;
+    } else if (ownDraft) {
+      // Basket changed since that attempt: start again (the new draft id replaces it in the lock).
+      await deleteDraft(ctx, ownDraft.id);
+      held = { ...held, value: { ...held.value, draftId: '' } };
     }
-    logFields.outcome = 'total_mismatch';
-    return { status: 409, body: { error: 'quote_changed', message: mismatch[0].message, problems: mismatch, quote } };
-  }
 
-  // 8. Complete: the draft becomes a real order, payment due on fulfillment.
-  const order = await completeDraft(ctx, draftId);
-  logFields.order = order.name;
-  logFields.financialStatus = order.displayFinancialStatus;
-  logFields.outcome = 'created';
-  return created(order, promise, quote.totalFils);
+    if (!draftId) {
+      const draftInput = buildDraftInput({ customerId: ownerId, email: customer.email, input, quote, tag, promise, termsId });
+      draftId = await createDraft(ctx, draftInput);
+      // Remember the draft before anything else, so a retry finds this very draft.
+      held = await updateLock(ctx, ownerId, held, { draftId }, logFields);
+    }
+    logFields.draft = numericId(draftId);
+
+    // Wait until Shopify has finished calculating; clear leftovers of this key.
+    const state = await waitReady(ctx, { draftId, tag, idemQuery, lineFirst, customerId: ownerId, logFields });
+    if (state.other) {
+      // An earlier attempt with this key had already completed an order.
+      held = { ...held, value: { ...held.value, draftId: '' } };
+      await finishLock(ctx, ownerId, held, lockAfterOrder(held.value, { owner, draftId: '', order: state.other, promise: attr(state.other.customAttributes, 'Delivery promise'), sinceMs, nowMs: ctx.now() }), logFields);
+      finished = true;
+      logFields.outcome = 'replay';
+      return replay(state.other);
+    }
+    if (state.completed) {
+      await finishLock(ctx, ownerId, held, lockAfterOrder(held.value, { owner, draftId, order: state.completed, promise, sinceMs, nowMs: ctx.now() }), logFields);
+      finished = true;
+      logFields.outcome = 'replay';
+      return created(state.completed, promise, quote.totalFils, input.delivery.promise);
+    }
+
+    // Shopify's totals must equal the quote the customer accepted.
+    const mismatch = compareDraft(state.draft, quote);
+    if (mismatch) {
+      await deleteDraft(ctx, draftId);
+      held = { ...held, value: { ...held.value, draftId: '' } };
+      if (state.draft.taxesIncluded === false) {
+        throw new ConfigError('Shopify calculated tax on top of prices. Turn on "Include sales tax in product price and shipping rate" in Settings > Taxes and duties.');
+      }
+      logFields.outcome = 'total_mismatch';
+      // No quote here: the app asks /api/quote again for the new numbers.
+      return { status: 409, body: { error: 'quote_changed', message: mismatch[0].message, problems: mismatch } };
+    }
+
+    // Complete: the draft becomes a real order, payment due on fulfillment.
+    const order = await completeDraft(ctx, draftId, logFields);
+    logFields.order = order.name;
+    logFields.financialStatus = order.displayFinancialStatus;
+    logFields.outcome = 'created';
+    await finishLock(ctx, ownerId, held, lockAfterOrder(held.value, { owner, draftId, order, promise, sinceMs, nowMs: ctx.now() }), logFields);
+    finished = true;
+
+    const totalFils = decimalToFils(order.totalPriceSet?.shopMoney?.amount) ?? quote.totalFils;
+    if (order.displayFinancialStatus !== 'PENDING' && totalFils > 0) {
+      // A COD order must stay payment pending; tell staff loudly if not.
+      logFields.alert = 'cod_not_pending';
+      await addTags(ctx, order.id, [CHECK_PAYMENT_TAG], logFields);
+    }
+    return created(order, promise, quote.totalFils, input.delivery.promise);
+  } finally {
+    // Any other way out: let the next attempt in now (keeping key and
+    // draftId, so a retry with this key resumes the same draft).
+    if (!finished) await releaseLock(ctx, ownerId, held, logFields);
+  }
 }
 
-function created(order, promise, fallbackTotal) {
-  return {
-    status: 201,
-    body: {
-      orderId: order.id,
-      orderName: order.name,
-      totalFils: decimalToFils(order.totalPriceSet?.shopMoney?.amount) ?? fallbackTotal,
-      deliveryPromise: promise,
-      paymentMethod: PAYMENT_METHOD,
+function created(order, promise, fallbackTotal, appPromise) {
+  const body = {
+    orderId: order.id,
+    orderName: order.name,
+    totalFils: decimalToFils(order.totalPriceSet?.shopMoney?.amount) ?? fallbackTotal,
+    deliveryPromise: promise,
+    paymentMethod: PAYMENT_METHOD,
+  };
+  // The app showed another promise (for example the 6 PM cut-off passed
+  // while the shopper was paying): say so, so the app can point it out.
+  if (appPromise && appPromise !== promise) body.promiseChanged = true;
+  return { status: 201, body };
+}
+
+function inProgress() {
+  return new UpstreamError('Another order for this customer is still being placed', { kind: 'in_progress', retryAfterSeconds: IN_PROGRESS_RETRY_S });
+}
+
+// ---- the customer's lock --------------------------------------------------
+
+async function readGate(ctx, { ownerId, idemQuery, since }) {
+  const { config } = ctx;
+  const num = numericId(ownerId);
+  return adminGraphql(
+    ctx,
+    GATE_QUERY,
+    {
+      customerId: ownerId,
+      idem: idemQuery,
+      recent: `customer_id:${num} created_at:>='${since}'`,
+      recentDrafts: `customer_id:${num} status:open tag:app created_at:>='${since}'`,
+      recentFirst: config.maxOrdersPerHour + 1,
+      wantTerms: !config.paymentTermsTemplateId && !termsCache.id,
     },
+    { label: 'gate' },
+  );
+}
+
+async function readLock(ctx, ownerId) {
+  const data = await adminGraphql(ctx, LOCK_QUERY, { customerId: ownerId }, { label: 'lock' });
+  if (!data?.customer) throw new UpstreamError('The customer disappeared while ordering');
+  return parseLock(data.customer.lock);
+}
+
+const GID = /^gid:\/\/shopify\/[A-Za-z]+\/\d+$/;
+const str = (v, max = 200) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+/**
+ * {digest, lock} from the metafield node. A value this server did not write
+ * (or cannot read) counts as no lock, but its digest is kept so it can be
+ * replaced safely.
+ */
+export function parseLock(node) {
+  const digest = typeof node?.compareDigest === 'string' ? node.compareDigest : null;
+  let raw = null;
+  try {
+    raw = typeof node?.value === 'string' ? JSON.parse(node.value) : null;
+  } catch {
+    raw = null;
+  }
+  if (!raw || typeof raw !== 'object' || raw.v !== 1) return { digest, lock: null };
+  return { digest, lock: lockValue(raw) };
+}
+
+/** A clean lock value: only known fields, of the right types. */
+export function lockValue(x) {
+  return {
+    v: 1,
+    key: str(x.key, 36),
+    owner: str(x.owner, 36),
+    until: Number.isSafeInteger(x.until) ? x.until : 0,
+    draftId: GID.test(x.draftId ?? '') ? x.draftId : '',
+    orderId: GID.test(x.orderId ?? '') ? x.orderId : '',
+    orderName: str(x.orderName, 40),
+    totalFils: Number.isSafeInteger(x.totalFils) ? x.totalFils : 0,
+    promise: str(x.promise, 120),
+    recent: (Array.isArray(x.recent) ? x.recent : [])
+      .filter((r) => r && GID.test(r.id ?? '') && Number.isSafeInteger(r.t))
+      .map((r) => ({ id: r.id, t: r.t }))
+      .slice(-120),
   };
 }
+
+/** Another request is placing an order right now (a lock dated too far ahead is broken, not held). */
+function isHeld(lock, nowMs) {
+  return Boolean(lock && !lock.orderId && lock.until > nowMs && lock.until <= nowMs + LOCK_TTL_MS + 60_000);
+}
+
+function pruneRecent(recent, sinceMs) {
+  return (recent ?? []).filter((r) => r.t >= sinceMs);
+}
+
+function lockAfterOrder(base, { owner, draftId, order, promise, sinceMs, nowMs }) {
+  const recent = pruneRecent(base.recent, sinceMs).filter((r) => r.id !== order.id);
+  recent.push({ id: order.id, t: nowMs });
+  return lockValue({
+    key: base.key,
+    owner,
+    until: 0,
+    draftId,
+    orderId: order.id,
+    orderName: order.name,
+    totalFils: decimalToFils(order.totalPriceSet?.shopMoney?.amount) ?? 0,
+    promise,
+    recent,
+  });
+}
+
+function isDigestConflict(e) {
+  const path = Array.isArray(e?.field) ? e.field.join('.') : '';
+  return e?.code === 'STALE_OBJECT' || e?.code === 'INVALID_COMPARE_DIGEST' || /compareDigest/.test(path);
+}
+
+/**
+ * metafieldsSet with compare-and-set. {ok: false} when someone else changed
+ * the lock first; other refusals are a setup error (scope, type).
+ */
+async function writeLock(ctx, ownerId, value, digest, { late = false } = {}) {
+  const data = await adminGraphql(
+    ctx,
+    LOCK_SET_MUTATION,
+    { metafields: [{ ownerId, namespace: LOCK_NAMESPACE, key: LOCK_KEY, type: 'json', value: JSON.stringify(value), compareDigest: digest }] },
+    { mutation: true, label: 'lockSet', late },
+  );
+  const payload = data?.metafieldsSet;
+  const errors = payload?.userErrors ?? [];
+  if (errors.length) {
+    if (errors.some(isDigestConflict)) return { ok: false };
+    throw new ConfigError(`metafieldsSet refused the order lock: ${errors.map((e) => e?.code).filter(Boolean).join(',')} ${firstMessage(errors)}`.trim());
+  }
+  const next = payload?.metafields?.[0]?.compareDigest;
+  return { ok: true, digest: typeof next === 'string' ? next : null };
+}
+
+/**
+ * Changes the held lock. If the digest went stale, re-reads once and writes
+ * again only if the lock is still this request's (same owner).
+ */
+async function updateLock(ctx, ownerId, held, patch, logFields, { late = false } = {}) {
+  const value = lockValue({ ...held.value, ...patch });
+  let digest = held.digest;
+  for (let i = 0; i < 2; i++) {
+    const res = digest === null ? { ok: false } : await writeLock(ctx, ownerId, value, digest, { late });
+    if (res.ok) return { value, digest: res.digest };
+    const now = await readLock(ctx, ownerId);
+    if (now.lock?.owner !== held.value.owner) {
+      logFields.lockLost = true;
+      throw new UpstreamError('The order lock was taken over by another request');
+    }
+    digest = now.digest;
+  }
+  throw new UpstreamError('The order lock could not be updated');
+}
+
+/** Records the order in the lock and frees it. Best effort: the order exists either way. */
+async function finishLock(ctx, ownerId, held, value, logFields) {
+  try {
+    if (held?.value?.owner === value.owner) {
+      await updateLock(ctx, ownerId, held, value, logFields, { late: true });
+    } else {
+      // Not held (crash recovery): only if nobody changed the lock meanwhile.
+      const res = await writeLock(ctx, ownerId, value, held?.digest ?? null, { late: true });
+      if (!res.ok) logFields.lockWrite = 'skipped';
+    }
+  } catch (err) {
+    logFields.lockWrite = err instanceof Error ? err.name : 'error';
+  }
+}
+
+/** Frees the lock after a failed attempt, keeping key and draftId. Best effort. */
+async function releaseLock(ctx, ownerId, held, logFields) {
+  if (!held) return;
+  try {
+    await updateLock(ctx, ownerId, held, { until: 0 }, logFields, { late: true });
+  } catch (err) {
+    // It runs out by itself after LOCK_TTL_MS.
+    logFields.lockRelease = err instanceof Error ? err.name : 'error';
+  }
+}
+
+// ---- searches ---------------------------------------------------------------
 
 /** Finds an order or draft already made with this key. */
 export function findExisting(data, tag, customerId) {
@@ -273,16 +591,23 @@ export function findExisting(data, tag, customerId) {
   return out;
 }
 
-function countRecent(data, customerId, sinceMs) {
-  const times = [];
+/**
+ * Orders in the last hour: the lock's own list (always up to date) joined
+ * with what search finds (orders from elsewhere, open app drafts).
+ */
+export function countRecent(data, lock, customerId, sinceMs) {
+  const seen = new Map();
+  const add = (id, t) => {
+    if (typeof id === 'string' && Number.isFinite(t) && t >= sinceMs) seen.set(id, Math.min(t, seen.get(id) ?? t));
+  };
   for (const o of data?.recentOrders?.nodes ?? []) {
-    const t = Date.parse(o?.createdAt);
-    if (o?.customer?.id === customerId && t >= sinceMs) times.push(t);
+    if (o?.customer?.id === customerId) add(o.id, Date.parse(o.createdAt));
   }
+  for (const r of lock?.recent ?? []) add(r.id, r.t);
   for (const d of data?.recentDrafts?.nodes ?? []) {
-    const t = Date.parse(d?.createdAt);
-    if (d?.status === 'OPEN' && d?.customer?.id === customerId && Array.isArray(d.tags) && d.tags.includes('app') && t >= sinceMs) times.push(t);
+    if (d?.status === 'OPEN' && d?.customer?.id === customerId && Array.isArray(d.tags) && d.tags.includes('app')) add(d.id, Date.parse(d.createdAt));
   }
+  const times = [...seen.values()];
   return { count: times.length, oldestMs: times.length ? Math.min(...times) : 0 };
 }
 
@@ -310,6 +635,22 @@ function replay(order) {
     },
   };
 }
+
+function replayFromLock(lock) {
+  return {
+    status: 201,
+    headers: { 'Idempotent-Replayed': 'true' },
+    body: {
+      orderId: lock.orderId,
+      orderName: lock.orderName,
+      totalFils: lock.totalFils,
+      deliveryPromise: lock.promise,
+      paymentMethod: PAYMENT_METHOD,
+    },
+  };
+}
+
+// ---- the draft ----------------------------------------------------------------
 
 /** The DraftOrderInput for this order. */
 export function buildDraftInput({ customerId, email, input, quote, tag, promise, termsId }) {
@@ -355,28 +696,30 @@ export function buildDraftInput({ customerId, email, input, quote, tag, promise,
   };
 }
 
-async function createDraft(ctx, draftInput, customer) {
-  let res = await adminGraphql(ctx, CREATE_MUTATION, { input: draftInput }, { mutation: true, label: 'draftOrderCreate' });
-  let payload = res?.draftOrderCreate;
-  if (payload?.userErrors?.length && isCustomerError(payload.userErrors) && customer.email) {
-    // The Customer Account API id should be the Admin customer id; if Shopify
-    // disagrees, look the customer up by the verified email once.
-    const found = await adminGraphql(ctx, CUSTOMER_BY_EMAIL_QUERY, { email: customer.email }, { label: 'customerByIdentifier' });
-    const adminId = found?.customerByIdentifier?.id;
-    if (typeof adminId === 'string' && adminId !== customer.id) {
-      res = await adminGraphql(ctx, CREATE_MUTATION, { input: { ...draftInput, purchasingEntity: { customerId: adminId } } }, { mutation: true, label: 'draftOrderCreate' });
-      payload = res?.draftOrderCreate;
-    }
-  }
+async function createDraft(ctx, draftInput) {
+  const res = await adminGraphql(ctx, CREATE_MUTATION, { input: draftInput }, { mutation: true, label: 'draftOrderCreate' });
+  const payload = res?.draftOrderCreate;
   if (payload?.userErrors?.length) {
     if (isCustomerError(payload.userErrors)) {
-      throw new ConfigError(`draftOrderCreate rejected the customer: ${payload.userErrors[0].message}`);
+      throw new ConfigError(`draftOrderCreate rejected the customer: ${firstMessage(payload.userErrors)}`);
     }
+    // Address and line errors are about what this customer typed: shown to them.
     throw validationError(payload.userErrors.map(mapUserError));
   }
   const id = payload?.draftOrder?.id;
   if (typeof id !== 'string') throw new UpstreamError('draftOrderCreate returned no draft');
   return id;
+}
+
+async function adminCustomerByEmail(ctx, email) {
+  const found = await adminGraphql(ctx, CUSTOMER_BY_EMAIL_QUERY, { email }, { label: 'customerByIdentifier' });
+  const id = found?.customerByIdentifier?.id;
+  return typeof id === 'string' && /^gid:\/\/shopify\/Customer\/\d+$/.test(id) ? id : '';
+}
+
+function rememberAdminId(accountId, adminId) {
+  if (adminIdCache.size >= 1000) adminIdCache.delete(adminIdCache.keys().next().value);
+  adminIdCache.set(accountId, adminId);
 }
 
 function isCustomerError(errors) {
@@ -421,23 +764,31 @@ function sameLines(state, quote) {
 }
 
 /**
- * Polls `ready` and settles a race between two requests with the same key:
- * the draft with the lowest id wins; the other deletes itself and reports
- * the winner's order once it exists.
+ * Polls `ready`. The lock means no other request is working on this key, so
+ * other drafts with this key are leftovers of earlier attempts: an open one
+ * is deleted; a completed one means the order already exists, and this
+ * draft is deleted instead.
  */
 async function waitReady(ctx, { draftId, tag, idemQuery, lineFirst, customerId, logFields }) {
+  const cleared = new Set();
   for (let attempt = 0; attempt < 8; attempt++) {
     const state = await draftState(ctx, draftId, idemQuery, lineFirst);
     if (!state) throw new UpstreamError('Draft order disappeared before completion');
-    const rivals = state.siblings
-      .filter((d) => d?.id !== draftId && Array.isArray(d?.tags) && d.tags.includes(tag) && d.customer?.id === customerId)
-      .filter((d) => d.status === 'COMPLETED' || (d.status === 'OPEN' && byNumericId(d, { id: draftId }) < 0));
-    if (rivals.length) {
+    const others = state.siblings.filter((d) => d?.id !== draftId && Array.isArray(d?.tags) && d.tags.includes(tag) && d.customer?.id === customerId);
+    const done = others.find((d) => d.status === 'COMPLETED');
+    if (done) {
       logFields.duplicate = true;
       await deleteDraft(ctx, draftId);
-      const winner = await waitForWinner(ctx, rivals.sort(byNumericId)[0].id);
-      if (winner) return { replay: replay(winner) };
-      throw new UpstreamError('A duplicate request for this order is still running');
+      const order = await completedOrder(ctx, done.id);
+      if (order) return { other: order };
+      throw new UpstreamError('An earlier draft for this order could not be read');
+    }
+    for (const d of others) {
+      if (d.status === 'OPEN' && !cleared.has(d.id)) {
+        cleared.add(d.id);
+        logFields.leftovers = cleared.size;
+        await deleteDraft(ctx, d.id);
+      }
     }
     if (state.status === 'COMPLETED' && state.order?.id) return { completed: state.order };
     if (state.ready) return { draft: state };
@@ -446,15 +797,11 @@ async function waitReady(ctx, { draftId, tag, idemQuery, lineFirst, customerId, 
   throw new UpstreamError('The draft order did not become ready in time');
 }
 
-async function waitForWinner(ctx, id) {
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const data = await adminGraphql(ctx, WINNER_QUERY, { id }, { label: 'draftWinner' });
-    const d = data?.draftOrder;
-    if (d?.status === 'COMPLETED' && d.order?.id) {
-      return { ...d.order, customAttributes: d.order.customAttributes ?? d.customAttributes };
-    }
-    if (!d) return null;
-    if (!(await pause(ctx, 500))) break;
+async function completedOrder(ctx, id) {
+  const data = await adminGraphql(ctx, WINNER_QUERY, { id }, { label: 'draftWinner' });
+  const d = data?.draftOrder;
+  if (d?.status === 'COMPLETED' && d.order?.id) {
+    return { ...d.order, customAttributes: d.order.customAttributes ?? d.customAttributes };
   }
   return null;
 }
@@ -486,28 +833,45 @@ export function compareDraft(draft, quote) {
   return problems.length ? problems : null;
 }
 
-async function completeDraft(ctx, id) {
+async function completeDraft(ctx, id, logFields) {
   const data = await adminGraphql(ctx, COMPLETE_MUTATION, { id }, { mutation: true, label: 'draftOrderComplete' });
   const payload = data?.draftOrderComplete;
   const order = payload?.draftOrder?.order;
   if (order?.id) return order;
   if (payload?.userErrors?.length) {
-    // Already completed by a parallel retry?
+    // Already completed (an earlier attempt's request may have gone through)?
     const check = await adminGraphql(ctx, WINNER_QUERY, { id }, { label: 'draftWinner' });
     if (check?.draftOrder?.status === 'COMPLETED' && check.draftOrder.order?.id) return check.draftOrder.order;
     await deleteDraft(ctx, id);
-    const detail = String(payload.userErrors[0]?.message ?? '').slice(0, 200);
-    throw new ApiError(422, 'invalid', 'We could not place the order. Please check your basket and try again.', { field: 'order', detail, errors: [{ field: 'order', message: detail }] });
+    logFields.completeError = true;
+    // Shopify's own text goes to the log only (scrubbed there).
+    throw new ApiError(
+      422,
+      'invalid',
+      'We could not place the order. Please check your basket and try again.',
+      { field: 'order', errors: [{ field: 'order', message: 'We could not place the order. Please check your basket and try again.' }] },
+      {},
+      `draftOrderComplete: ${firstMessage(payload.userErrors)}`,
+    );
   }
   throw new UpstreamError('draftOrderComplete returned no order');
 }
 
 async function deleteDraft(ctx, id) {
   try {
-    await adminGraphql(ctx, DELETE_MUTATION, { input: { id } }, { mutation: true, label: 'draftOrderDelete' });
+    await adminGraphql(ctx, DELETE_MUTATION, { input: { id } }, { mutation: true, label: 'draftOrderDelete', late: true });
   } catch (err) {
     // Best effort: an orphan draft is harmless (never charged, auto-deleted after a year of inactivity).
     ctx.log?.({ event: 'draft_delete_failed', draft: numericId(id), reason: err instanceof Error ? err.name : 'error' });
+  }
+}
+
+async function addTags(ctx, id, tags, logFields) {
+  try {
+    const data = await adminGraphql(ctx, TAGS_ADD_MUTATION, { id, tags }, { mutation: true, label: 'tagsAdd', late: true });
+    if (data?.tagsAdd?.userErrors?.length) logFields.tagsAdd = 'refused';
+  } catch (err) {
+    logFields.tagsAdd = err instanceof Error ? err.name : 'error';
   }
 }
 

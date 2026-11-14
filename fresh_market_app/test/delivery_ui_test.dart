@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fresh_market_app/services/order_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:fresh_market_app/app.dart';
@@ -974,23 +975,25 @@ void main() {
       expect(find.textContaining("isn't on Express"), findsNothing);
     });
 
-    testWidgets('checkout in Express mode sends the Express attributes', (
-      tester,
-    ) async {
+    test('checkout in Express mode asks the order server for Express', () {
       final store = testDelivery(mode: DeliveryMode.express);
-      final cart = CartStore()..add(kiwi, kiwi.variants[0]);
-      final url = cart.checkoutUrlWith(store.cartAttributes!)!;
-      expect(url.queryParameters, {
-        'attributes[Delivery mode]': 'Express',
-        'attributes[Delivery area]': 'Business Bay, Dubai',
-        'attributes[Delivery promise]': '30–40 min',
-        'attributes[Delivery pin]': '25.18500,55.26500',
+      final request = DeliveryRequest(
+        mode: store.mode,
+        area: store.area!,
+        promise: store.express!.range,
+        pin: store.area!.pin,
+      ).toJson();
+      expect(request, {
+        'mode': 'express',
+        'area': {
+          'name': 'Business Bay',
+          'emirate': 'dubai',
+          'lat': 25.185,
+          'lng': 55.265,
+        },
+        'promise': '30–40 min',
+        'pin': '25.18500,55.26500',
       });
-      expect(url.path, '/cart/${kiwi.variants[0].id}:1');
-      expect(
-        url.toString(),
-        contains('attributes%5BDelivery%20promise%5D=30%E2%80%9340%20min'),
-      );
     });
 
     testWidgets('checkout without an area asks for one first', (tester) async {
@@ -999,7 +1002,12 @@ void main() {
       await pumpScreen(tester, const CartScreen(), cart: cart, delivery: store);
       expect(card('Set location'), findsOneWidget);
 
-      await tester.tap(find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)));
+      await tester.tap(
+        find.ancestor(
+          of: find.textContaining('Checkout · '),
+          matching: find.byType(FilledButton),
+        ),
+      );
       await tester.pump();
       await tester.pump(_settle);
       expect(find.byType(LocationScreen), findsOneWidget);

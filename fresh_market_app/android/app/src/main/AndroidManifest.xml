@@ -14,11 +14,13 @@
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         tools:targetApi="31">
+        <!-- No android:taskAffinity="" here: with it, Android does not bring
+             the app back after the sign-in Custom Tab returns
+             (flutter_appauth's troubleshooting notes). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -52,10 +54,15 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-        <!-- Lets url_launcher open the checkout in the device browser (WebView fallback). -->
+        <!-- Lets the sign-in (AppAuth) find a browser for its Custom Tab, and
+             "Help & contact" open the store's contact page. -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
             <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService"/>
         </intent>
         <!-- Lets the assistant's "Call" and "Email us" buttons open the
              phone and email apps on Android 11+. -->

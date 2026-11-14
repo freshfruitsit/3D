@@ -73,7 +73,7 @@ class CartLine {
   final String? size;
 
   /// False once the store says this variant is sold out (it is still
-  /// listed). Such a line is left out of the subtotal and of checkout.
+  /// listed). Such a line is left out of the subtotal and of the order.
   final bool available;
   final int quantity;
 
@@ -93,63 +93,71 @@ class CartLine {
   /// "500 g · \u20C3 4.75 each", "\u20C3 300.00 each" (the Dirham sign, see
   /// formatMoney). At one unit the line total already says the price.
   String get detailLine => [
-        ?sizeLabel,
-        if (quantity > 1) '${formatMoney(priceCents)} each',
-      ].join(' · ');
+    ?sizeLabel,
+    if (quantity > 1) '${formatMoney(priceCents)} each',
+  ].join(' · ');
 
   /// What screen readers hear for [detailLine] ("500 g, AED 4.75 each").
   String get detailSemantics => [
-        ?sizeLabel,
-        if (quantity > 1) '${moneySemantics(priceCents)} each',
-      ].join(', ');
+    ?sizeLabel,
+    if (quantity > 1) '${moneySemantics(priceCents)} each',
+  ].join(', ');
 
-  CartLine withQuantity(int quantity) => CartLine(
-        variantId: variantId,
-        productId: productId,
-        handle: handle,
-        title: title,
-        variantTitle: variantTitle,
-        priceCents: priceCents,
-        compareAtCents: compareAtCents,
-        imageUrl: imageUrl,
-        origin: origin,
-        express: express,
-        size: size,
-        available: available,
-        quantity: quantity,
-      );
+  CartLine withQuantity(int quantity) => copyWith(quantity: quantity);
+
+  CartLine copyWith({int? quantity, int? priceCents, bool? available}) {
+    final price = priceCents ?? this.priceCents;
+    return CartLine(
+      variantId: variantId,
+      productId: productId,
+      handle: handle,
+      title: title,
+      variantTitle: variantTitle,
+      priceCents: price,
+      // Still on sale only while the old price is above the new one.
+      compareAtCents: compareAtCents != null && compareAtCents! > price
+          ? compareAtCents
+          : null,
+      imageUrl: imageUrl,
+      origin: origin,
+      express: express,
+      size: size,
+      available: available ?? this.available,
+      quantity: quantity ?? this.quantity,
+    );
+  }
 
   factory CartLine.fromJson(Map<String, dynamic> json) => CartLine(
-        variantId: (json['variantId'] as num).toInt(),
-        productId: (json['productId'] as num?)?.toInt() ?? 0,
-        handle: (json['handle'] as String?) ?? '',
-        title: (json['title'] as String?) ?? '',
-        variantTitle: json['variantTitle'] as String?,
-        priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
-        compareAtCents: (json['compareAtCents'] as num?)?.toInt(),
-        imageUrl: json['imageUrl'] as String?,
-        origin: json['origin'] as String?,
-        express: json['express'] as bool?,
-        size: json['size'] as String?,
-        available: json['available'] as bool? ?? true,
-        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      );
+    variantId: (json['variantId'] as num).toInt(),
+    productId: (json['productId'] as num?)?.toInt() ?? 0,
+    handle: (json['handle'] as String?) ?? '',
+    title: (json['title'] as String?) ?? '',
+    variantTitle: json['variantTitle'] as String?,
+    priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
+    compareAtCents: (json['compareAtCents'] as num?)?.toInt(),
+    imageUrl: json['imageUrl'] as String?,
+    origin: json['origin'] as String?,
+    express: json['express'] as bool?,
+    size: json['size'] as String?,
+    available: json['available'] as bool? ?? true,
+    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+  );
 
   Map<String, dynamic> toJson() => {
-        'variantId': variantId,
-        'productId': productId,
-        'handle': handle,
-        'title': title,
-        'variantTitle': variantTitle,
-        'priceCents': priceCents,
-        'compareAtCents': compareAtCents,
-        'imageUrl': imageUrl,
-        'origin': origin,
-        'express': express,
-        'size': size,
-        'available': available,
-        'quantity': quantity,
-      };
+    'variantId': variantId,
+    'productId': productId,
+    'handle': handle,
+    'title': title,
+    'variantTitle': variantTitle,
+    'priceCents': priceCents,
+    'compareAtCents': compareAtCents,
+    'imageUrl': imageUrl,
+    'origin': origin,
+    'express': express,
+    'size': size,
+    'available': available,
+    'quantity': quantity,
+  };
 }
 
 /// The shopping cart: lines keyed by variant id, kept on the device.
@@ -161,7 +169,6 @@ class CartStore extends ChangeNotifier {
   }
 
   static const String prefsKey = 'cart_v1';
-  static const String storeHost = 'testtfm.myshopify.com';
 
   /// The most of one variant a cart line can hold.
   static const int maxQuantity = 99;
@@ -262,11 +269,31 @@ class CartStore extends ChangeNotifier {
     _changed();
   }
 
+  /// The store has sold [variantId] out since it was added (the order
+  /// server said so): the line stays listed, marked sold out, and is left
+  /// out of the subtotal and the order.
+  void markSoldOut(int variantId) {
+    final line = _lines[variantId];
+    if (line == null || !line.available) return;
+    _lines[variantId] = line.copyWith(available: false);
+    _changed();
+  }
+
+  /// The store's price for [variantId] now (the order server's quote).
+  void updatePrice(int variantId, int priceCents) {
+    final line = _lines[variantId];
+    if (line == null || priceCents < 0 || line.priceCents == priceCents) {
+      return;
+    }
+    _lines[variantId] = line.copyWith(priceCents: priceCents);
+    _changed();
+  }
+
   /// Checks every line against the store: a line whose product or variant
-  /// no longer exists is removed (Shopify refuses a checkout containing
-  /// one), the others get today's name, price, photo and availability (a
-  /// sold-out variant stays listed, marked [CartLine.available] false, and
-  /// is left out of the subtotal and of checkout). A product that cannot
+  /// no longer exists is removed (the store cannot sell it), the others
+  /// get today's name, price, photo and availability (a sold-out variant
+  /// stays listed, marked [CartLine.available] false, and is left out of
+  /// the subtotal and of the order). A product that cannot
   /// be loaded right now (offline) is left as it is.
   ///
   /// Returns how many lines were removed.
@@ -279,15 +306,17 @@ class CartStore extends ChangeNotifier {
 
     // handle -> fresh product, or null when the store no longer has it.
     final fresh = <String, Product?>{};
-    await Future.wait(handles.map((handle) async {
-      try {
-        fresh[handle] = await api.product(handle, refresh: true);
-      } on HttpStatusException catch (e) {
-        if (e.isNotFound) fresh[handle] = null;
-      } on ApiException {
-        // Unknown for now; keep the line.
-      }
-    }));
+    await Future.wait(
+      handles.map((handle) async {
+        try {
+          fresh[handle] = await api.product(handle, refresh: true);
+        } on HttpStatusException catch (e) {
+          if (e.isNotFound) fresh[handle] = null;
+        } on ApiException {
+          // Unknown for now; keep the line.
+        }
+      }),
+    );
 
     var removed = 0;
     var changed = false;
@@ -313,26 +342,6 @@ class CartStore extends ChangeNotifier {
     return removed;
   }
 
-  /// The Shopify cart permalink that opens checkout with this cart, or
-  /// null when the cart is empty.
-  Uri? get checkoutUrl => checkoutUrlWith(const {});
-
-  /// [checkoutUrl] carrying the order's cart [attributes] (the website's
-  /// "Delivery mode", "Delivery area", ...) and the checkout fields to
-  /// fill in ([prefill], see `CheckoutPrefill.params`).
-  /// Sold-out lines are left out.
-  Uri? checkoutUrlWith(
-    Map<String, String> attributes, {
-    Map<String, String> prefill = const {},
-  }) => buildCheckoutUrl(
-        {
-          for (final line in _lines.values)
-            if (line.available) line.variantId: line.quantity,
-        },
-        attributes: attributes,
-        prefill: prefill,
-      );
-
   /// Units of Express items ([CartLine.express]) and of the others; a line
   /// not checked yet counts as neither.
   ({int express, int other}) get expressSplit {
@@ -343,39 +352,6 @@ class CartStore extends ChangeNotifier {
       if (line.express == false) other += line.quantity;
     }
     return (express: express, other: other);
-  }
-
-  /// `https://testtfm.myshopify.com/cart/{variantId}:{qty},{variantId}:{qty}`,
-  /// followed by `?attributes[Name]=value&...` for each of [attributes]
-  /// (percent-encoded; Shopify cart permalinks copy them onto the cart),
-  /// then `&key=value` for each of [prefill] (checkout fields such as
-  /// `checkout[email]`, percent-encoded the same way; empty values are
-  /// left out).
-  /// Entries with a quantity of 0 or less are left out; null when nothing
-  /// remains.
-  static Uri? buildCheckoutUrl(
-    Map<int, int> quantitiesByVariantId, {
-    Map<String, String> attributes = const {},
-    Map<String, String> prefill = const {},
-  }) {
-    final parts = [
-      for (final entry in quantitiesByVariantId.entries)
-        if (entry.value > 0) '${entry.key}:${entry.value}',
-    ];
-    if (parts.isEmpty) return null;
-    final query = [
-      for (final entry in attributes.entries)
-        '${Uri.encodeComponent('attributes[${entry.key}]')}='
-            '${Uri.encodeComponent(entry.value)}',
-      for (final entry in prefill.entries)
-        if (entry.value.trim().isNotEmpty)
-          '${Uri.encodeComponent(entry.key)}='
-              '${Uri.encodeComponent(entry.value)}',
-    ].join('&');
-    return Uri.parse(
-      'https://$storeHost/cart/${parts.join(',')}'
-      '${query.isEmpty ? '' : '?$query'}',
-    );
   }
 
   void _changed() {

@@ -3,7 +3,7 @@
 // or personal data.
 
 import { randomUUID } from 'node:crypto';
-import { ApiError, toApiError, UpstreamError, ConfigError } from './errors.js';
+import { ApiError, toApiError, UpstreamError, ConfigError, scrubContacts } from './errors.js';
 
 export const MAX_BODY_BYTES = 64 * 1024;
 
@@ -24,8 +24,12 @@ export function json(status, body, headers = {}) {
   });
 }
 
+const tooLarge = () => new ApiError(413, 'too_large', 'The request is too large.', { field: 'body' });
+
 /**
- * Reads a JSON body of at most MAX_BODY_BYTES.
+ * Reads a JSON body of at most MAX_BODY_BYTES. The body is read chunk by
+ * chunk and reading stops as soon as the limit is passed, also when no
+ * Content-Length was sent (chunked upload).
  * @param {Request} request
  */
 export async function readJson(request) {
@@ -34,13 +38,8 @@ export async function readJson(request) {
     throw new ApiError(415, 'unsupported_media_type', 'Send the body as application/json.', { field: 'body' });
   }
   const declared = Number(request.headers.get('content-length') ?? '0');
-  if (declared > MAX_BODY_BYTES) {
-    throw new ApiError(413, 'too_large', 'The request is too large.', { field: 'body' });
-  }
-  const raw = await request.text();
-  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
-    throw new ApiError(413, 'too_large', 'The request is too large.', { field: 'body' });
-  }
+  if (declared > MAX_BODY_BYTES) throw tooLarge();
+  const raw = await readCapped(request, MAX_BODY_BYTES);
   try {
     return JSON.parse(raw);
   } catch {
@@ -48,13 +47,35 @@ export async function readJson(request) {
   }
 }
 
+/** @param {Request} request @param {number} max */
+async function readCapped(request, max) {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      reader.cancel().catch(() => {});
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder('utf-8').decode(Buffer.concat(chunks));
+}
+
 /**
  * One structured log line. Callers pass only ids, counts, codes and
- * timings: no tokens, names, emails, phones or addresses.
+ * timings: no tokens, names, emails, phones or addresses. A line with an
+ * `alert` (something staff must look at) is written at error level.
  * @param {Record<string, unknown>} fields
  */
 export function log(fields) {
-  console.log(JSON.stringify({ t: new Date().toISOString(), ...fields }));
+  const line = JSON.stringify({ t: new Date().toISOString(), ...fields });
+  if (fields.alert) console.error(line);
+  else console.log(line);
 }
 
 /**
@@ -79,8 +100,12 @@ export function route(route, methods, handler, { log: write = log } = {}) {
         const apiError = toApiError(err);
         if (!(err instanceof ApiError)) {
           logFields.failure = err instanceof UpstreamError || err instanceof ConfigError ? err.name : 'Unexpected';
-          // Internal messages are written by this server and hold no secrets.
-          logFields.detail = err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 200);
+          // Internal messages hold no secrets. Shopify's text inside them is
+          // already scrubbed (firstMessage); contact details are taken out
+          // once more here in case any slipped through.
+          logFields.detail = scrubContacts(err instanceof Error ? err.message : String(err)).slice(0, 500);
+        } else if (err.logDetail) {
+          logFields.detail = scrubContacts(err.logDetail).slice(0, 500);
         }
         response = json(apiError.status, { ...apiError.toBody(), requestId }, apiError.headers);
       }

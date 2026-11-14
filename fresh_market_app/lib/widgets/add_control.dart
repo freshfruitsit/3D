@@ -240,8 +240,9 @@ class _AddControlState extends State<AddControl> {
     final v = widget.variant ?? product.defaultVariant;
     if (v == null || !v.available) return const SoldOutLabel();
 
-    final quantity =
-        context.select<CartStore, int>((cart) => cart.quantityOf(v.id));
+    final quantity = context.select<CartStore, int>(
+      (cart) => cart.quantityOf(v.id),
+    );
     final cart = context.read<CartStore>();
 
     if (quantity > 0) {

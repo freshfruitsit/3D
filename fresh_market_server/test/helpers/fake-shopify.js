@@ -2,6 +2,13 @@
 // makes: the client credentials token endpoint, Customer Account API
 // discovery and `customer` query, and the Admin GraphQL operations by name.
 // No network is used.
+//
+// Like the real one, its search can lag (`searchLagMs`: drafts and orders
+// newer than that are not found by a `query:` search yet), while reads by
+// id and the customer's metafield are always current, and metafieldsSet
+// honours compareDigest.
+
+import { createHash } from 'node:crypto';
 
 export const STORE = 'testtfm.myshopify.com';
 export const CUSTOMER_API = 'https://shopify.com/79173124173/account/customer/api/2026-10/graphql';
@@ -26,7 +33,7 @@ export function uae(hour, minute = 0) {
   return Date.UTC(2026, 10, 14, hour - 4, minute);
 }
 
-export function variant(id, { price, title = 'Default Title', product = `Product ${id}`, tags = [], available = true, tracked = false, policy = 'DENY', qty = 100, status = 'ACTIVE' } = {}) {
+export function variant(id, { price, title = 'Default Title', product = `Product ${id}`, tags = [], available = true, tracked = false, policy = 'DENY', qty = 100, status = 'ACTIVE', listed = true, published = true, giftCard = false, sellingPlan = false } = {}) {
   return {
     id: `gid://shopify/ProductVariant/${id}`,
     title,
@@ -35,7 +42,17 @@ export function variant(id, { price, title = 'Default Title', product = `Product
     inventoryPolicy: policy,
     inventoryQuantity: qty,
     inventoryItem: { tracked },
-    product: { title: product, status, tags },
+    product: {
+      title: product,
+      status,
+      tags,
+      // null when not published to the Online Store (Product.onlineStoreUrl).
+      onlineStoreUrl: listed ? `https://${STORE}/products/p${id}` : null,
+      isGiftCard: giftCard,
+      requiresSellingPlan: sellingPlan,
+      // Only selected when SHOPIFY_PUBLICATION_ID is set.
+      publishedOnPublication: published,
+    },
   };
 }
 
@@ -79,6 +96,13 @@ export function fakeShopify({ now = () => NOON_ISH } = {}) {
     /** opName -> queue of functions returning a Response to send instead */
     overrides: new Map(),
     calls: [],
+    /** ms: drafts and orders younger than this are not found by search yet */
+    searchLagMs: 0,
+    /** customer gid -> {value, compareDigest}: the $app:checkout metafield */
+    locks: new Map(),
+    lockWrites: 0,
+    /** null: every customer id exists in Admin; else only these */
+    adminCustomers: null,
     tokenRequests: 0,
     discoveryRequests: 0,
     customerRequests: 0,
@@ -91,7 +115,17 @@ export function fakeShopify({ now = () => NOON_ISH } = {}) {
   };
   s.ops = (name) => s.calls.filter((c) => c.op === name);
 
-  const cost = { requestedQueryCost: 50, actualQueryCost: 20, throttleStatus: { maximumAvailable: 2000, currentlyAvailable: 1950, restoreRate: 100 } };
+  s.cost = { requestedQueryCost: 50, actualQueryCost: 20, throttleStatus: { maximumAvailable: 2000, currentlyAvailable: 1950, restoreRate: 100 } };
+  /** The lock as the server wrote it (parsed), or null. */
+  s.lockOf = (customerId) => {
+    const m = s.locks.get(customerId);
+    return m ? JSON.parse(m.value) : null;
+  };
+  const adminHas = (customerId) => !s.adminCustomers || s.adminCustomers.has(customerId);
+  const lockNode = (customerId) => {
+    const m = s.locks.get(customerId);
+    return m ? { value: m.value, compareDigest: m.compareDigest } : null;
+  };
 
   function tagOf(query) {
     const m = /tag:"([^"]+)"/.exec(query ?? '');
@@ -99,6 +133,8 @@ export function fakeShopify({ now = () => NOON_ISH } = {}) {
   }
 
   function search(list, query) {
+    const visibleBefore = now() - s.searchLagMs;
+    list = list.filter((x) => Date.parse(x.createdAt) <= visibleBefore);
     const tag = tagOf(query);
     const cust = /customer_id:(\d+)/.exec(query ?? '');
     const since = /created_at:>='([^']+)'/.exec(query ?? '');
@@ -143,20 +179,44 @@ export function fakeShopify({ now = () => NOON_ISH } = {}) {
     switch (op) {
       case 'FreshMarketVariants':
         return { shop: { currencyCode: 'AED' }, nodes: variables.ids.map((id) => s.variants.get(id) ?? null) };
-      case 'FreshMarketPrepare':
+      case 'FreshMarketGate':
         return {
-          shop: { currencyCode: 'AED' },
-          nodes: variables.ids.map((id) => s.variants.get(id) ?? null),
+          customer: adminHas(variables.customerId) ? { id: variables.customerId, lock: lockNode(variables.customerId) } : null,
           idemDrafts: { nodes: search(s.drafts, variables.idem).slice(0, 5).map(draftView) },
           idemOrders: { nodes: search(s.orders, variables.idem).slice(0, 3).map(orderView) },
           recentOrders: { nodes: search(s.orders, variables.recent).reverse().slice(0, variables.recentFirst).map(orderView) },
           recentDrafts: { nodes: search(s.drafts, variables.recentDrafts).reverse().slice(0, variables.recentFirst).map(draftView) },
           ...(variables.wantTerms ? { paymentTermsTemplates: s.termsTemplates } : {}),
         };
+      case 'FreshMarketLock':
+        return { customer: adminHas(variables.customerId) ? { id: variables.customerId, lock: lockNode(variables.customerId) } : null };
+      case 'FreshMarketLockSet': {
+        const out = [];
+        for (const [i, mf] of variables.metafields.entries()) {
+          if (mf.namespace !== '$app' || mf.key !== 'checkout' || mf.type !== 'json') throw new Error(`fake Shopify: unexpected metafield ${mf.namespace}.${mf.key} ${mf.type}`);
+          JSON.parse(mf.value);
+          const current = s.locks.get(mf.ownerId);
+          if ('compareDigest' in mf && (mf.compareDigest === null ? current : current?.compareDigest !== mf.compareDigest)) {
+            return { metafieldsSet: { metafields: [], userErrors: [{ field: ['metafields', String(i), 'compareDigest'], message: 'The metafield has been modified since it was loaded.', code: 'STALE_OBJECT' }] } };
+          }
+          if (s.lockUserErrors) return { metafieldsSet: { metafields: [], userErrors: s.lockUserErrors } };
+          s.lockWrites++;
+          const compareDigest = createHash('sha256').update(`${s.lockWrites}:${mf.value}`).digest('hex');
+          s.locks.set(mf.ownerId, { value: mf.value, compareDigest });
+          out.push({ key: mf.key, namespace: 'app--1234', compareDigest });
+        }
+        return { metafieldsSet: { metafields: out, userErrors: [] } };
+      }
+      case 'FreshMarketTagsAdd': {
+        const o = s.orders.find((x) => x.id === variables.id);
+        if (!o) return { tagsAdd: { node: null, userErrors: [{ field: ['id'], message: 'Resource not found' }] } };
+        for (const tag of variables.tags) if (!o.tags.includes(tag)) o.tags.push(tag);
+        return { tagsAdd: { node: { id: o.id }, userErrors: [] } };
+      }
       case 'FreshMarketDraftCreate': {
         const input = variables.input;
         const customerId = input.purchasingEntity?.customerId;
-        if (!/^gid:\/\/shopify\/Customer\/\d+$/.test(customerId ?? '')) {
+        if (!/^gid:\/\/shopify\/Customer\/\d+$/.test(customerId ?? '') || !adminHas(customerId)) {
           return { draftOrderCreate: { draftOrder: null, userErrors: [{ field: ['input', 'purchasingEntity', 'customerId'], message: 'Customer does not exist' }] } };
         }
         if (s.createUserErrors) {
@@ -206,7 +266,7 @@ export function fakeShopify({ now = () => NOON_ISH } = {}) {
           customer: d.customer,
           customAttributes: d.input.customAttributes,
           totalFils: d.totalFils,
-          displayFinancialStatus: d.input.paymentTerms ? 'PENDING' : 'PAID',
+          displayFinancialStatus: s.financialStatus ?? (d.input.paymentTerms ? 'PENDING' : 'PAID'),
           createdAt: new Date(now()).toISOString(),
         };
         s.orders.push(o);
@@ -262,13 +322,15 @@ export function fakeShopify({ now = () => NOON_ISH } = {}) {
         return json(401, { errors: '[API] Invalid API key or access token (unrecognized login or wrong password)' });
       }
       const ov = s.overrides.get(op)?.shift();
-      if (ov) return ov();
-      return json(200, { data: admin(op, body.variables), extensions: { cost } });
+      if (ov) return ov(body.variables);
+      return json(200, { data: admin(op, body.variables), extensions: { cost: s.cost } });
     }
     throw new Error(`fake Shopify: unexpected request to ${url}`);
   }
 
   s.fetch = fetch;
+  /** Runs an Admin operation as the fake would (for overrides that add side effects). */
+  s.admin = (op, variables) => json(200, { data: admin(op, variables), extensions: { cost: s.cost } });
   return s;
 }
 

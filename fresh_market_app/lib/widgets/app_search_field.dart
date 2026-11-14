@@ -78,7 +78,10 @@ class _AppSearchFieldState extends State<AppSearchField> {
         enabledBorder: _border,
         focusedBorder: _focusedBorder,
         prefixIcon: const Icon(Icons.search, color: AppColors.ink, size: 22),
-        prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 44),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 46,
+          minHeight: 44,
+        ),
         suffixIcon: hasText
             ? IconButton(
                 tooltip: 'Clear search',

@@ -24,6 +24,7 @@ export const DEFAULT_API_VERSION = '2026-10';
  * @property {number} maxOrdersPerHour
  * @property {string} customerApiUrl     override for the discovered endpoint ('' = discover)
  * @property {string} paymentTermsTemplateId override ('' = look it up)
+ * @property {string} publicationId      sales channel publication products must be on ('' = the Online Store)
  */
 
 /**
@@ -71,6 +72,9 @@ export function loadConfig(env = process.env) {
     bad.push('SHOPIFY_PAYMENT_TERMS_TEMPLATE_ID');
   }
 
+  const publicationId = str('SHOPIFY_PUBLICATION_ID');
+  if (publicationId && !/^gid:\/\/shopify\/Publication\/\d+$/.test(publicationId)) bad.push('SHOPIFY_PUBLICATION_ID');
+
   const config = {
     storeDomain,
     apiVersion,
@@ -87,6 +91,7 @@ export function loadConfig(env = process.env) {
     maxOrdersPerHour: int('MAX_ORDERS_PER_HOUR', 5, 1, 100),
     customerApiUrl,
     paymentTermsTemplateId,
+    publicationId,
   };
 
   if (bad.length) {

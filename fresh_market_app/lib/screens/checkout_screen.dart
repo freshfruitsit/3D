@@ -1,721 +1,1112 @@
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../app.dart';
 import '../app_nav.dart';
-import '../services/checkout_log.dart';
-import '../services/customer_account.dart';
-import '../services/intent_link.dart';
-import '../services/shopify_web.dart';
+import '../config/store_config.dart';
+import '../delivery/delivery.dart';
+import '../models/money.dart';
+import '../models/order.dart';
+import '../models/product.dart';
+import '../profile/customer_details.dart';
+import '../services/customer_auth.dart';
+import '../services/order_api.dart';
 import '../state/account_session.dart';
 import '../state/cart_store.dart';
+import '../state/profile_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/a11y.dart';
+import '../widgets/circle_icon_button.dart';
+import '../widgets/deliver_to.dart';
+import '../widgets/details_fields.dart';
+import '../widgets/price_widgets.dart';
+import '../widgets/product_image.dart';
+import 'order_placed_screen.dart';
 
-/// True for Shopify's order confirmation ("thank you") and order status
-/// pages: the order has been placed.
-bool isOrderConfirmationUrl(String url) {
-  final uri = Uri.tryParse(url);
-  if (uri == null || !_isShopifyHost(uri.host)) return false;
-  final path = uri.path.toLowerCase();
-  // Looking at an earlier order in the customer account is not a new order.
-  if (path.startsWith('/account')) return false;
-  return path.contains('/thank_you') ||
-      path.contains('/thank-you') ||
-      _orderPath.hasMatch(path);
-}
-
-final RegExp _orderPath = RegExp(r'/orders/[^/]+');
-
-bool _isShopifyHost(String host) =>
-    host == CartStore.storeHost ||
-    host.endsWith('.myshopify.com') ||
-    host.endsWith('.shopify.com') ||
-    host == 'shop.app';
-
-/// True for the web storefront pages that the checkout page links to (the
-/// store logo, "return to cart", product links). The app has its own
-/// screens for those, so checkout closes instead of showing the website.
-bool leavesCheckoutUrl(String url) => ShopifyWeb.isStorefrontPage(url);
-
-/// The host of a web page outside Shopify's checkout ("www.paypal.com", a
-/// bank's page), or null for checkout's own pages and for anything that
-/// is not a web page. A payment page can replace checkout in the WebView
-/// (Android loads a window the page opens in the WebView itself), so a
-/// way to continue in the browser is offered there.
-String? offCheckoutHost(String? url) {
-  final uri = url == null ? null : Uri.tryParse(url);
-  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
-    return null;
-  }
-  final host = uri.host.toLowerCase();
-  if (host.isEmpty ||
-      host == CartStore.storeHost ||
-      host.endsWith('.myshopify.com') ||
-      host == 'shopify.com' ||
-      host.endsWith('.shopify.com')) {
-    return null;
-  }
-  return host;
-}
-
-/// Shopify checkout for the cart, shown inside the app. Where a WebView
-/// cannot be used the checkout opens in the device browser instead.
+/// The app's own checkout, pushed from the cart's green Checkout (and the
+/// assistant), always through `AppNav.openCheckout`, which signs the
+/// shopper in first.
 ///
-/// The cart is kept while the shopper is in checkout and emptied once the
-/// order confirmation page is reached.
+/// Sections: DELIVER TO (the saved address and contact, "Change"),
+/// DELIVERY (Fresh Market or Express as radio rows), PAYMENT (Cash on
+/// Delivery only), ORDER (the order server's quote: lines, subtotal,
+/// delivery fee, total) and the driver's instructions. The green "Place
+/// order · total" is pinned at the bottom.
 ///
-/// The menu (top right) can always continue the same checkout in the
-/// phone's browser, and copies the checkout log ([CheckoutLog]) for the
-/// store to look at when checkout misbehaves on a phone.
+/// Prices, stock and the delivery fee are the order server's ([Quote]):
+/// the quote is asked for again whenever the cart, the area or the mode
+/// changes. The cart is emptied only when the order was made (201).
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key, required this.url});
+  const CheckoutScreen({super.key, this.deliveryNote});
 
-  /// The Shopify cart permalink (`CartStore.checkoutUrl`).
-  final Uri url;
+  /// Said under DELIVERY when opening checkout changed the delivery
+  /// ("Express isn't available in Jumeirah. Switched to Fresh Market.").
+  final String? deliveryNote;
 
-  /// How long the page may stay silent before the retry message shows.
-  static const Duration loadTimeout = Duration(seconds: 12);
+  static const String title = 'Checkout';
+  static const String deliverToCaption = 'DELIVER TO';
+  static const String deliveryCaption = 'DELIVERY';
+  static const String paymentCaption = 'PAYMENT';
+  static const String instructionsLabel = 'Delivery instructions';
 
-  /// The longest checkout waits for an optional WebView setting.
-  static const Duration platformWait = Duration(seconds: 2);
+  static const String marketTitle = 'Fresh Market delivery';
+  static const String expressTitle = 'Express';
+  static const String codTitle = 'Cash on Delivery';
+  static const String codSubtitle = 'Pay the driver when your order arrives';
+  static const String cashNote = 'You pay in cash when it arrives';
+  static const String vatNote = 'Prices include VAT';
+  static const String free = 'Free';
 
-  static const String menuTooltip = 'Checkout options';
-  static const String openInBrowserLabel = 'Open in browser';
-  static const String copyLogLabel = 'Copy checkout log';
-  static const String logCopied =
-      'Checkout log copied. Paste it in a message to us.';
-  static const String logNotCopied = "Couldn't copy the checkout log.";
-  static const String linkFailed = "Couldn't open that link.";
-  static const String browserFailed = "Couldn't open your browser.";
+  static const String unavailableTitle = "Ordering isn't available yet";
+  static const String unavailableMessage =
+      "You can't place orders in the app just yet. Your cart is saved.";
+  static const String backToCart = 'Back to cart';
 
-  /// How long checkout's own notices stay up.
-  static const Duration noticeTime = Duration(seconds: 4);
+  static const String changedTitle = 'Your order changed';
+  static const String changedEnd =
+      'Check the new total, then place your order.';
 
-  /// Shown when the order went through in the app after the shopper chose
-  /// to continue in the browser (the page left behind here finished it).
-  static const String orderPlacedHereTitle = 'Your order went through';
-  static const String orderPlacedHereMessage =
-      "It was placed here in the app. Don't finish it in your browser too.";
-  static const String continueShoppingLabel = 'Continue shopping';
+  static const String placing = 'Placing your order…';
+  static const String needDetailsTitle = 'Add your name and mobile';
+  static const String needDetailsLine =
+      'The driver uses them to find you and call on arrival.';
+  static const String addDetails = 'Add details';
+  static const String needAddressTitle = 'Add your delivery address';
+  static const String addAddress = 'Add address';
+  static const String signInAgain = 'Please sign in again to place your order.';
+  static const String signInLabel = 'Sign in';
+  static const String tryAgain = 'Try again';
 
-  /// Allows the cookies PayPal and Shop Pay need in their frames inside
-  /// checkout (Android only; see [ShopifyWeb.allowThirdPartyCookies]).
-  /// True when it was done. Tests replace it.
-  @visibleForTesting
-  static Future<bool> Function(WebViewController controller)
-  allowThirdPartyCookies = (controller) =>
-      ShopifyWeb.allowThirdPartyCookies(controller);
+  /// "ORDER · 2 ITEMS".
+  static String orderCaption(int items) =>
+      'ORDER · ${items == 1 ? '1 ITEM' : '$items ITEMS'}';
 
-  /// Shown above a page outside checkout (see [offCheckoutHost]).
-  static String offSiteHint(String host) =>
-      "You're on ${host.startsWith('www.') ? host.substring(4) : host}. "
-      "If it doesn't return to checkout, open checkout in your browser.";
+  /// The green button's label: "Place order · ⃃ 147.50".
+  static String placeLabel(int? totalFils) => totalFils == null
+      ? 'Place order'
+      : 'Place order · ${formatMoney(totalFils)}';
+
+  /// "Add ⃃ 77.50 more for free delivery".
+  static String freeDeliveryHint(int moreFils) =>
+      'Add ${formatMoney(moreFils)} more for free delivery';
+
+  /// Under the button when something is missing.
+  static String missingLine({required bool details, required bool address}) {
+    if (details && address) return 'Add your details and address to order';
+    if (address) return 'Add your address to place your order';
+    return 'Add your name and mobile to place your order';
+  }
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-enum _BrowserState { opening, opened, failed }
+/// One line of the "Your order changed" notice.
+class _Change {
+  const _Change(this.text, {this.struck});
 
-enum _MenuAction { openInBrowser, copyLog }
+  final String text;
+
+  /// A line taken off the order, shown struck through.
+  final CartLine? struck;
+}
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  /// Null when the WebView could not be used (browser fallback).
-  WebViewController? _controller;
+  late final CartStore _cart;
+  late final DeliveryStore _delivery;
+  late final ProfileStore _profile;
+  late final AccountSession _session;
+  late final OrderApi _api;
 
-  /// 0..1 while a page loads; null when idle.
-  double? _progress = 0;
+  Quote? _quote;
+  bool _quoting = false;
+  OrderApiException? _quoteError;
+  int _quoteSeq = 0;
+  String? _quoteKey;
 
-  /// Set when the checkout page itself failed to load.
-  bool _pageFailed = false;
+  /// "Your order changed": what changed, and the lines taken off.
+  List<_Change> _changes = const [];
 
-  /// Set once the order confirmation page was reached (cart emptied).
-  bool _orderPlaced = false;
+  bool _placing = false;
+  OrderApiException? _placeError;
+  bool _signInNeeded = false;
 
-  /// Set once a page has finished loading: from then on an HTTP error is
-  /// one of the page's own requests, never the cart link.
-  bool _pageFinished = false;
+  /// One key per attempt (the same order body); kept for every retry.
+  String? _attemptBody;
+  String? _idempotencyKey;
 
-  /// Set when the shopper continued this checkout in the browser.
-  bool _inBrowser = false;
-
-  /// Set once checkout started closing (pages can ask twice).
-  bool _leaving = false;
-
-  /// The optional WebView settings are made once.
-  bool _prepared = false;
-
-  /// Set once checkout's own sign-in finished (see [_checkSignedIn]).
-  bool _signInSeen = false;
-
-  /// The host of the page outside checkout being shown, if any.
-  String? _offSiteHost;
-
-  /// The last progress step written to the log for this page.
-  int _progressLogged = 0;
-
-  /// Fires when the page never starts loading.
-  Timer? _watchdog;
-
-  _BrowserState _browser = _BrowserState.opening;
-
-  /// Checkout's own notice ("Checkout log copied."), shown under the app
-  /// bar for [CheckoutScreen.noticeTime]: at the bottom it would cover
-  /// the page's own Pay now bar.
-  String? _noticeText;
-  Timer? _noticeTimer;
-
-  late final CheckoutLog _log = CheckoutLog.begin(widget.url);
-
-  /// Writes the app going to the background and back to the log (the
-  /// phone's browser, a payment app, a system dialog over checkout).
-  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
-    onStateChange: (state) => _log.add('app', 'app ${state.name}'),
-  );
+  final TextEditingController _instructions = TextEditingController();
+  String? _instructionsFor;
+  bool _instructionsEdited = false;
+  String? _deliveryNote;
 
   @override
   void initState() {
     super.initState();
-    _log.add(
-      'app',
-      'checkout opened, $_prefilledFields fields filled in',
-      link: widget.url.toString(),
-    );
-    _lifecycle;
-    _controller = _createWebView();
-    if (_controller == null) {
-      _log.add('app', 'no WebView: opening the browser');
-      _openInBrowser();
-    } else {
-      _start(_controller!);
-    }
+    _cart = context.read<CartStore>();
+    _delivery = context.read<DeliveryStore>();
+    _profile = context.read<ProfileStore>();
+    _session = context.read<AccountSession>();
+    _api = context.read<OrderApi>();
+    _deliveryNote = widget.deliveryNote;
+    final address = _profile.addressFor(_delivery.area);
+    _instructionsFor = address?.id;
+    _instructions.text = address?.instructions ?? '';
+    // The first quote shows as loading at once; it is asked for after
+    // the first frame (changing a store during build is not allowed).
+    _quoting = _api.available;
+    _cart.addListener(_inputsChanged);
+    _delivery.addListener(_inputsChanged);
+    _profile.addListener(_profileChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _keepDeliveryAllowed();
+      _requote();
+    });
   }
 
   @override
   void dispose() {
-    _watchdog?.cancel();
-    _noticeTimer?.cancel();
-    _lifecycle.dispose();
-    _log.add('app', 'checkout screen closed');
+    _cart.removeListener(_inputsChanged);
+    _delivery.removeListener(_inputsChanged);
+    _profile.removeListener(_profileChanged);
+    _instructions.dispose();
     super.dispose();
   }
 
-  int get _prefilledFields {
-    try {
-      return widget.url.queryParameters.keys
-          .where((key) => key.startsWith('checkout['))
-          .length;
-    } on FormatException {
-      return 0;
-    }
+  void _inputsChanged() {
+    if (!mounted) return;
+    _keepDeliveryAllowed();
+    _profileChanged();
+    _requote();
   }
 
-  WebViewController? _createWebView() {
-    try {
-      return WebViewController();
-    } catch (_) {
-      // No WebView on this device (or in tests).
-      return null;
-    }
+  /// The address's delivery instructions fill the field, until the
+  /// shopper types in it.
+  void _profileChanged() {
+    final address = _profile.addressFor(_delivery.area);
+    if (address?.id == _instructionsFor) return;
+    _instructionsFor = address?.id;
+    if (!_instructionsEdited) _instructions.text = address?.instructions ?? '';
+    if (mounted) setState(() {});
   }
 
-  /// Sets the WebView up and loads the checkout. Every step is a call to
-  /// the platform that can fail (WebView disabled or being updated); then
-  /// the browser takes over.
-  Future<void> _start(WebViewController controller) async {
-    _startWatchdog();
-    _pageFinished = false;
-    final first = !_prepared;
-    try {
-      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-      await controller.setNavigationDelegate(_delegate());
-      if (first) {
-        _prepared = true;
-        await _prepare(controller);
-      }
-      _log.add('app', 'loading checkout');
-      await controller.loadRequest(widget.url);
-    } catch (e) {
-      _watchdog?.cancel();
-      _log.add('app', 'WebView failed (${e.runtimeType}): opening the browser');
-      if (!mounted) return;
-      setState(() => _controller = null);
-      _openInBrowser();
+  /// Every available line comes by Express (each is tagged for it).
+  bool get _allExpress {
+    final lines = _cart.lines.where((l) => l.available);
+    return lines.isNotEmpty && lines.every((l) => l.express == true);
+  }
+
+  bool get _expressAllowed => _delivery.expressCovered && _allExpress;
+
+  /// Express chosen for a cart it cannot carry: Fresh Market instead,
+  /// and said.
+  void _keepDeliveryAllowed() {
+    if (!_delivery.isExpress || _expressAllowed) return;
+    _delivery.setMode(DeliveryMode.market);
+    _deliveryNote =
+        'Not every item in your cart comes by Express, so Fresh Market '
+        'delivery is selected.';
+  }
+
+  List<OrderLineRequest> get _lineRequests => [
+    for (final line in _cart.lines)
+      if (line.available)
+        OrderLineRequest(variantId: line.variantId, quantity: line.quantity),
+  ];
+
+  Future<void> _requote({bool force = false}) async {
+    final area = _delivery.area;
+    final lines = _lineRequests;
+    if (!_api.available || area == null || lines.isEmpty) {
+      _quoteSeq++;
+      if (mounted) setState(() => _quoting = false);
       return;
     }
-    if (first) unawaited(_logWebViewVersion(controller));
-  }
-
-  /// Settings checkout works without; none of them may stop it loading.
-  Future<void> _prepare(WebViewController controller) async {
+    final request = DeliveryRequest(mode: _delivery.mode, area: area);
+    final key = jsonEncode({
+      'lines': [for (final l in lines) l.toJson()],
+      'delivery': request.toJson(),
+    });
+    if (!force && key == _quoteKey) return;
+    _quoteKey = key;
+    final seq = ++_quoteSeq;
+    setState(() {
+      _quoting = true;
+      _quoteError = null;
+    });
     try {
-      final allowed = await CheckoutScreen.allowThirdPartyCookies(controller)
-          .timeout(CheckoutScreen.platformWait);
-      if (allowed) _log.add('app', 'third-party cookies allowed');
-    } catch (e) {
-      _log.add('app', 'third-party cookies not allowed (${e.runtimeType})');
-    }
-    try {
-      await controller
-          .setOnConsoleMessage(_onConsoleMessage)
-          .timeout(CheckoutScreen.platformWait);
-    } catch (_) {
-      // No console messages in the log.
-    }
-  }
-
-  Future<void> _logWebViewVersion(WebViewController controller) async {
-    try {
-      final agent = await controller.getUserAgent().timeout(
-        CheckoutScreen.platformWait,
-      );
-      if (agent != null && agent.isNotEmpty) {
-        _log.add('app', 'WebView: ${CheckoutLog.describeUserAgent(agent)}');
-      }
-    } catch (_) {
-      // Not known.
+      final quote = await _api.quote(lines: lines, delivery: request);
+      if (!mounted || seq != _quoteSeq) return;
+      setState(() {
+        _quote = quote;
+        _quoting = false;
+      });
+      if (quote.problems.isNotEmpty) _applyProblems(quote.problems, quote);
+    } on OrderApiException catch (e) {
+      if (!mounted || seq != _quoteSeq) return;
+      setState(() {
+        _quoting = false;
+        _quoteError = e;
+        _quoteKey = null;
+      });
     }
   }
 
-  void _onConsoleMessage(JavaScriptConsoleMessage message) {
-    if (message.level != JavaScriptLogLevel.error) return;
-    _log.add('js', message.message, noisy: true);
-  }
-
-  NavigationDelegate _delegate() => NavigationDelegate(
-    onPageStarted: (url) {
-      _watchdog?.cancel();
-      _log.add('page', 'started', link: url);
-      _progressLogged = 0;
-      _trackPage(url);
-      _checkSignedIn(url);
-      _checkOrderPlaced(url);
-      _setProgress(0);
-    },
-    onProgress: (value) {
-      if (value > 0) _watchdog?.cancel();
-      _logProgress(value);
-      _setProgress(value >= 100 ? null : value / 100);
-    },
-    onPageFinished: (url) {
-      _watchdog?.cancel();
-      _pageFinished = true;
-      _log.add('page', 'finished', link: url);
-      _trackPage(url);
-      _checkOrderPlaced(url);
-      _setProgress(null);
-    },
-    onUrlChange: (change) {
-      _log.add('url', '', link: change.url);
-      _trackPage(change.url);
-      _checkSignedIn(change.url);
-      _checkOrderPlaced(change.url);
-    },
-    onWebResourceError: (error) {
-      final page = error.isForMainFrame == true;
-      _log.add(
-        'error',
-        '${error.errorCode} ${error.errorType?.name ?? ''} '
-            '"${error.description}" (${page ? 'page' : 'part of page'})',
-        link: error.url,
-        noisy: !page,
-      );
-      if (!page) return;
-      _showPageFailed('the page did not load');
-    },
-    onHttpError: (error) {
-      // Shopify answers the cart link itself with an error page (410)
-      // when it cannot build the checkout. Android reports the page's
-      // every request (frames, scripts, data) without saying which one
-      // is the page, so only errors before the first page finished can
-      // be the cart link: a later one never replaces a live checkout.
-      final status = error.response?.statusCode ?? 0;
-      final uri = error.request?.uri ?? error.response?.uri;
-      if (status < 400 || uri == null) return;
-      final isCartLink =
-          !_pageFinished &&
-          (uri == widget.url ||
-              (uri.host == widget.url.host && uri.path.startsWith('/cart/')));
-      _log.add('http', '$status', link: uri.toString(), noisy: !isCartLink);
-      if (isCartLink) _showPageFailed('the cart link answered $status');
-    },
-    onSslAuthError: (error) {
-      final platform = error.platform;
-      _log.add(
-        'ssl',
-        platform.description,
-        link: platform is AndroidSslAuthError ? platform.url : null,
-      );
-      // Never proceed on a bad certificate (what happens without this
-      // callback too).
-      error.cancel().catchError((Object _) {});
-    },
-    onNavigationRequest: _onNavigationRequest,
-  );
-
-  NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    final where = request.isMainFrame ? 'page' : 'frame';
-    final url = request.url;
-    // Checkout went on in the browser. The page left behind here keeps
-    // running (an order it finishes is still caught), but it opens no
-    // app and does not close checkout behind the shopper's back.
-    final hidden = _inBrowser;
-    // Payment and wallet apps: `intent://…#Intent;scheme=…;end`.
-    if (url.toLowerCase().startsWith('intent:')) {
-      _log.add(
-        'nav',
-        'app link ($where)${hidden ? ': page hidden' : ''}',
-        link: url,
-      );
-      if (!hidden) _openIntent(url);
-      return NavigationDecision.prevent;
-    }
-    final target = Uri.tryParse(url);
-    if (target == null) {
-      _log.add('nav', 'blocked, not a link ($where)', link: url);
-      return NavigationDecision.prevent;
-    }
-    switch (target.scheme.toLowerCase()) {
-      case 'http' || 'https':
-        // Shopify's answer to checkout's own "Sign in" passes here as a
-        // redirect, never shown as a page.
-        if (request.isMainFrame) _checkSignedIn(url);
-        if (request.isMainFrame && leavesCheckoutUrl(url)) {
-          // A link back to the web storefront: return to the app.
-          _log.add(
-            'nav',
-            hidden ? 'store page: page hidden' : 'store page: closing checkout',
-            link: url,
+  /// Takes what the server found into the cart (sold-out lines are marked,
+  /// short stock lowers the amount, prices follow the store, Express falls
+  /// back to Fresh Market), shows "Your order changed" with a sentence
+  /// for each, and says it to screen readers. The cart's change brings a
+  /// new quote with the new totals.
+  void _applyProblems(List<QuoteProblem> problems, Quote? quote) {
+    final changes = <_Change>[];
+    for (final problem in problems) {
+      final id = problem.variantId;
+      final line = id == null ? null : _cart.lineOf(id);
+      final name = line?.title ?? quote?.lineOf(id ?? -1)?.title;
+      switch (problem.kind) {
+        case QuoteProblemKind.soldOut:
+          if (id != null) _cart.markSoldOut(id);
+          changes.add(
+            _Change(
+              name == null
+                  ? 'Something in your cart just sold out, so we took it off.'
+                  : '$name just sold out, so we took it off.',
+              struck: line,
+            ),
           );
-          if (!hidden) _leave();
-          return NavigationDecision.prevent;
-        }
-        _log.add('nav', 'allowed ($where)', link: url);
-        return NavigationDecision.navigate;
-      case 'about':
-        // A frame may be blank, but the whole page never is: a window the
-        // page opens (PayPal) would otherwise blank checkout. (Android's
-        // WebView plugin asks about the whole page only; frames load
-        // without asking. Blocking blank frames would break PayPal's and
-        // Shop Pay's should it ever ask.)
-        if (!request.isMainFrame) return NavigationDecision.navigate;
-        _log.add('nav', 'blocked blank page', link: url);
-        return NavigationDecision.prevent;
-      case 'javascript' || 'data' || 'blob' || 'file' || 'content':
-        _log.add('nav', 'blocked ($where)', link: url);
-        return NavigationDecision.prevent;
-      default:
-        // Phone, mail and payment-app links belong to other apps.
-        _log.add(
-          'nav',
-          'other app ($where)${hidden ? ': page hidden' : ''}',
-          link: url,
-        );
-        if (!hidden) _openInOtherApp(target);
-        return NavigationDecision.prevent;
-    }
-  }
-
-  Future<void> _openInOtherApp(Uri target) async {
-    final opened = await _launchExternally(target);
-    _log.add('nav', opened ? 'opened in its app' : 'no app could open it');
-    if (!opened && mounted) _notice(CheckoutScreen.linkFailed);
-  }
-
-  /// An `intent:` link: its app when one can open it, otherwise its web
-  /// address (`S.browser_fallback_url`) in checkout. An app link that is
-  /// itself a web address (`scheme=https`) counts as opened only when an
-  /// app, not a browser, takes it, as in Chrome; otherwise it loads in
-  /// checkout when there is no other web address.
-  Future<void> _openIntent(String url) async {
-    final link = IntentLink.parse(url);
-    final app = link?.appUri;
-    final webApp =
-        app != null && (app.scheme == 'https' || app.scheme == 'http');
-    if (app != null && await _launchExternally(app, appOnly: webApp)) {
-      _log.add('nav', 'app link opened in its app');
-      return;
-    }
-    final fallback =
-        link?.fallbackUrl ?? (webApp && app.host.isNotEmpty ? app : null);
-    final controller = _controller;
-    if (!mounted) return;
-    if (_orderPlaced || _inBrowser) {
-      // The order went through, or checkout went on in the browser,
-      // while the app was asked.
-      _log.add('nav', 'app link: not loaded, checkout moved on');
-      return;
-    }
-    if (fallback == null || controller == null) {
-      _log.add('nav', 'app link: no app and no web address');
-      _notice(CheckoutScreen.linkFailed);
-      return;
-    }
-    _log.add(
-      'nav',
-      "app link: its app didn't open, loading",
-      link: '$fallback',
-    );
-    if (leavesCheckoutUrl('$fallback')) {
-      _leave();
-      return;
-    }
-    try {
-      await controller.loadRequest(fallback);
-    } catch (_) {
-      if (mounted) _notice(CheckoutScreen.linkFailed);
-    }
-  }
-
-  void _logProgress(int value) {
-    final step = value >= 100
-        ? 100
-        : value >= 50
-        ? 50
-        : value > 0
-        ? 10
-        : 0;
-    if (step <= _progressLogged) return;
-    _progressLogged = step;
-    _log.add('load', step == 100 ? '100%' : '$step%+');
-  }
-
-  /// Notes whether the page shown is outside checkout (see
-  /// [offCheckoutHost]).
-  void _trackPage(String? url) {
-    final host = offCheckoutHost(url);
-    if (host == _offSiteHost || !mounted) return;
-    if (host != null) _log.add('app', 'page outside checkout: hint shown');
-    setState(() => _offSiteHost = host);
-  }
-
-  void _startWatchdog() {
-    _watchdog?.cancel();
-    _watchdog = Timer(
-      CheckoutScreen.loadTimeout,
-      () => _showPageFailed('nothing loaded in time'),
-    );
-  }
-
-  void _showPageFailed(String reason) {
-    _watchdog?.cancel();
-    if (!mounted || _orderPlaced) return;
-    _log.add('app', 'could not load checkout: $reason');
-    setState(() {
-      _pageFailed = true;
-      _progress = null;
-    });
-  }
-
-  /// Checkout's own "Sign in" (the store's
-  /// `/customer_authentication/login`) came back with a code: the customer
-  /// is signed in, in this WebView and every other one of the app. The
-  /// email is not known here (one already known is kept).
-  void _checkSignedIn(String? url) {
-    if (_signInSeen || url == null || !mounted) return;
-    if (!CustomerAccount.isSignInCallback(url)) return;
-    _signInSeen = true;
-    _log.add('app', 'signed in');
-    context.read<AccountSession?>()?.signIn();
-  }
-
-  /// Empties the cart, once, when the order confirmation page shows.
-  void _checkOrderPlaced(String? url) {
-    if (_orderPlaced || url == null || !mounted) return;
-    if (!isOrderConfirmationUrl(url)) return;
-    _log.add('order', 'order placed, cart emptied', link: url);
-    context.read<CartStore>().clear();
-    setState(() => _orderPlaced = true);
-  }
-
-  /// Closes checkout: back to the cart, or to Home once the order is
-  /// placed (the cart is empty then). Only once: a page can send two
-  /// store links in a row, and a second pop would close the app's home.
-  void _leave() {
-    if (!mounted || _leaving) return;
-    final route = ModalRoute.of(context);
-    // Already closing (system back): a store link from the page must not
-    // close the screen under checkout.
-    if (route != null && !route.isActive) return;
-    _leaving = true;
-    _log.add('app', _orderPlaced ? 'done: back to Home' : 'back to the cart');
-    if (_orderPlaced) {
-      AppNav.goToTab(context, AppTab.home);
-      return;
-    }
-    final navigator = Navigator.of(context);
-    // The checkout menu may be open over checkout: it closes too, or the
-    // pop below would close only the menu and leave checkout stuck.
-    if (route != null && !route.isCurrent) {
-      navigator.popUntil((r) => r == route);
-    }
-    navigator.pop();
-  }
-
-  void _setProgress(double? value) {
-    if (!mounted) return;
-    setState(() => _progress = value);
-  }
-
-  /// Opens [target] in another app; with [appOnly], never in a browser
-  /// (Android 11 and later).
-  Future<bool> _launchExternally(Uri target, {bool appOnly = false}) =>
-      ShopifyWeb.launchExternally(target, appOnly: appOnly);
-
-  Future<void> _openInBrowser() async {
-    if (mounted) setState(() => _browser = _BrowserState.opening);
-    final opened = await _launchExternally(widget.url);
-    _log.add('app', opened ? 'browser opened' : 'no browser could be opened');
-    if (!mounted) return;
-    setState(() {
-      _browser = opened ? _BrowserState.opened : _BrowserState.failed;
-    });
-  }
-
-  /// "Open in browser": the same checkout link in the phone's browser
-  /// (the cart is kept). Checkout then says to finish there, so the order
-  /// is not also placed here; should the page left behind here place it
-  /// all the same, checkout says that instead.
-  Future<void> _continueInBrowser() async {
-    _log.add('app', 'open in browser chosen');
-    final opened = await _launchExternally(widget.url);
-    _log.add('app', opened ? 'browser opened' : 'no browser could be opened');
-    if (!mounted) return;
-    if (!opened) {
-      _notice(CheckoutScreen.browserFailed);
-      return;
-    }
-    _watchdog?.cancel();
-    setState(() {
-      _inBrowser = true;
-      _browser = _BrowserState.opened;
-      _progress = null;
-    });
-  }
-
-  /// "Copy checkout log": this checkout's log and the one before, as
-  /// plain text, for the shopper to paste in a message to the store.
-  Future<void> _copyLog() async {
-    _log.add('app', 'log copied');
-    try {
-      await Clipboard.setData(ClipboardData(text: CheckoutLog.supportReport()));
-    } catch (_) {
-      if (mounted) _notice(CheckoutScreen.logNotCopied);
-      return;
-    }
-    if (mounted) _notice(CheckoutScreen.logCopied);
-  }
-
-  void _notice(String message) {
-    if (!mounted) return;
-    _noticeTimer?.cancel();
-    _noticeTimer = Timer(CheckoutScreen.noticeTime, () {
-      if (mounted) setState(() => _noticeText = null);
-    });
-    setState(() => _noticeText = message);
-  }
-
-  void _reload() {
-    _log.add('app', 'try again');
-    setState(() {
-      _pageFailed = false;
-      _progress = 0;
-    });
-    final controller = _controller;
-    if (controller != null) _start(controller);
-  }
-
-  /// System back steps back inside checkout first, then leaves it.
-  Future<void> _handleBack() async {
-    final controller = _controller;
-    try {
-      if (controller != null &&
-          !_pageFailed &&
-          !_orderPlaced &&
-          !_inBrowser &&
-          await controller.canGoBack().timeout(CheckoutScreen.platformWait)) {
-        _log.add('app', 'back: previous page');
-        await controller.goBack().timeout(CheckoutScreen.platformWait);
-        return;
+        case QuoteProblemKind.qtyReduced:
+          final left = id == null ? null : quote?.lineOf(id)?.quantity;
+          if (id != null && left != null) {
+            if (left <= 0) {
+              _cart.markSoldOut(id);
+            } else {
+              _cart.setQuantity(id, left);
+            }
+          }
+          changes.add(
+            _Change(
+              left == null || name == null
+                  ? (problem.message.isEmpty
+                        ? 'There is less in stock, so we changed the amount.'
+                        : problem.message)
+                  : 'Only $left of $name left, so we changed the amount.',
+            ),
+          );
+        case QuoteProblemKind.priceChanged:
+          final now = id == null ? null : quote?.lineOf(id)?.unitPriceFils;
+          if (id != null && now != null) _cart.updatePrice(id, now);
+          changes.add(
+            _Change(
+              name == null || now == null
+                  ? 'A price changed since you added it.'
+                  : '$name now costs ${formatMoney(now)}.',
+            ),
+          );
+        case QuoteProblemKind.notExpress:
+          _delivery.setMode(DeliveryMode.market);
+          changes.add(
+            _Change(
+              name == null
+                  ? "Express can't take this order, so it comes with Fresh "
+                        'Market delivery.'
+                  : "$name isn't on Express, so your order comes with Fresh "
+                        'Market delivery.',
+            ),
+          );
+        case QuoteProblemKind.other:
+          if (problem.message.isNotEmpty) changes.add(_Change(problem.message));
       }
-    } catch (_) {
-      // Fall through and leave checkout.
     }
-    _leave();
+    if (changes.isEmpty) return;
+    setState(() => _changes = changes);
+    announce(
+      context,
+      '${CheckoutScreen.changedTitle}. '
+      '${changes.map((c) => c.text).join(' ')} ${CheckoutScreen.changedEnd}',
+    );
+  }
+
+  // ---- what is missing ---------------------------------------------------
+
+  ContactDetails get _contact => _profile.contact;
+
+  bool get _detailsMissing =>
+      _contact.firstName.isEmpty ||
+      _contact.lastName.isEmpty ||
+      _contact.mobile.isEmpty;
+
+  SavedAddress? get _address => _profile.addressFor(_delivery.area);
+
+  bool get _addressMissing => _address == null;
+
+  bool get _canPlace {
+    final quote = _quote;
+    return _api.available &&
+        !_placing &&
+        !_quoting &&
+        _quoteError == null &&
+        quote != null &&
+        quote.itemCount > 0 &&
+        !quote.belowMinimum &&
+        !_detailsMissing &&
+        !_addressMissing;
+  }
+
+  OrderRequest? _orderRequest() {
+    final area = _delivery.area;
+    final address = _address;
+    final quote = _quote;
+    if (area == null || address == null || quote == null) return null;
+    final contact = _contact;
+    return OrderRequest(
+      lines: _lineRequests,
+      delivery: DeliveryRequest(
+        mode: _delivery.mode,
+        area: area,
+        promise: quote.deliveryPromise,
+        pin: address.area.pin,
+      ),
+      address: OrderAddress(
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        address1: address.address1,
+        address2: address.flat,
+        city: CustomerInput.cityName(address.area),
+        emirate: address.area.emirate,
+        phone: contact.mobile,
+      ),
+      instructions: CustomerInput.cleanNote(_instructions.text),
+      expectedTotalFils: quote.totalFils,
+    );
+  }
+
+  // ---- placing -----------------------------------------------------------
+
+  Future<void> _placeOrder() async {
+    if (!_canPlace) return;
+    final order = _orderRequest();
+    if (order == null) return;
+    final body = jsonEncode(order.toJson());
+    if (body != _attemptBody || _idempotencyKey == null) {
+      _attemptBody = body;
+      _idempotencyKey = OrderApi.newIdempotencyKey();
+    }
+    final key = _idempotencyKey!;
+    setState(() {
+      _placing = true;
+      _placeError = null;
+      _signInNeeded = false;
+      _changes = const [];
+    });
+    announce(context, CheckoutScreen.placing);
+    final address = _address!;
+    final email = _session.email;
+    try {
+      var token = await _session.accessToken();
+      if (token == null) throw const OrderUnauthorized();
+      PlacedOrder placed;
+      try {
+        placed = await _api.placeOrder(
+          order,
+          accessToken: token,
+          idempotencyKey: key,
+        );
+      } on OrderUnauthorized {
+        // Once: a fresh token, then the same order with the same key.
+        token = await _session.accessToken(forceRefresh: true);
+        if (token == null) rethrow;
+        placed = await _api.placeOrder(
+          order,
+          accessToken: token,
+          idempotencyKey: key,
+        );
+      }
+      if (!mounted) return;
+      _cart.clear();
+      _idempotencyKey = null;
+      _attemptBody = null;
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => OrderPlacedScreen(
+            order: placed,
+            deliveryPromise: placed.deliveryPromise.isEmpty
+                ? _quote?.deliveryPromise ?? ''
+                : placed.deliveryPromise,
+            addressLine: '${address.label.label} · ${address.firstLine}',
+            email: email,
+          ),
+        ),
+      );
+    } on OrderUnauthorized {
+      if (!mounted) return;
+      setState(() => _signInNeeded = true);
+      announce(context, CheckoutScreen.signInAgain);
+    } on OrderChanged catch (e) {
+      if (!mounted) return;
+      _idempotencyKey = null;
+      _attemptBody = null;
+      _applyProblems(e.problems, e.quote ?? _quote);
+      if (_changes.isEmpty) {
+        setState(
+          () => _changes = const [
+            _Change('Something in your order changed since you opened it.'),
+          ],
+        );
+      }
+      unawaited(_requote(force: true));
+    } on OrderApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _placeError = e);
+      announce(context, e.userMessage);
+    } on AuthNetworkError {
+      if (!mounted) return;
+      const error = OrderNetworkError();
+      setState(() => _placeError = error);
+      announce(context, error.userMessage);
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
+  }
+
+  Future<void> _signInAgain() async {
+    final signedIn = await AppNav.signIn(context, noticeBottomMargin: 120);
+    if (signedIn && mounted) setState(() => _signInNeeded = false);
+  }
+
+  Future<void> _chooseMode(DeliveryMode mode) async {
+    if (_placing || mode == _delivery.mode) return;
+    setState(() => _deliveryNote = null);
+    await AppNav.chooseDeliveryMode(context, mode, noticeBottomMargin: 120);
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    final inApp = controller != null && !_inBrowser;
-    final progress = _progress;
-    final loading = inApp && !_pageFailed && progress != null;
-    final offSiteHost = inApp && !_pageFailed && !_orderPlaced
-        ? _offSiteHost
-        : null;
-    final notice = _noticeText;
+    // Rebuilt with the stores (the promise counts down with the delivery
+    // store's ticker).
+    context.watch<DeliveryStore>();
+    context.watch<CartStore>();
+    context.watch<ProfileStore>();
+    context.watch<AccountSession>();
+    if (!_api.available) return const _Unavailable();
 
+    final quote = _quote;
+    final missing = _detailsMissing || _addressMissing;
     return PopScope(
-      // Once the order is placed, back goes Home like Done.
-      canPop: !inApp && !_orderPlaced,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _handleBack();
-      },
-      // Its own messenger keeps the app's notices (a "Removed … Undo"
-      // from the cart) off the checkout page.
-      child: ScaffoldMessenger(
-        child: Scaffold(
-          backgroundColor: inApp && !_pageFailed ? AppColors.surface : null,
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close checkout',
-              onPressed: _leave,
-            ),
-            title: Text(_orderPlaced ? 'Order placed' : 'Checkout'),
-            actions: [
-              if (_orderPlaced)
-                TextButton(onPressed: _leave, child: const Text('Done')),
-              _buildMenu(canOpenBrowser: inApp && !_orderPlaced),
-            ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(3),
-              child: SizedBox(
-                height: 3,
-                child: loading
-                    ? LinearProgressIndicator(
-                        // Indeterminate until the page reports progress.
-                        value: progress > 0 ? progress : null,
-                        minHeight: 3,
-                        backgroundColor: AppColors.subtle,
-                      )
-                    // A hairline under the bar once the page is in.
-                    : const Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Divider(height: 1),
+      // Not while the order is on its way to the store.
+      canPop: !_placing,
+      child: Scaffold(
+        backgroundColor: AppColors.canvas,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _Header(),
+              Expanded(
+                child: ListView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(
+                    AppDims.gutter,
+                    4,
+                    AppDims.gutter,
+                    24,
+                  ),
+                  children: [
+                    if (_changes.isNotEmpty) ...[
+                      _ChangedNotice(changes: _changes),
+                      const SizedBox(height: 16),
+                    ],
+                    const _Caption(CheckoutScreen.deliverToCaption),
+                    _DeliverToSection(
+                      address: _address,
+                      contact: _contact,
+                      detailsMissing: _detailsMissing,
+                      enabled: !_placing,
+                    ),
+                    const SizedBox(height: 20),
+                    const _Caption(CheckoutScreen.deliveryCaption),
+                    _DeliverySection(
+                      quote: _quoting ? null : quote,
+                      expressAllowed: _expressAllowed,
+                      allExpress: _allExpress,
+                      note: _deliveryNote,
+                      onChoose: _chooseMode,
+                    ),
+                    const SizedBox(height: 20),
+                    const _Caption(CheckoutScreen.paymentCaption),
+                    const _PaymentSection(),
+                    const SizedBox(height: 20),
+                    _Caption(
+                      CheckoutScreen.orderCaption(
+                        quote?.itemCount ??
+                            _cart.lines
+                                .where((l) => l.available)
+                                .fold(0, (n, l) => n + l.quantity),
                       ),
+                    ),
+                    _OrderSection(
+                      quote: quote,
+                      loading: _quoting,
+                      error: _quoteError,
+                      struck: [
+                        for (final c in _changes)
+                          if (c.struck != null) c.struck!,
+                      ],
+                      onRetry: () => _requote(force: true),
+                    ),
+                    const SizedBox(height: 20),
+                    DetailsField(
+                      key: const ValueKey('checkout-instructions'),
+                      controller: _instructions,
+                      label: CheckoutScreen.instructionsLabel,
+                      optional: true,
+                      hint: 'e.g. Call when you arrive',
+                      maxLength: CustomerInput.instructionsMax,
+                      maxLines: 3,
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) => _instructionsEdited = true,
+                    ),
+                  ],
+                ),
               ),
+              _BottomBar(
+                label: CheckoutScreen.placeLabel(
+                  _quoting || quote == null ? null : quote.totalFils,
+                ),
+                totalFils: _quoting ? null : quote?.totalFils,
+                placing: _placing,
+                onPressed: _canPlace ? _placeOrder : null,
+                missingLine: missing
+                    ? CheckoutScreen.missingLine(
+                        details: _detailsMissing,
+                        address: _addressMissing,
+                      )
+                    : null,
+                problem: _signInNeeded
+                    ? _Problem(
+                        message: CheckoutScreen.signInAgain,
+                        actionLabel: CheckoutScreen.signInLabel,
+                        onAction: _signInAgain,
+                        ink: true,
+                      )
+                    : _placeError == null
+                    ? null
+                    : _problemFor(_placeError!),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The calm message over the bar after an order did not go through, and
+  /// what fixes it.
+  _Problem _problemFor(OrderApiException error) {
+    if (error is OrderInvalid) {
+      final field = error.field;
+      if (field.startsWith('address.phone') ||
+          field.startsWith('address.firstName') ||
+          field.startsWith('address.lastName')) {
+        return _Problem(
+          message: error.userMessage,
+          actionLabel: 'Edit details',
+          onAction: () =>
+              AppNav.openMyDetails(context, noticeBottomMargin: 120),
+        );
+      }
+      if (field.startsWith('address') || field.startsWith('delivery')) {
+        final address = _address;
+        return _Problem(
+          message: error.userMessage,
+          actionLabel: 'Edit address',
+          onAction: () => address == null
+              ? addCartAddress(context)
+              : AppNav.openAddress(
+                  context,
+                  address: address,
+                  noticeBottomMargin: 120,
+                ),
+        );
+      }
+      return _Problem(message: error.userMessage);
+    }
+    return _Problem(
+      message: error.userMessage,
+      actionLabel: CheckoutScreen.tryAgain,
+      onAction: _placeOrder,
+    );
+  }
+}
+
+/// Back and "Checkout".
+class _Header extends StatelessWidget {
+  const _Header();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppDims.gutter, 8, AppDims.gutter, 8),
+      child: Row(
+        children: [
+          CircleIconButton.back(context),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: const Text(CheckoutScreen.title, style: AppText.title),
             ),
           ),
-          body: SafeArea(
-            top: false,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: _buildBody(inApp: inApp, offSiteHost: offSiteHost),
+        ],
+      ),
+    );
+  }
+}
+
+/// "DELIVER TO" and the other small caps captions over the sections.
+class _Caption extends StatelessWidget {
+  const _Caption(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Semantics(
+        header: true,
+        // Read as words, not spelt out.
+        label: text.toLowerCase(),
+        excludeSemantics: true,
+        child: Text(text, style: AppText.overline),
+      ),
+    );
+  }
+}
+
+/// A white card with a hairline (the sections' cards).
+class _Card extends StatelessWidget {
+  const _Card({super.key, required this.child, this.padding = EdgeInsets.zero});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: AppDecor.card,
+      clipBehavior: Clip.antiAlias,
+      padding: padding,
+      child: Material(type: MaterialType.transparency, child: child),
+    );
+  }
+}
+
+/// The address card ("Home · Bay Square, Building 5", the flat and area,
+/// the name and mobile, "Change"), or what to add first.
+class _DeliverToSection extends StatelessWidget {
+  const _DeliverToSection({
+    required this.address,
+    required this.contact,
+    required this.detailsMissing,
+    required this.enabled,
+  });
+
+  final SavedAddress? address;
+  final ContactDetails contact;
+  final bool detailsMissing;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final address = this.address;
+    final area = context.select<DeliveryStore, DeliveryArea?>((s) => s.area);
+    final children = <Widget>[];
+    if (address != null) {
+      final flatArea = [
+        if (address.flat.isNotEmpty) address.flat,
+        address.area.label,
+      ].join(' · ');
+      final who = CartDeliverToCard.contactLine(contact);
+      children.add(
+        _Card(
+          key: const ValueKey('checkout-address'),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 6, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(
+                  addressLabelIcon(address.label),
+                  size: 22,
+                  color: AppColors.ink,
                 ),
-                if (notice != null)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: _CheckoutNotice(message: notice),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  label:
+                      'Deliver to ${address.semantics}'
+                      '${who.isEmpty ? '' : '. $who'}',
+                  excludeSemantics: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${address.label.label} · ${address.address1}',
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        flatArea,
+                        style: AppText.bodySmall.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                      if (who.isNotEmpty)
+                        Text(
+                          who,
+                          style: AppText.bodySmall.copyWith(
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                    ],
                   ),
+                ),
+              ),
+              TextButton(
+                key: const ValueKey('checkout-change-address'),
+                onPressed: enabled ? () => changeCartAddress(context) : null,
+                child: const Text('Change', semanticsLabel: 'Change address'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      final elsewhere = context.read<ProfileStore>().addressElsewhere(area);
+      children.add(
+        _Prompt(
+          key: const ValueKey('checkout-need-address'),
+          icon: Icons.home_outlined,
+          title: CheckoutScreen.needAddressTitle,
+          line: elsewhere == null
+              ? (area == null
+                    ? 'The building and flat for the driver.'
+                    : 'The building and flat in ${area.name}.')
+              : CartDeliverToCard.elsewhereTitle(elsewhere),
+          actions: [
+            OutlinedButton(
+              key: const ValueKey('checkout-add-address'),
+              onPressed: enabled ? () => addCartAddress(context) : null,
+              child: Text(CartDeliverToCard.addHereLabel(area)),
+            ),
+            if (elsewhere != null)
+              TextButton(
+                key: const ValueKey('checkout-choose-address'),
+                onPressed: enabled ? () => changeCartAddress(context) : null,
+                child: const Text('Choose a saved address'),
+              ),
+          ],
+        ),
+      );
+    }
+    if (detailsMissing) {
+      children.add(const SizedBox(height: 8));
+      children.add(
+        _Prompt(
+          key: const ValueKey('checkout-need-details'),
+          icon: Icons.person_outline,
+          title: CheckoutScreen.needDetailsTitle,
+          line: CheckoutScreen.needDetailsLine,
+          actions: [
+            OutlinedButton(
+              key: const ValueKey('checkout-add-details'),
+              onPressed: enabled
+                  ? () => AppNav.openMyDetails(context, noticeBottomMargin: 120)
+                  : null,
+              child: const Text(CheckoutScreen.addDetails),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+}
+
+/// Something to add before ordering: an icon, a bold title, a line and
+/// the way to add it (ink outline, never green).
+class _Prompt extends StatelessWidget {
+  const _Prompt({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.line,
+    required this.actions,
+  });
+
+  final IconData icon;
+  final String title;
+  final String line;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: AppDecor.info,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            container: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 22, color: AppColors.ink),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        line,
+                        style: AppText.bodySmall.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 34),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: actions,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Fresh Market and Express as radio rows.
+class _DeliverySection extends StatelessWidget {
+  const _DeliverySection({
+    required this.quote,
+    required this.expressAllowed,
+    required this.allExpress,
+    required this.note,
+    required this.onChoose,
+  });
+
+  /// The quote for the chosen mode; null while it loads.
+  final Quote? quote;
+  final bool expressAllowed;
+  final bool allExpress;
+  final String? note;
+  final ValueChanged<DeliveryMode> onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<DeliveryStore>();
+    final area = store.area;
+    final now = store.now();
+    final mode = store.mode;
+    final market = area == null ? null : DeliveryRules.market(area, now);
+    final express = area == null ? null : DeliveryRules.express(area, now);
+    final open = DeliveryRules.formatHour(DeliveryConfig.expressOpen);
+
+    Widget? fee(DeliveryMode rowMode) {
+      final q = quote;
+      if (rowMode != mode || q == null) return null;
+      return q.deliveryFeeFils == 0
+          ? Text(
+              CheckoutScreen.free,
+              style: AppText.price.copyWith(fontSize: 15),
+            )
+          : MoneyText(q.deliveryFeeFils, style: AppText.price);
+    }
+
+    String expressLine;
+    String? expressTrailing;
+    if (express == null || !express.covered) {
+      expressLine = area == null
+          ? 'Set your location to check Express'
+          : 'Not available in ${area.name} yet';
+    } else if (!allExpress) {
+      expressLine = 'Selected items only. Not everything in your cart is.';
+    } else if (express.open) {
+      expressLine = '${express.range} · selected items only';
+    } else {
+      expressLine = 'Opens $open · selected items only';
+      expressTrailing = 'Closed';
+    }
+    final closedNotice = store.expressClosedNotice;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Card(
+          child: Column(
+            children: [
+              _RadioRow(
+                key: const ValueKey('checkout-mode-market'),
+                title: CheckoutScreen.marketTitle,
+                subtitle: market?.line ?? 'Full range · same day',
+                selected: mode == DeliveryMode.market,
+                enabled: true,
+                trailing: fee(DeliveryMode.market),
+                onTap: () => onChoose(DeliveryMode.market),
+              ),
+              const Divider(height: 1),
+              _RadioRow(
+                key: const ValueKey('checkout-mode-express'),
+                title: CheckoutScreen.expressTitle,
+                titleIcon: const Icon(
+                  Icons.bolt,
+                  size: 18,
+                  color: AppColors.green,
+                ),
+                subtitle: expressLine,
+                selected: mode == DeliveryMode.express,
+                enabled: expressAllowed,
+                // "Closed" says more than the fee (which the total
+                // shows anyway).
+                trailing: expressTrailing == null
+                    ? fee(DeliveryMode.express)
+                    : Text(
+                        expressTrailing,
+                        style: AppText.bodySmall.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                onTap: () => onChoose(DeliveryMode.express),
+              ),
+            ],
+          ),
+        ),
+        if (note != null || closedNotice != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            note ?? closedNotice!,
+            style: AppText.bodySmall.copyWith(color: AppColors.secondary),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// One radio row: an ink radio mark, a bold title (and an icon), a grey
+/// line, and something at the end (the fee, "Closed").
+class _RadioRow extends StatelessWidget {
+  const _RadioRow({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+    this.titleIcon,
+    this.trailing,
+  });
+
+  final String title;
+  final Widget? titleIcon;
+  final String subtitle;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final faded = !enabled && !selected;
+    return Semantics(
+      container: true,
+      button: true,
+      checked: selected,
+      inMutuallyExclusiveGroup: true,
+      enabled: enabled,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 64),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                ExcludeSemantics(
+                  child: Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    size: 24,
+                    color: selected
+                        ? AppColors.ink
+                        : faded
+                        ? AppColors.disabledText
+                        : AppColors.tertiary,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            title,
+                            style: AppText.body.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: faded
+                                  ? AppColors.secondary
+                                  : AppColors.ink,
+                            ),
+                          ),
+                          if (titleIcon != null)
+                            ExcludeSemantics(child: titleIcon!),
+                        ],
+                      ),
+                      Text(
+                        subtitle,
+                        style: AppText.bodySmall.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
               ],
             ),
           ),
@@ -723,175 +1114,249 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
     );
   }
-
-  Widget _buildBody({required bool inApp, String? offSiteHost}) {
-    final controller = _controller;
-    if (!inApp || controller == null) {
-      return _orderPlaced ? _buildOrderPlacedHere() : _buildBrowserFallback();
-    }
-    if (_pageFailed) {
-      return _CheckoutMessage(
-        icon: Icons.wifi_off_rounded,
-        title: 'Could not load checkout',
-        message:
-            'Check your connection and try again. '
-            'Your cart is saved.',
-        primaryLabel: 'Try again',
-        onPrimary: _reload,
-        primaryIsCheckout: false,
-        secondaryLabel: CheckoutScreen.openInBrowserLabel,
-        onSecondary: _continueInBrowser,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (offSiteHost != null)
-          _OffSiteHint(host: offSiteHost, onOpenInBrowser: _continueInBrowser),
-        Expanded(
-          key: const ValueKey('checkout-webview'),
-          // Notes touches (never where) so the log shows
-          // whether the page was used before it stopped.
-          // A Listener takes no part in the page's gestures.
-          child: Listener(
-            onPointerUp: (_) => _log.add('touch', 'tap/scroll'),
-            child: WebViewWidget(controller: controller),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// The order went through in the app after the shopper chose the
-  /// browser: never "Open again" then, or the same cart could be bought
-  /// twice.
-  Widget _buildOrderPlacedHere() => _CheckoutMessage(
-    icon: Icons.check_rounded,
-    title: CheckoutScreen.orderPlacedHereTitle,
-    message: CheckoutScreen.orderPlacedHereMessage,
-    primaryLabel: CheckoutScreen.continueShoppingLabel,
-    onPrimary: _leave,
-    primaryIsCheckout: false,
-  );
-
-  Widget _buildMenu({required bool canOpenBrowser}) =>
-      PopupMenuButton<_MenuAction>(
-        tooltip: CheckoutScreen.menuTooltip,
-        icon: const Icon(Icons.more_vert),
-        onSelected: (action) {
-          switch (action) {
-            case _MenuAction.openInBrowser:
-              _continueInBrowser();
-            case _MenuAction.copyLog:
-              _copyLog();
-          }
-        },
-        itemBuilder: (_) => [
-          if (canOpenBrowser)
-            const PopupMenuItem(
-              value: _MenuAction.openInBrowser,
-              child: _MenuRow(
-                icon: Icons.open_in_new,
-                label: CheckoutScreen.openInBrowserLabel,
-              ),
-            ),
-          const PopupMenuItem(
-            value: _MenuAction.copyLog,
-            child: _MenuRow(
-              icon: Icons.content_copy_outlined,
-              label: CheckoutScreen.copyLogLabel,
-            ),
-          ),
-        ],
-      );
-
-  Widget _buildBrowserFallback() {
-    return switch (_browser) {
-      _BrowserState.opening => const Center(
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: CircularProgressIndicator(strokeWidth: 3),
-        ),
-      ),
-      _BrowserState.opened => _CheckoutMessage(
-        icon: Icons.open_in_new,
-        title: 'Checkout opened in your browser',
-        message: 'Finish your order there. Your cart is saved.',
-        primaryLabel: 'Open again',
-        onPrimary: _openInBrowser,
-        primaryIsCheckout: true,
-        secondaryLabel: 'Back to cart',
-        onSecondary: _leave,
-      ),
-      _BrowserState.failed => _CheckoutMessage(
-        icon: Icons.error_outline,
-        title: 'Could not open checkout',
-        message:
-            'No browser could be opened on this device. '
-            'Your cart is saved.',
-        primaryLabel: 'Try again',
-        onPrimary: _openInBrowser,
-        primaryIsCheckout: false,
-        secondaryLabel: 'Back to cart',
-        onSecondary: _leave,
-      ),
-    };
-  }
 }
 
-/// A menu entry: icon and label.
-class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(icon, size: 20, color: AppColors.ink),
-      const SizedBox(width: 12),
-      Flexible(child: Text(label)),
-    ],
-  );
-}
-
-/// A calm line above a page outside checkout (see [offCheckoutHost]),
-/// with a way to continue in the browser should that page not return.
-class _OffSiteHint extends StatelessWidget {
-  const _OffSiteHint({required this.host, required this.onOpenInBrowser});
-
-  final String host;
-  final VoidCallback onOpenInBrowser;
+/// Cash on Delivery, the one way to pay.
+class _PaymentSection extends StatelessWidget {
+  const _PaymentSection();
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      liveRegion: true,
-      child: Container(
-        key: const ValueKey('checkout-offsite-hint'),
-        color: AppColors.subtle,
-        padding: const EdgeInsets.fromLTRB(AppDims.gutter, 8, 8, 8),
+    return _Card(
+      child: _RadioRow(
+        key: const ValueKey('checkout-cod'),
+        title: CheckoutScreen.codTitle,
+        subtitle: CheckoutScreen.codSubtitle,
+        selected: true,
+        enabled: true,
+        onTap: () {},
+      ),
+    );
+  }
+}
+
+/// The quote: one row per line (photo, title · size, × amount, line
+/// total), the sold-out lines struck through, then subtotal, delivery,
+/// the free-delivery hint, the total and "Prices include VAT".
+class _OrderSection extends StatelessWidget {
+  const _OrderSection({
+    required this.quote,
+    required this.loading,
+    required this.error,
+    required this.struck,
+    required this.onRetry,
+  });
+
+  final Quote? quote;
+  final bool loading;
+  final OrderApiException? error;
+  final List<CartLine> struck;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = context.watch<CartStore>();
+    final quote = this.quote;
+    if (error != null && !loading) {
+      return _Card(
+        key: const ValueKey('checkout-quote-error'),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 12),
         child: Row(
           children: [
             const Icon(
-              Icons.info_outline,
+              Icons.wifi_off_rounded,
               size: 20,
               color: AppColors.secondary,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                CheckoutScreen.offSiteHint(host),
-                style: AppText.bodySmall.copyWith(color: AppColors.ink),
+                "We couldn't get today's prices. ${error!.userMessage}",
+                style: AppText.bodySmall,
               ),
             ),
-            const SizedBox(width: 4),
             TextButton(
-              onPressed: onOpenInBrowser,
-              child: const Text(CheckoutScreen.openInBrowserLabel),
+              key: const ValueKey('checkout-quote-retry'),
+              onPressed: onRetry,
+              child: const Text(CheckoutScreen.tryAgain),
+            ),
+          ],
+        ),
+      );
+    }
+    if (quote == null || loading) {
+      return Semantics(
+        label: "Getting today's prices",
+        child: const _Card(
+          key: ValueKey('checkout-quote-loading'),
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonLine(width: 220),
+              SizedBox(height: 14),
+              _SkeletonLine(width: 180),
+              SizedBox(height: 22),
+              _SkeletonLine(width: 260),
+              SizedBox(height: 10),
+              _SkeletonLine(width: 120),
+            ],
+          ),
+        ),
+      );
+    }
+    final lines = quote.availableLines;
+    final fee = quote.deliveryFeeFils;
+    final more = StoreConfig.freeDeliveryFromFils - quote.subtotalFils;
+    return _Card(
+      key: const ValueKey('checkout-order'),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final line in lines)
+            _LineRow(line: line, cartLine: cart.lineOf(line.variantId)),
+          for (final line in struck)
+            if (quote.lineOf(line.variantId)?.available != true)
+              _StruckRow(line: line),
+          const SizedBox(height: 8),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _SumRow(label: 'Subtotal', fils: quote.subtotalFils),
+          const SizedBox(height: 6),
+          _SumRow(
+            label: 'Delivery',
+            fils: fee,
+            text: fee == 0 ? CheckoutScreen.free : null,
+          ),
+          if (fee > 0 && more > 0) ...[
+            const SizedBox(height: 2),
+            Text(
+              CheckoutScreen.freeDeliveryHint(more),
+              semanticsLabel:
+                  'Add ${moneySemantics(more)} more for free delivery',
+              style: AppText.caption,
+            ),
+          ],
+          if (quote.belowMinimum) ...[
+            const SizedBox(height: 6),
+            Text(
+              'The minimum order is ${formatMoney(quote.minOrderFils)}. '
+              'Add ${formatMoney(quote.minOrderFils - quote.subtotalFils)} '
+              'more to order.',
+              style: AppText.bodySmall.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _SumRow(label: 'Total', fils: quote.totalFils, bold: true),
+          const SizedBox(height: 2),
+          const Text(CheckoutScreen.vatNote, style: AppText.caption),
+        ],
+      ),
+    );
+  }
+}
+
+/// A grey bar for the loading quote.
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: (width / 300).clamp(0.2, 1.0),
+      child: Container(
+        height: 12,
+        decoration: const BoxDecoration(
+          color: AppColors.skeleton,
+          borderRadius: BorderRadius.all(Radius.circular(6)),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Australian Beef Kofta · 1 kg", the photo and "× 1", the line total.
+class _LineRow extends StatelessWidget {
+  const _LineRow({required this.line, this.cartLine});
+
+  final QuoteLine line;
+  final CartLine? cartLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = cartLine?.sizeLabel ?? formatSize(line.variantTitle);
+    final name = size == null ? line.title : '${line.title} · $size';
+    return Semantics(
+      container: true,
+      label:
+          '$name, ${line.quantity} of them, '
+          '${moneySemantics(line.lineTotalFils)}',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Thumb(url: cartLine?.imageUrl),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: AppText.productName.copyWith(fontSize: 15)),
+                  Text('× ${line.quantity}', style: AppText.caption),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            MoneyText(line.lineTotalFils, style: AppText.price),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A line taken off: struck through and faded, "Sold out" at the end.
+class _StruckRow extends StatelessWidget {
+  const _StruckRow({required this.line});
+
+  final CartLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = line.sizeLabel;
+    final name = size == null ? line.title : '${line.title} · $size';
+    return Semantics(
+      container: true,
+      label: '$name, sold out, taken off your order',
+      excludeSemantics: true,
+      child: Padding(
+        key: ValueKey('checkout-struck-${line.variantId}'),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Opacity(opacity: 0.5, child: _Thumb(url: line.imageUrl)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                name,
+                style: AppText.productName.copyWith(
+                  fontSize: 15,
+                  color: AppColors.secondary,
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: AppColors.secondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Sold out',
+              style: AppText.bodySmall.copyWith(color: AppColors.secondary),
             ),
           ],
         ),
@@ -900,39 +1365,279 @@ class _OffSiteHint extends StatelessWidget {
   }
 }
 
-/// Checkout's own short notice, under the app bar over the top of the
-/// page. It takes no touches: the page under it stays usable.
-class _CheckoutNotice extends StatelessWidget {
-  const _CheckoutNotice({required this.message});
+class _Thumb extends StatelessWidget {
+  const _Thumb({this.url});
 
-  final String message;
+  final String? url;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
+    return Container(
+      width: 44,
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: AppDecor.well,
+      child: ProductImage(
+        url: url,
+        logicalWidth: 44,
+        wellColor: AppColors.subtle,
+      ),
+    );
+  }
+}
+
+/// "Subtotal … ⃃ 122.50"; [bold] for the total.
+class _SumRow extends StatelessWidget {
+  const _SumRow({
+    required this.label,
+    required this.fils,
+    this.text,
+    this.bold = false,
+  });
+
+  final String label;
+  final int fils;
+
+  /// Shown instead of the amount ("Free").
+  final String? text;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = bold
+        ? AppText.cardHeading.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          )
+        : AppText.body;
+    final amountStyle = bold
+        ? AppText.price.copyWith(fontSize: 20)
+        : AppText.body.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          );
+    return Semantics(
+      container: true,
+      label: '$label, ${text ?? moneySemantics(fils)}',
+      excludeSemantics: true,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        children: [
+          Text(label, style: style),
+          if (text != null)
+            Text(text!, style: amountStyle)
+          else
+            MoneyText(fils, style: amountStyle),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Your order changed": a saving-orange outline, what changed in plain
+/// words, and what to do.
+class _ChangedNotice extends StatelessWidget {
+  const _ChangedNotice({required this.changes});
+
+  final List<_Change> changes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('checkout-changed'),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppDims.cardBorderRadius,
+        border: Border.all(color: AppColors.saving, width: 1.5),
+      ),
+      padding: const EdgeInsets.all(14),
       child: Semantics(
         container: true,
         liveRegion: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.error_outline,
+                size: 22,
+                color: AppColors.saving,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    CheckoutScreen.changedTitle,
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${changes.map((c) => c.text).join(' ')} '
+                    '${CheckoutScreen.changedEnd}',
+                    style: AppText.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A calm message over the bar (an order that did not go through) and
+/// its action.
+class _Problem {
+  const _Problem({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+    this.ink = false,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  /// The action is the ink button ("Sign in"), not a text link.
+  final bool ink;
+}
+
+/// The white bar pinned at the bottom: a problem (if any), what is
+/// missing, the green 52pt "Place order · total" and "You pay in cash
+/// when it arrives".
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.label,
+    required this.totalFils,
+    required this.placing,
+    required this.onPressed,
+    this.missingLine,
+    this.problem,
+  });
+
+  final String label;
+  final int? totalFils;
+  final bool placing;
+  final VoidCallback? onPressed;
+  final String? missingLine;
+  final _Problem? problem;
+
+  @override
+  Widget build(BuildContext context) {
+    final problem = this.problem;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.hairline)),
+        boxShadow: AppShadows.sticky,
+      ),
+      child: SafeArea(
+        top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppDims.gutter,
-            8,
+            12,
             AppDims.gutter,
-            0,
+            8,
           ),
-          child: DecoratedBox(
-            key: const ValueKey('checkout-notice'),
-            decoration: const BoxDecoration(
-              color: AppColors.ink,
-              borderRadius: AppDims.buttonBorderRadius,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text(
-                message,
-                style: AppText.bodySmall.copyWith(color: AppColors.onDark),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (problem != null) ...[
+                Container(
+                  key: const ValueKey('checkout-problem'),
+                  decoration: AppDecor.info,
+                  padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 6, 10),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 20,
+                        color: AppColors.ink,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(problem.message, style: AppText.bodySmall),
+                      ),
+                      if (problem.actionLabel != null &&
+                          problem.onAction != null) ...[
+                        const SizedBox(width: 6),
+                        if (problem.ink)
+                          FilledButton(
+                            key: const ValueKey('checkout-problem-action'),
+                            style: AppButtons.dark.copyWith(
+                              minimumSize: const WidgetStatePropertyAll(
+                                Size(64, AppDims.touch),
+                              ),
+                            ),
+                            onPressed: problem.onAction,
+                            child: Text(problem.actionLabel!),
+                          )
+                        else
+                          TextButton(
+                            key: const ValueKey('checkout-problem-action'),
+                            onPressed: problem.onAction,
+                            child: Text(problem.actionLabel!),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (missingLine != null && !placing) ...[
+                Text(
+                  missingLine!,
+                  key: const ValueKey('checkout-missing'),
+                  textAlign: TextAlign.center,
+                  style: AppText.bodySmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              FilledButton(
+                key: const ValueKey('checkout-place-order'),
+                onPressed: onPressed,
+                child: placing
+                    ? const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: AppColors.disabledText,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Flexible(child: Text(CheckoutScreen.placing)),
+                        ],
+                      )
+                    : Text(
+                        label,
+                        semanticsLabel: totalFils == null
+                            ? 'Place order'
+                            : 'Place order, ${moneySemantics(totalFils!)}',
+                        textAlign: TextAlign.center,
+                      ),
               ),
-            ),
+              const SizedBox(height: 6),
+              const Text(
+                CheckoutScreen.cashNote,
+                textAlign: TextAlign.center,
+                style: AppText.caption,
+              ),
+            ],
           ),
         ),
       ),
@@ -940,80 +1645,72 @@ class _CheckoutNotice extends StatelessWidget {
   }
 }
 
-/// A full-page message in checkout: grey icon circle, title, secondary
-/// text, a primary button and, optionally, an ink text link. The primary
-/// button is the green buying button only when it continues the checkout
-/// ([primaryIsCheckout]); a retry after a failure is ink.
-class _CheckoutMessage extends StatelessWidget {
-  const _CheckoutMessage({
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.primaryLabel,
-    required this.onPrimary,
-    required this.primaryIsCheckout,
-    this.secondaryLabel,
-    this.onSecondary,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-  final String primaryLabel;
-  final VoidCallback onPrimary;
-  final bool primaryIsCheckout;
-  final String? secondaryLabel;
-  final VoidCallback? onSecondary;
+/// The app was built without an order server: said plainly, with the
+/// way back to the cart.
+class _Unavailable extends StatelessWidget {
+  const _Unavailable();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: const BoxDecoration(
-                    color: AppColors.subtle,
-                    shape: BoxShape.circle,
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _Header(),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 24,
                   ),
-                  child: Icon(icon, size: 32, color: AppColors.ink),
+                  child: Column(
+                    key: const ValueKey('checkout-unavailable'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: AppColors.subtle,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.storefront_outlined,
+                          size: 32,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Semantics(
+                        header: true,
+                        child: const Text(
+                          CheckoutScreen.unavailableTitle,
+                          textAlign: TextAlign.center,
+                          style: AppText.heading,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        CheckoutScreen.unavailableMessage,
+                        textAlign: TextAlign.center,
+                        style: AppText.body.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      OutlinedButton(
+                        onPressed: () => AppNav.goToTab(context, AppTab.cart),
+                        child: const Text(CheckoutScreen.backToCart),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Semantics(
-                header: true,
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: AppText.heading,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: AppText.body.copyWith(color: AppColors.secondary),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                style: primaryIsCheckout ? null : AppButtons.dark,
-                onPressed: onPrimary,
-                child: Text(primaryLabel),
-              ),
-              if (secondaryLabel case final label?) ...[
-                const SizedBox(height: 4),
-                TextButton(onPressed: onSecondary, child: Text(label)),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

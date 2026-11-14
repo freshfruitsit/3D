@@ -103,8 +103,9 @@ class PriceRow extends StatelessWidget {
       formatMoney(priceCents),
       semanticsLabel: moneySemantics(priceCents),
       maxLines: 1,
-      style: (large ? AppText.priceLarge : AppText.price)
-          .copyWith(color: showOld ? AppColors.saving : null),
+      style: (large ? AppText.priceLarge : AppText.price).copyWith(
+        color: showOld ? AppColors.saving : null,
+      ),
     );
     final oldText = showOld
         ? Text(
@@ -146,10 +147,7 @@ class PriceRow extends StatelessWidget {
         children: [
           price,
           if (oldText != null) ...[SizedBox(width: gap), oldText],
-          if (trailing != null) ...[
-            const SizedBox(width: 10),
-            trailing!,
-          ],
+          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
         ],
       ),
     );

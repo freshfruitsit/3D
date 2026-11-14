@@ -24,8 +24,9 @@ Future<void> settleSearch(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('starts focused with the popular chips and no request',
-      (tester) async {
+  testWidgets('starts focused with the popular chips and no request', (
+    tester,
+  ) async {
     final api = FakeShopifyApi.sample();
     await pumpScreen(tester, const SearchScreen(), api: api);
     await tester.pump();
@@ -103,7 +104,11 @@ void main() {
 
   testWidgets('rows add to the cart, and sold-out rows cannot', (tester) async {
     final cart = CartStore();
-    await pumpScreen(tester, const SearchScreen(initialQuery: 'berry'), cart: cart);
+    await pumpScreen(
+      tester,
+      const SearchScreen(initialQuery: 'berry'),
+      cart: cart,
+    );
     await tester.pump();
 
     // Blueberry (sold out) and Strawberry (250 GM sold out, 1 KG on sale).
@@ -146,7 +151,11 @@ void main() {
   testWidgets('an error can be retried', (tester) async {
     final api = FakeShopifyApi.sample()
       ..error = const NetworkException('offline');
-    await pumpScreen(tester, const SearchScreen(initialQuery: 'kiwi'), api: api);
+    await pumpScreen(
+      tester,
+      const SearchScreen(initialQuery: 'kiwi'),
+      api: api,
+    );
     await tester.pump();
 
     expect(find.byType(ErrorView), findsOneWidget);
@@ -192,7 +201,10 @@ void main() {
 
     final cards = find.byType(ProductCard);
     expect(cards, findsNWidgets(2));
-    expect(tester.getTopLeft(cards.at(0)).dy, tester.getTopLeft(cards.at(1)).dy);
+    expect(
+      tester.getTopLeft(cards.at(0)).dy,
+      tester.getTopLeft(cards.at(1)).dy,
+    );
     expect(tester.getTopLeft(cards.at(0)).dx, 16);
     expect(tester.getTopRight(cards.at(1)).dx, 390 - 16);
   });

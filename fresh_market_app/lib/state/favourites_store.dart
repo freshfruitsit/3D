@@ -54,18 +54,20 @@ class FavouritesStore extends ChangeNotifier {
     final saved = _products.values.toList();
     if (saved.isEmpty) return;
     final fresh = <int, Product>{};
-    await Future.wait(saved.map((old) async {
-      if (old.handle.isEmpty) return;
-      try {
-        final product = await api.product(old.handle, refresh: true);
-        // Keep the saved id as the key even if the handle was reused.
-        if (product.id == old.id) fresh[old.id] = product;
-      } on HttpStatusException catch (e) {
-        if (e.isNotFound && old.available) fresh[old.id] = old.soldOut();
-      } on ApiException {
-        // Offline: keep the saved copy.
-      }
-    }));
+    await Future.wait(
+      saved.map((old) async {
+        if (old.handle.isEmpty) return;
+        try {
+          final product = await api.product(old.handle, refresh: true);
+          // Keep the saved id as the key even if the handle was reused.
+          if (product.id == old.id) fresh[old.id] = product;
+        } on HttpStatusException catch (e) {
+          if (e.isNotFound && old.available) fresh[old.id] = old.soldOut();
+        } on ApiException {
+          // Offline: keep the saved copy.
+        }
+      }),
+    );
     var changed = false;
     for (final entry in fresh.entries) {
       final current = _products[entry.key];

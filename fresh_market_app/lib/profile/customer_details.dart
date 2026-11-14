@@ -360,19 +360,6 @@ abstract final class CustomerInput {
   static String? validateBuilding(String? input) =>
       cleanLine(input ?? '').isEmpty ? buildingError : null;
 
-  /// Shopify's province code for each emirate, as its UAE checkout lists
-  /// them (AZ Abu Dhabi, AJ Ajman, DU Dubai, FU Fujairah, RK Ras
-  /// al-Khaimah, SH Sharjah, UQ Umm al-Quwain).
-  static String provinceCode(Emirate emirate) => switch (emirate) {
-    Emirate.dubai => 'DU',
-    Emirate.abuDhabi => 'AZ',
-    Emirate.sharjah => 'SH',
-    Emirate.ajman => 'AJ',
-    Emirate.ummAlQuwain => 'UQ',
-    Emirate.rasAlKhaimah => 'RK',
-    Emirate.fujairah => 'FU',
-  };
-
   /// True when [a] and [b] are the same place for an address: the same
   /// emirate and area name (case and spacing aside) and pins at most
   /// [DeliveryConfig.nearKm] apart. A name alone is not enough: a "Near

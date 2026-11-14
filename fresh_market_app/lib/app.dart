@@ -8,7 +8,9 @@ import 'screens/cart_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/product_list_screen.dart';
+import 'services/customer_account_api.dart';
 import 'services/location_services.dart';
+import 'services/order_api.dart';
 import 'services/shopify_api.dart';
 import 'state/account_session.dart';
 import 'state/cart_store.dart';
@@ -56,6 +58,8 @@ class AppScope extends StatelessWidget {
     this.delivery,
     this.profile,
     this.session,
+    this.orderApi,
+    this.customerApi,
     this.locationServices,
     this.shell,
     required this.child,
@@ -70,13 +74,21 @@ class AppScope extends StatelessWidget {
   final DeliveryStore? delivery;
 
   /// The shopper's details for checkout. When null an empty in-memory
-  /// store is created that never shows the first-checkout sheet.
+  /// store is created.
   final ProfileStore? profile;
 
   /// Whether the shopper is signed in to their store account. When null
   /// a signed-out in-memory session is created that never asks to sign in
   /// before checkout.
   final AccountSession? session;
+
+  /// The owner's order server (quotes and Cash on Delivery orders). When
+  /// null, the one the app was built with (`ORDER_API_BASE`; none in
+  /// tests, so checkout says ordering isn't available).
+  final OrderApi? orderApi;
+
+  /// The signed-in customer's profile and orders. When null, Shopify's.
+  final CustomerAccountApi? customerApi;
 
   /// What the location picker may use (phone location, address search,
   /// map); the real ones when null.
@@ -100,14 +112,33 @@ class AppScope extends StatelessWidget {
         if (profile != null)
           ChangeNotifierProvider<ProfileStore>.value(value: profile!)
         else
-          ChangeNotifierProvider<ProfileStore>(
-            create: (_) => ProfileStore(askAtCheckout: false),
-          ),
+          ChangeNotifierProvider<ProfileStore>(create: (_) => ProfileStore()),
         if (session != null)
           ChangeNotifierProvider<AccountSession>.value(value: session!)
         else
           ChangeNotifierProvider<AccountSession>(
             create: (_) => AccountSession(asksAtCheckout: false),
+          ),
+        // Keyed: a test may pump the scope again with or without one.
+        if (orderApi != null)
+          Provider<OrderApi>.value(
+            key: const ValueKey('given-order-api'),
+            value: orderApi!,
+          )
+        else
+          Provider<OrderApi>(
+            key: const ValueKey('app-order-api'),
+            create: (_) => OrderApi(),
+          ),
+        if (customerApi != null)
+          Provider<CustomerAccountApi>.value(
+            key: const ValueKey('given-customer-api'),
+            value: customerApi!,
+          )
+        else
+          Provider<CustomerAccountApi>(
+            key: const ValueKey('app-customer-api'),
+            create: (_) => CustomerAccountApi(),
           ),
         Provider<LocationServices>.value(
           value: locationServices ?? const LocationServices(),
@@ -134,6 +165,8 @@ class FreshMarketApp extends StatelessWidget {
     this.deliveryStore,
     this.profile,
     this.session,
+    this.orderApi,
+    this.customerApi,
     this.locationServices,
     this.shell,
     this.showIntro = true,
@@ -154,6 +187,12 @@ class FreshMarketApp extends StatelessWidget {
   /// The store account sign-in (see [AppScope.session]).
   final AccountSession? session;
 
+  /// See [AppScope.orderApi].
+  final OrderApi? orderApi;
+
+  /// See [AppScope.customerApi].
+  final CustomerAccountApi? customerApi;
+
   /// See [AppScope.locationServices].
   final LocationServices? locationServices;
   final ShellController? shell;
@@ -170,6 +209,8 @@ class FreshMarketApp extends StatelessWidget {
       delivery: deliveryStore,
       profile: profile,
       session: session,
+      orderApi: orderApi,
+      customerApi: customerApi,
       locationServices: locationServices,
       shell: shell,
       child: MaterialApp(
@@ -231,8 +272,7 @@ class _AppShellState extends State<AppShell> {
   /// Ask button: a control focused there is scrolled to the middle of the
   /// screen (WCAG 2.4.11).
   void _onFocusChanged() {
-    if (FocusManager.instance.highlightMode !=
-        FocusHighlightMode.traditional) {
+    if (FocusManager.instance.highlightMode != FocusHighlightMode.traditional) {
       return;
     }
     final node = FocusManager.instance.primaryFocus;
@@ -290,20 +330,20 @@ class _AppShellState extends State<AppShell> {
     final controller = _controller!;
     if (controller.reselects != _seenReselects) {
       _seenReselects = controller.reselects;
-      _navigators[controller.tab]!
-          .currentState
-          ?.popUntil((route) => route.isFirst);
+      _navigators[controller.tab]!.currentState?.popUntil(
+        (route) => route.isFirst,
+      );
     }
     setState(() => _visited.add(controller.tab));
   }
 
   Widget _rootOf(AppTab tab) => switch (tab) {
-        AppTab.home => const HomeScreen(),
-        AppTab.categories => const CategoriesScreen(),
-        AppTab.deals => const ProductListScreen.deals(),
-        AppTab.cart => const CartScreen(),
-        AppTab.account => const AccountScreen(),
-      };
+    AppTab.home => const HomeScreen(),
+    AppTab.categories => const CategoriesScreen(),
+    AppTab.deals => const ProductListScreen.deals(),
+    AppTab.cart => const CartScreen(),
+    AppTab.account => const AccountScreen(),
+  };
 
   /// System back: first inside the tab, then to Home, then leave the app.
   void _onBack() {
@@ -349,9 +389,9 @@ class _AppShellState extends State<AppShell> {
                             key: _navigators[tab],
                             onGenerateRoute: (settings) =>
                                 MaterialPageRoute<void>(
-                              settings: settings,
-                              builder: (_) => _rootOf(tab),
-                            ),
+                                  settings: settings,
+                                  builder: (_) => _rootOf(tab),
+                                ),
                           ),
                         )
                       else
@@ -365,7 +405,8 @@ class _AppShellState extends State<AppShell> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: FloatingNavBar.bottomInset +
+                  height:
+                      FloatingNavBar.bottomInset +
                       FloatingNavBar.height +
                       32 +
                       safeBottom,
@@ -403,7 +444,8 @@ class _AppShellState extends State<AppShell> {
                 if (current != AppTab.cart)
                   Positioned(
                     right: AppDims.gutter,
-                    bottom: FloatingNavBar.bottomInset +
+                    bottom:
+                        FloatingNavBar.bottomInset +
                         safeBottom +
                         FloatingNavBar.height +
                         AskButton.gapAboveNavBar,

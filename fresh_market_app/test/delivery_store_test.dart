@@ -44,7 +44,6 @@ void main() {
       expect(store.express, isNull);
       expect(store.expressCovered, isFalse);
       expect(store.promiseFor(fast), isNull);
-      expect(store.cartAttributes, isNull);
       expect(store.expressClosedNotice, isNull);
       expect(store.shouldAskForLocation, isTrue);
       store.markAskedForLocation();
@@ -186,24 +185,6 @@ void main() {
       now = uae(22, 30);
       expect(store.promiseFor(fast)!.text, 'From 8 AM');
       expect(store.promiseFor(slow)!.text, 'Fresh Market · Tomorrow by 11 AM');
-    });
-
-    test('cart attributes', () {
-      final store = DeliveryStore(now: () => uae(9), refreshEvery: null);
-      store.setArea(mirdif);
-      expect(store.cartAttributes, {
-        'Delivery mode': 'Fresh Market',
-        'Delivery area': 'Mirdif, Dubai',
-        'Delivery promise': 'Today within 6 hours',
-        'Delivery pin': '25.22000,55.42000',
-      });
-      store.setMode(DeliveryMode.express);
-      expect(store.cartAttributes, {
-        'Delivery mode': 'Express',
-        'Delivery area': 'Mirdif, Dubai',
-        'Delivery promise': '25–35 min',
-        'Delivery pin': '25.22000,55.42000',
-      });
     });
   });
 

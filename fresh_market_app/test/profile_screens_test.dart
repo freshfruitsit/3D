@@ -17,7 +17,7 @@ import 'package:fresh_market_app/screens/checkout_screen.dart';
 import 'package:fresh_market_app/screens/location_screen.dart';
 import 'package:fresh_market_app/screens/my_details_screen.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
-import 'package:fresh_market_app/state/account_session.dart';
+import 'package:fresh_market_app/services/order_api.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
@@ -25,6 +25,7 @@ import 'package:fresh_market_app/widgets/deliver_to.dart';
 import 'package:fresh_market_app/widgets/details_fields.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'support/order_fakes.dart';
 import 'support/test_app.dart';
 
 // Fictional demo data only.
@@ -77,29 +78,6 @@ ProfileStore filledProfile({ProfileVault? vault}) => ProfileStore(vault: vault)
   ..saveContact(sara)
   ..saveAddress(homeIn('Business Bay'))
   ..saveAddress(office);
-
-const _launcher = MethodChannel('plugins.flutter.io/url_launcher');
-
-/// Answers url_launcher calls (checkout's browser fallback in tests) and
-/// records the URLs.
-List<String> mockLauncher(WidgetTester tester) {
-  final launched = <String>[];
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(_launcher, (
-    call,
-  ) async {
-    if (call.method == 'launch') {
-      launched.add((call.arguments as Map)['url'] as String);
-    }
-    return true;
-  });
-  addTearDown(
-    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      _launcher,
-      null,
-    ),
-  );
-  return launched;
-}
 
 /// Records what is said to screen readers.
 List<String> captureAnnouncements(WidgetTester tester) {
@@ -200,7 +178,9 @@ void main() {
       expect(
         tester.getTopLeft(card).dy,
         greaterThan(
-          tester.getBottomLeft(find.byKey(const ValueKey('account-session'))).dy,
+          tester
+              .getBottomLeft(find.byKey(const ValueKey('account-session')))
+              .dy,
         ),
       );
       expect(
@@ -686,48 +666,37 @@ void main() {
     });
   });
 
-  group('Checkout fills in the saved details', () {
-    testWidgets('the cart opens checkout with the details and the delivery '
-        'attributes', (tester) async {
-      final launched = mockLauncher(tester);
+  group('Checkout delivers to the saved details', () {
+    testWidgets('the cart opens checkout with the address, the contact and '
+        'the instructions', (tester) async {
+      final server = FakeOrderServer();
       await pumpScreen(
         tester,
         const CartScreen(),
         cart: twoItemCart(),
         delivery: testDelivery(),
         profile: filledProfile(),
+        orderApi: server.api(),
       );
       await tapCheckout(tester);
       expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
-      expect(launched.single, contains('attributes%5BDelivery%20mode%5D='));
-      final url = Uri.parse(launched.single);
-      expect(
-        url.queryParameters['attributes[Delivery area]'],
-        'Business Bay, Dubai',
+      expect(find.text('Home · Bay Square, Building 5'), findsOneWidget);
+      expect(find.text('Flat 302 · Business Bay, Dubai'), findsOneWidget);
+      expect(find.text('Sara Ahmed · $saraMobile'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        field(CheckoutScreen.instructionsLabel),
+        300,
+        scrollable: find.byType(Scrollable).first,
       );
-      expect(
-        url.queryParameters['attributes[Delivery instructions]'],
-        'Call when you arrive',
+      final instructions = tester.widget<EditableText>(
+        field(CheckoutScreen.instructionsLabel),
       );
-      expect(url.queryParameters['checkout[email]'], 'sara@example.com');
-      expect(
-        url.queryParameters['checkout[shipping_address][address1]'],
-        'Bay Square, Building 5',
-      );
-      expect(
-        url.queryParameters['checkout[shipping_address][address2]'],
-        'Flat 302',
-      );
-      expect(url.queryParameters['checkout[shipping_address][province]'], 'DU');
-      expect(
-        url.queryParameters['checkout[shipping_address][phone]'],
-        '+971501234567',
-      );
+      expect(instructions.controller.text, 'Call when you arrive');
+      expect(find.byKey(const ValueKey('checkout-need-details')), findsNothing);
+      expect(find.byKey(const ValueKey('checkout-need-address')), findsNothing);
     });
 
     testWidgets('the assistant takes the same path', (tester) async {
-      final launched = mockLauncher(tester);
       await pumpScreen(
         tester,
         AssistantScreen(
@@ -738,6 +707,7 @@ void main() {
         cart: twoItemCart(),
         delivery: testDelivery(),
         profile: filledProfile(),
+        orderApi: FakeOrderServer().api(),
       );
       await tester.enterText(find.byType(TextField), 'checkout');
       await tester.testTextInput.receiveAction(TextInputAction.send);
@@ -749,201 +719,66 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(CheckoutScreen), findsOneWidget);
-      final url = Uri.parse(launched.single);
-      expect(
-        url.queryParameters['checkout[shipping_address][first_name]'],
-        'Sara',
-      );
-      expect(
-        url.queryParameters['checkout[shipping_address][city]'],
-        'Business Bay',
-      );
+      expect(find.text('Home · Bay Square, Building 5'), findsOneWidget);
     });
 
-    testWidgets('a delivery area with no saved address sends contact, city '
-        'and emirate, never another building', (tester) async {
-      final launched = mockLauncher(tester);
+    testWidgets('a delivery area with no saved address asks for one there, '
+        'never another building', (tester) async {
       await pumpScreen(
         tester,
         const CartScreen(),
         cart: twoItemCart(),
         delivery: testDelivery(area: 'Jumeirah'),
         profile: filledProfile(),
+        orderApi: FakeOrderServer().api(),
       );
       await tapCheckout(tester);
-      final q = Uri.parse(launched.single).queryParameters;
-      expect(q['checkout[shipping_address][city]'], 'Jumeirah');
-      expect(q['checkout[shipping_address][country]'], 'AE');
-      expect(q.containsKey('checkout[shipping_address][address1]'), isFalse);
-      expect(q.containsKey('attributes[Delivery instructions]'), isFalse);
-      expect(q['checkout[email]'], 'sara@example.com');
+      expect(
+        find.byKey(const ValueKey('checkout-need-address')),
+        findsOneWidget,
+      );
+      expect(find.text('Add one in Jumeirah'), findsOneWidget);
+      expect(find.textContaining('Bay Square'), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('checkout-place-order')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(find.text('Add your address to place your order'), findsOneWidget);
     });
-  });
 
-  group('First checkout: Fill in checkout faster', () {
-    Future<List<String>> openSheet(
-      WidgetTester tester,
-      ProfileStore profile,
-    ) async {
-      final launched = mockLauncher(tester);
+    testWidgets('nothing saved: checkout asks for the details and the '
+        'address in place (no sheet first)', (tester) async {
       await pumpScreen(
         tester,
         const CartScreen(),
         cart: twoItemCart(),
         delivery: testDelivery(),
-        profile: profile,
+        profile: ProfileStore(),
+        orderApi: FakeOrderServer().api(),
       );
       await tapCheckout(tester);
-      expect(find.text(CheckoutDetailsSheet.title), findsOneWidget);
-      expect(find.byType(CheckoutScreen), findsNothing);
-      return launched;
-    }
-
-    Future<void> fillSheet(WidgetTester tester) async {
-      await type(tester, 'First name', 'Sara');
-      await type(tester, 'Last name', 'Ahmed');
-      await type(tester, 'Mobile', '0501234567');
-      await type(tester, 'Email', 'sara@example.com');
-      await type(tester, 'Building or villa', 'Bay Square, Building 5');
-      await type(tester, 'Flat, floor', 'Flat 302');
-    }
-
-    Future<void> tapInSheet(WidgetTester tester, Key key) async {
-      await tester.ensureVisible(find.byKey(key));
-      await tester.pump();
-      await tester.tap(find.byKey(key));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-    }
-
-    testWidgets('Continue saves the details and opens checkout filled in', (
-      tester,
-    ) async {
-      final vault = MemoryProfileVault();
-      final profile = ProfileStore(vault: vault);
-      final launched = await openSheet(tester, profile);
-      expect(find.text('Your address in Business Bay'), findsOneWidget);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
       expect(
-        tester
-            .widget<FilledButton>(find.byKey(const ValueKey('sheet-continue')))
-            .style,
-        isNull,
-        reason: 'the green buying button',
-      );
-      await fillSheet(tester);
-      await tapInSheet(tester, const ValueKey('sheet-continue'));
-
-      expect(find.byType(CheckoutScreen), findsOneWidget);
-      final q = Uri.parse(launched.single).queryParameters;
-      expect(q['checkout[shipping_address][first_name]'], 'Sara');
-      expect(q['checkout[shipping_address][phone]'], '+971501234567');
-      expect(
-        q['checkout[shipping_address][address1]'],
-        'Bay Square, Building 5',
-      );
-      expect(profile.contact, sara);
-      expect(profile.addresses.single.flat, 'Flat 302');
-      await profile.idle;
-      expect(vault.value, isNotNull);
-    });
-
-    testWidgets('Skip opens checkout as before and is remembered', (
-      tester,
-    ) async {
-      final vault = MemoryProfileVault();
-      final profile = ProfileStore(vault: vault);
-      final launched = await openSheet(tester, profile);
-      await tapInSheet(tester, const ValueKey('sheet-skip'));
-      expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(launched.single, isNot(contains('checkout%5B')));
-      expect(profile.checkoutSheetSkipped, isTrue);
-
-      await tester.tap(find.text('Back to cart'));
-      await tester.pumpAndSettle();
-      // The cart keeps the quiet row; the sheet is not shown again.
-      expect(find.text(CartDeliverToCard.quietLabel), findsOneWidget);
-      await tapCheckout(tester);
-      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
-      expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(launched, hasLength(2));
-
-      // Remembered on the phone too.
-      await profile.idle;
-      final later = ProfileStore(vault: vault);
-      await later.load();
-      expect(later.offersCheckoutSheet, isFalse);
-    });
-
-    testWidgets('Continue with nothing typed is remembered like Skip', (
-      tester,
-    ) async {
-      final vault = MemoryProfileVault();
-      final profile = ProfileStore(vault: vault);
-      final launched = await openSheet(tester, profile);
-      await tapInSheet(tester, const ValueKey('sheet-continue'));
-      expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(launched.single, isNot(contains('checkout%5B')));
-
-      await tester.tap(find.text('Back to cart'));
-      await tester.pumpAndSettle();
-      await tapCheckout(tester);
-      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
-      expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(launched, hasLength(2));
-    });
-
-    testWidgets('Save off: used for this checkout only', (tester) async {
-      final vault = MemoryProfileVault();
-      final profile = ProfileStore(vault: vault);
-      final launched = await openSheet(tester, profile);
-      await fillSheet(tester);
-      await tapInSheet(tester, const ValueKey('sheet-save'));
-      final toggle = tester.widget<Switch>(
-        find.descendant(
-          of: find.byKey(const ValueKey('sheet-save')),
-          matching: find.byType(Switch),
-        ),
-      );
-      expect(toggle.value, isFalse);
-      await tapInSheet(tester, const ValueKey('sheet-continue'));
-
-      final q = Uri.parse(launched.single).queryParameters;
-      expect(q['checkout[email]'], 'sara@example.com');
-      expect(q['checkout[shipping_address][address2]'], 'Flat 302');
-      expect(profile.hasDetails, isFalse);
-      await profile.idle;
-      expect(vault.writes, isEmpty);
-    });
-
-    testWidgets('closing the sheet stays on the cart', (tester) async {
-      final profile = ProfileStore();
-      final launched = await openSheet(tester, profile);
-      await tester.tapAt(const Offset(195, 40)); // the scrim
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
-      expect(find.byType(CheckoutScreen), findsNothing);
-      expect(launched, isEmpty);
-      expect(profile.offersCheckoutSheet, isTrue);
-    });
-
-    testWidgets('a bad mobile, or a flat with no building, is said', (
-      tester,
-    ) async {
-      final said = captureAnnouncements(tester);
-      final profile = ProfileStore();
-      final launched = await openSheet(tester, profile);
-      await type(tester, 'Mobile', '12345');
-      await type(tester, 'Flat, floor', 'Flat 302');
-      await tapInSheet(tester, const ValueKey('sheet-continue'));
-      expect(find.text(CustomerInput.mobileError), findsOneWidget);
-      expect(
-        find.text(CheckoutDetailsSheet.flatWithoutBuilding),
+        find.byKey(const ValueKey('checkout-need-details')),
         findsOneWidget,
       );
-      expect(said, [CustomerInput.mobileError]);
-      expect(launched, isEmpty);
-      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(
+        find.byKey(const ValueKey('checkout-need-address')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Add your details and address to order'),
+        findsOneWidget,
+      );
+      // "Add details" opens My details over checkout.
+      await tester.tap(find.byKey(const ValueKey('checkout-add-details')));
+      await tester.pumpAndSettle();
+      expect(find.byType(MyDetailsScreen), findsOneWidget);
     });
   });
 
@@ -954,6 +789,7 @@ void main() {
       ProfileStore? profile,
       CartStore? cart,
       String? deliveryArea = 'Business Bay',
+      OrderApi? orderApi,
     }) async {
       await loadAppFonts(tester);
       tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -964,6 +800,7 @@ void main() {
         profile: profile ?? filledProfile(),
         cart: cart,
         delivery: testDelivery(area: deliveryArea),
+        orderApi: orderApi,
       );
       tester.view.physicalSize = const Size(1080, 2340); // 360dp wide
       await tester.pump();
@@ -999,7 +836,10 @@ void main() {
       // The text column is the card's width, not a one-word strip.
       expect(tester.getSize(line).width, greaterThan(220));
       final button = find.widgetWithText(FilledButton, 'Sign in with email');
-      expect(tester.getTopLeft(button).dy, greaterThan(tester.getBottomLeft(line).dy));
+      expect(
+        tester.getTopLeft(button).dy,
+        greaterThan(tester.getBottomLeft(line).dy),
+      );
       expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
       final label = tester.renderObject<RenderParagraph>(
         find.descendant(of: button, matching: find.byType(RichText)),
@@ -1087,7 +927,7 @@ void main() {
       );
     });
 
-    testWidgets('the address sheet and the checkout sheet', (tester) async {
+    testWidgets('the address sheet and checkout', (tester) async {
       await atDoubleText(tester, const CartScreen(), cart: twoItemCart());
       await tester.ensureVisible(
         find.byKey(const ValueKey('deliver-to-change')),
@@ -1100,12 +940,12 @@ void main() {
       Navigator.of(tester.element(find.text('Add new address'))).pop();
       await tester.pumpAndSettle();
 
-      mockLauncher(tester);
       await atDoubleText(
         tester,
         const CartScreen(),
         cart: twoItemCart(),
         profile: ProfileStore(),
+        orderApi: FakeOrderServer().api(),
       );
       await tester.scrollUntilVisible(
         checkoutButton,
@@ -1114,16 +954,18 @@ void main() {
       );
       await tester.pump();
       await tapCheckout(tester);
-      expect(find.text(CheckoutDetailsSheet.title), findsOneWidget);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
-      // Everything in the sheet can be reached by scrolling.
-      await tester.ensureVisible(find.byKey(const ValueKey('sheet-skip')));
+      // Everything in checkout can be reached by scrolling.
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('checkout-instructions')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
-  });
 
-  group('Polish', () {
     testWidgets('the area picker for an address: an ink button and where '
         'the area is, no delivery promise', (tester) async {
       final profile = ProfileStore()..saveAddress(homeIn('Business Bay'));
@@ -1301,7 +1143,7 @@ void main() {
         const AccountScreen(),
         profile: filledProfile(),
         delivery: testDelivery(),
-        session: AccountSession()..signIn(email: 'sara@example.com'),
+        session: await signedInSession(),
       );
       expect(find.bySemanticsLabel('Edit my details'), findsOneWidget);
       expect(find.text(saraMobile), findsOneWidget);
@@ -1324,8 +1166,8 @@ void main() {
       expect(tester.getTopLeft(find.text(AccountScreen.deleteLabel)).dx, textX);
     });
 
-    testWidgets('a returning shopper whose details are still being read is '
-        'not asked, and checkout gets the details', (tester) async {
+    testWidgets('a returning shopper whose details are still being read '
+        'gets them in checkout', (tester) async {
       final saved = MemoryProfileVault();
       final writer = ProfileStore(vault: saved)
         ..saveContact(sara)
@@ -1335,35 +1177,30 @@ void main() {
       final vault = GatedVault(saved.value);
       final profile = ProfileStore(vault: vault);
       unawaited(profile.load());
-      final launched = mockLauncher(tester);
       await pumpScreen(
         tester,
         const CartScreen(),
         cart: twoItemCart(),
         delivery: testDelivery(),
         profile: profile,
+        orderApi: FakeOrderServer().api(),
       );
       await tester.tap(checkoutButton);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
+      expect(find.byType(CheckoutScreen), findsNothing, reason: 'waits');
       vault.open();
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text(CheckoutDetailsSheet.title), findsNothing);
       expect(find.byType(CheckoutScreen), findsOneWidget);
-      final q = Uri.parse(launched.single).queryParameters;
-      expect(q['checkout[email]'], 'sara@example.com');
-      expect(
-        q['checkout[shipping_address][address1]'],
-        'Bay Square, Building 5',
-      );
+      expect(find.text('Home · Bay Square, Building 5'), findsOneWidget);
+      expect(find.byKey(const ValueKey('checkout-need-details')), findsNothing);
     });
 
     testWidgets('checkout moves the delivery pin to the address it sends', (
       tester,
     ) async {
-      final launched = mockLauncher(tester);
+      final server = FakeOrderServer();
       final delivery = testDelivery()
         // Business Bay by name, 1 km from where Home was saved.
         ..setArea(
@@ -1380,15 +1217,17 @@ void main() {
         cart: twoItemCart(),
         delivery: delivery,
         profile: filledProfile(),
+        orderApi: server.api(),
       );
       await tapCheckout(tester);
-      final q = Uri.parse(launched.single).queryParameters;
-      expect(
-        q['checkout[shipping_address][address1]'],
-        'Bay Square, Building 5',
-      );
-      expect(q['attributes[Delivery pin]'], '25.18500,55.26500');
       expect(delivery.area, area('Business Bay'));
+      final quote = server.body(server.quoteRequests.last);
+      expect((quote['delivery'] as Map)['area'], {
+        'name': 'Business Bay',
+        'emirate': 'dubai',
+        'lat': 25.185,
+        'lng': 55.265,
+      });
     });
   });
 }

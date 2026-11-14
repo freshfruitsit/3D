@@ -8,7 +8,11 @@ import 'package:fresh_market_app/app.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
 import 'package:fresh_market_app/services/device_location.dart';
 import 'package:fresh_market_app/services/fake_shopify_api.dart';
+import 'package:fresh_market_app/profile/profile_vault.dart';
+import 'package:fresh_market_app/services/customer_account_api.dart';
+import 'package:fresh_market_app/services/customer_auth.dart';
 import 'package:fresh_market_app/services/location_services.dart';
+import 'package:fresh_market_app/services/order_api.dart';
 import 'package:fresh_market_app/services/shopify_api.dart';
 import 'package:fresh_market_app/state/account_session.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
@@ -16,6 +20,8 @@ import 'package:fresh_market_app/state/favourites_store.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
 import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:material_ui/material_ui.dart';
+
+import 'order_fakes.dart';
 
 /// Makes the test surface a 390x844 phone at 3x. Call first in a widget
 /// test; it is undone automatically when the test ends.
@@ -28,8 +34,9 @@ void usePhoneSize(WidgetTester tester) {
 /// Pumps one screen inside the app theme with the API and stores above it,
 /// the way the real app provides them. Anything not passed gets a fresh
 /// in-memory default (`FakeShopifyApi.sample()`, empty stores, a delivery
-/// store with no area, a details store that never shows the first-checkout
-/// sheet, a signed-out session that never asks to sign in before checkout,
+/// store with no area, an empty details store, a signed-out session that
+/// can sign in ([FakeOAuthClient]) but never asks to before checkout, no
+/// order server, Shopify's Customer Account API (unreachable in tests),
 /// [testLocationServices]).
 Future<void> pumpScreen(
   WidgetTester tester,
@@ -40,6 +47,8 @@ Future<void> pumpScreen(
   DeliveryStore? delivery,
   ProfileStore? profile,
   AccountSession? session,
+  OrderApi? orderApi,
+  CustomerAccountApi? customerApi,
   LocationServices? locationServices,
   ShellController? shell,
 }) async {
@@ -51,7 +60,17 @@ Future<void> pumpScreen(
       favourites: favourites ?? FavouritesStore(),
       delivery: delivery,
       profile: profile,
-      session: session,
+      session:
+          session ??
+          AccountSession(
+            auth: CustomerAuth(
+              client: FakeOAuthClient(),
+              vault: MemoryProfileVault(),
+            ),
+            asksAtCheckout: false,
+          ),
+      orderApi: orderApi,
+      customerApi: customerApi,
       locationServices: locationServices ?? testLocationServices(),
       shell: shell,
       child: MaterialApp(
@@ -73,7 +92,13 @@ Future<void> loadAppFonts(WidgetTester tester) async {
   );
   await tester.runAsync(() async {
     final inter = FontLoader('Inter');
-    for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
+    for (final weight in [
+      'Regular',
+      'Medium',
+      'SemiBold',
+      'Bold',
+      'ExtraBold',
+    ]) {
       inter.addFont(bytes('Inter-$weight.otf'));
     }
     await inter.load();

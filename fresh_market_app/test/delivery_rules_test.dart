@@ -503,39 +503,7 @@ void main() {
     });
   });
 
-  group('cart attributes', () {
-    test('Fresh Market', () {
-      expect(
-        DeliveryRules.cartAttributes(mirdif, DeliveryMode.market, uae(10)),
-        {
-          'Delivery mode': 'Fresh Market',
-          'Delivery area': 'Mirdif, Dubai',
-          'Delivery promise': 'Today within 6 hours',
-          'Delivery pin': '25.22000,55.42000',
-        },
-      );
-      expect(
-        DeliveryRules.cartAttributes(
-          downtown,
-          DeliveryMode.market,
-          uae(18, 1),
-        )['Delivery promise'],
-        'Tomorrow morning before 11 AM',
-      );
-    });
-
-    test('Express', () {
-      expect(
-        DeliveryRules.cartAttributes(downtown, DeliveryMode.express, uae(9)),
-        {
-          'Delivery mode': 'Express',
-          'Delivery area': 'Downtown Dubai',
-          'Delivery promise': '30–40 min',
-          'Delivery pin': '25.20000,55.27000',
-        },
-      );
-    });
-
+  group('delivery pin', () {
     test('a picked point keeps 5 decimals', () {
       const pin = DeliveryArea(
         name: 'Near Mirdif',
@@ -543,19 +511,10 @@ void main() {
         lat: 25.2312345678,
         lng: 55.4,
       );
-      final attrs = DeliveryRules.cartAttributes(
-        pin,
-        DeliveryMode.market,
-        uae(12),
-      );
-      expect(attrs['Delivery pin'], '25.23123,55.40000');
-      expect(attrs['Delivery area'], 'Near Mirdif, Dubai');
-      expect(attrs.keys.toList(), [
-        'Delivery mode',
-        'Delivery area',
-        'Delivery promise',
-        'Delivery pin',
-      ]);
+      // The order's "lat,lng" delivery pin.
+      expect(pin.pin, '25.23123,55.40000');
+      expect(pin.label, 'Near Mirdif, Dubai');
+      expect(mirdif.pin, '25.22000,55.42000');
     });
   });
 

@@ -20,16 +20,18 @@ abstract final class Deals {
   /// The deals among [products], biggest saving first: in stock before
   /// sold out, then by percentage off; equal ones keep the store's order.
   static List<Product> ranked(Iterable<Product> products) {
-    final deals = [
-      for (final (index, product) in products.where(isDeal).indexed)
-        (index, product),
-    ]..sort((a, b) {
-        final byStock =
-            (b.$2.available ? 1 : 0).compareTo(a.$2.available ? 1 : 0);
-        if (byStock != 0) return byStock;
-        final byPercent = _percent(b.$2).compareTo(_percent(a.$2));
-        return byPercent != 0 ? byPercent : a.$1.compareTo(b.$1);
-      });
+    final deals =
+        [
+          for (final (index, product) in products.where(isDeal).indexed)
+            (index, product),
+        ]..sort((a, b) {
+          final byStock = (b.$2.available ? 1 : 0).compareTo(
+            a.$2.available ? 1 : 0,
+          );
+          if (byStock != 0) return byStock;
+          final byPercent = _percent(b.$2).compareTo(_percent(a.$2));
+          return byPercent != 0 ? byPercent : a.$1.compareTo(b.$1);
+        });
     return [for (final entry in deals) entry.$2];
   }
 

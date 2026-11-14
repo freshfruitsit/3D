@@ -189,9 +189,7 @@ class CountBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: ShapeDecoration(
         color: AppColors.green,
-        shape: StadiumBorder(
-          side: BorderSide(color: borderColor, width: 1.5),
-        ),
+        shape: StadiumBorder(side: BorderSide(color: borderColor, width: 1.5)),
       ),
       alignment: Alignment.center,
       child: Text(

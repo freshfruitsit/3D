@@ -72,8 +72,7 @@ String _lineText(WidgetTester tester) => tester
 Finder _textN(String text) => find.byWidgetPredicate(
   (w) =>
       w is Text &&
-      (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u00A0', ' ') ==
-          text,
+      (w.data ?? w.textSpan?.toPlainText())?.replaceAll('\u00A0', ' ') == text,
   description: 'text "$text"',
 );
 
@@ -332,10 +331,7 @@ void main() {
       expect(range.style!.color, AppColors.green);
 
       await tester.tap(
-        _inKey(
-          'delivery-line',
-          _textN(DeliveryLine.expressLabel('30–40 min')),
-        ),
+        _inKey('delivery-line', _textN(DeliveryLine.expressLabel('30–40 min'))),
       );
       await tester.pump();
       expect(store.mode, DeliveryMode.express);

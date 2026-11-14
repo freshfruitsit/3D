@@ -101,8 +101,10 @@ void main() {
       expect(copy.tags, kiwi.tags);
       expect(copy.images, kiwi.images);
       expect(copy.variants.map((v) => v.id), kiwi.variants.map((v) => v.id));
-      expect(copy.variants.map((v) => v.priceCents),
-          kiwi.variants.map((v) => v.priceCents));
+      expect(
+        copy.variants.map((v) => v.priceCents),
+        kiwi.variants.map((v) => v.priceCents),
+      );
       expect(copy.optionName, 'Weight');
     });
   });
@@ -124,7 +126,11 @@ void main() {
       expect(beef.hasVariantChoice, isFalse);
 
       const notReally = Variant(
-          id: 1, title: 'x', priceCents: 500, compareAtCents: 500);
+        id: 1,
+        title: 'x',
+        priceCents: 500,
+        compareAtCents: 500,
+      );
       expect(notReally.onSale, isFalse);
       expect(notReally.salePercent, isNull);
       expect(notReally.oldPriceCents, isNull);
@@ -162,16 +168,31 @@ void main() {
   });
 
   test('default variant skips sold-out variants', () {
-    const p = Product(id: 1, title: 'p', handle: 'p', variants: [
-      Variant(id: 1, title: '250 GM', priceCents: 100, available: false),
-      Variant(id: 2, title: '1 KG', priceCents: 300),
-    ]);
+    const p = Product(
+      id: 1,
+      title: 'p',
+      handle: 'p',
+      variants: [
+        Variant(id: 1, title: '250 GM', priceCents: 100, available: false),
+        Variant(id: 2, title: '1 KG', priceCents: 300),
+      ],
+    );
     expect(p.defaultVariant!.id, 2);
     expect(p.available, isTrue);
 
-    const soldOut = Product(id: 2, title: 'p', handle: 'p', variants: [
-      Variant(id: 3, title: 'Default Title', priceCents: 100, available: false),
-    ]);
+    const soldOut = Product(
+      id: 2,
+      title: 'p',
+      handle: 'p',
+      variants: [
+        Variant(
+          id: 3,
+          title: 'Default Title',
+          priceCents: 100,
+          available: false,
+        ),
+      ],
+    );
     expect(soldOut.defaultVariant!.id, 3);
     expect(soldOut.available, isFalse);
   });

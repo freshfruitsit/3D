@@ -21,17 +21,84 @@
 //   https://shopify.dev/docs/api/usage/limits ("The recommended backoff time
 //   is one second").
 
-import { ConfigError, UpstreamError } from './errors.js';
+import { ConfigError, UpstreamError, scrub } from './errors.js';
 
 const USER_AGENT = 'fresh-market-server/1.0';
 
+/** A mutation is not started with less time than this left (ms). */
+export const MIN_MUTATION_MS = 3_000;
+/** Clean-up mutations (delete a draft, release the order lock) need only this much. */
+const MIN_LATE_MUTATION_MS = 1_000;
+/**
+ * Low-priority calls (the anonymous /api/quote) are refused while Shopify's
+ * cost bucket for this app is estimated below this share of its size, so a
+ * flood of quotes cannot use up the points that orders need.
+ */
+export const LOW_PRIORITY_RESERVE = 0.4;
+
 /** Module-scope cache, reused while the Vercel instance stays warm. */
 const tokenState = { token: '', expiresAt: 0, inflight: /** @type {Promise<string>|null} */ (null) };
+
+/**
+ * The last throttleStatus this instance saw. The bucket belongs to the app
+ * and store (rate-limits doc: "Each combination of app and store is given a
+ * bucket size and restore rate"), so every instance sees the same bucket.
+ */
+const bucket = { available: NaN, max: NaN, rate: NaN, at: 0 };
 
 export function resetAdminTokenCache() {
   tokenState.token = '';
   tokenState.expiresAt = 0;
   tokenState.inflight = null;
+  bucket.available = NaN;
+  bucket.max = NaN;
+  bucket.rate = NaN;
+  bucket.at = 0;
+}
+
+/**
+ * A fetch timeout that never runs past the request's deadline: at most
+ * `capMs`, at least one second.
+ * @param {{now: () => number, deadline: number}} ctx
+ * @param {number} capMs
+ */
+export function callTimeout(ctx, capMs) {
+  return Math.max(1_000, Math.min(capMs, ctx.deadline - ctx.now()));
+}
+
+function noteCost(ctx, cost) {
+  const s = cost?.throttleStatus;
+  const available = Number(s?.currentlyAvailable);
+  const max = Number(s?.maximumAvailable);
+  const rate = Number(s?.restoreRate);
+  if (Number.isFinite(available) && Number.isFinite(max) && Number.isFinite(rate) && max > 0 && rate > 0) {
+    bucket.available = available;
+    bucket.max = max;
+    bucket.rate = rate;
+    bucket.at = ctx.now();
+  }
+}
+
+/**
+ * Points Shopify most likely has for this app now, from the last
+ * throttleStatus plus the refill since ("your quota refills continuously").
+ * null when this instance has not seen one yet.
+ */
+export function estimatedBucket(ctx) {
+  if (!Number.isFinite(bucket.available)) return null;
+  const refill = (Math.max(0, ctx.now() - bucket.at) / 1000) * bucket.rate;
+  return { available: Math.min(bucket.max, bucket.available + refill), max: bucket.max, rate: bucket.rate };
+}
+
+/** Throws (503 busy) when a low-priority call should leave the points for orders. */
+function checkReserve(ctx, label) {
+  const b = estimatedBucket(ctx);
+  if (!b) return;
+  const reserve = b.max * LOW_PRIORITY_RESERVE;
+  if (b.available < reserve) {
+    const wait = Math.max(1, Math.ceil((reserve - b.available) / b.rate));
+    throw new UpstreamError(`${label}: Admin API budget kept for orders`, { kind: 'throttled', retryAfterSeconds: wait });
+  }
 }
 
 /**
@@ -81,7 +148,7 @@ async function requestToken(ctx) {
         client_id: config.clientId,
         client_secret: config.clientSecret,
       }).toString(),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(callTimeout(ctx, 10_000)),
     });
   } catch (err) {
     throw new UpstreamError(`Admin token request failed: ${errName(err)}`);
@@ -114,18 +181,35 @@ async function requestToken(ctx) {
  * reads (`mutation: false`), because a mutation that timed out may have run.
  * A 401 or ACCESS_DENIED gets one fresh client-credentials token.
  *
- * @param {Ctx} ctx
+ * Time: every fetch is cut off at the request's deadline. A mutation is not
+ * started with less than MIN_MUTATION_MS left (or past ctx.mutationDeadline,
+ * which the order flow sets from its lock), so it never runs into Vercel's
+ * maxDuration. `late` marks a clean-up mutation that may still run in the
+ * last seconds.
+ *
+ * Priority: `low` calls are refused while the shared cost bucket is low and
+ * are not resent after THROTTLED, so orders keep the points they need.
+ *
+ * @param {Ctx & {mutationDeadline?: number}} ctx
  * @param {string} query
  * @param {Record<string, unknown>} [variables]
- * @param {{mutation?: boolean, label?: string}} [opts]
+ * @param {{mutation?: boolean, label?: string, late?: boolean, priority?: 'normal'|'low'}} [opts]
  */
-export async function adminGraphql(ctx, query, variables = {}, { mutation = false, label = 'admin' } = {}) {
+export async function adminGraphql(ctx, query, variables = {}, { mutation = false, label = 'admin', late = false, priority = 'normal' } = {}) {
   const { config } = ctx;
   const url = `https://${config.storeDomain}/admin/api/${config.apiVersion}/graphql.json`;
   const maxAttempts = 3;
+  const low = priority === 'low';
   let refreshed = false;
   for (let attempt = 1; ; attempt++) {
     const last = attempt >= maxAttempts;
+    if (mutation) {
+      const until = late ? ctx.deadline : Math.min(ctx.deadline, ctx.mutationDeadline ?? Infinity);
+      if (until - ctx.now() < (late ? MIN_LATE_MUTATION_MS : MIN_MUTATION_MS)) {
+        throw new UpstreamError(`${label}: not started, too little time left`);
+      }
+    }
+    if (low) checkReserve(ctx, label);
     const token = await getAdminToken(ctx);
     let res;
     try {
@@ -139,7 +223,7 @@ export async function adminGraphql(ctx, query, variables = {}, { mutation = fals
           'User-Agent': USER_AGENT,
         },
         body: JSON.stringify({ query, variables }),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(callTimeout(ctx, 15_000)),
       });
     } catch (err) {
       if (!mutation && !last && (await backoff(ctx, attempt))) continue;
@@ -156,7 +240,7 @@ export async function adminGraphql(ctx, query, variables = {}, { mutation = fals
     }
     if (res.status === 429) {
       const wait = retryAfter(res) ?? 1;
-      if (!last && (await waitFor(ctx, wait * 1000))) continue;
+      if (!low && !last && (await waitFor(ctx, wait * 1000))) continue;
       throw new UpstreamError(`${label}: HTTP 429`, { kind: 'throttled', retryAfterSeconds: wait });
     }
     if (res.status >= 500) {
@@ -176,12 +260,13 @@ export async function adminGraphql(ctx, query, variables = {}, { mutation = fals
       throw new UpstreamError(`${label}: response was not JSON`);
     }
 
+    noteCost(ctx, body?.extensions?.cost);
     const errors = Array.isArray(body?.errors) ? body.errors : body?.errors ? [body.errors] : [];
     if (errors.length) {
       const codes = errors.map((e) => e?.extensions?.code).filter(Boolean);
       if (codes.includes('THROTTLED')) {
         const wait = throttleWaitMs(body?.extensions?.cost);
-        if (!last && (await waitFor(ctx, wait))) continue;
+        if (!low && !last && (await waitFor(ctx, wait))) continue;
         throw new UpstreamError(`${label}: THROTTLED`, { kind: 'throttled', retryAfterSeconds: Math.ceil(wait / 1000) });
       }
       if (codes.includes('ACCESS_DENIED')) {
@@ -209,9 +294,10 @@ export async function adminGraphql(ctx, query, variables = {}, { mutation = fals
   }
 }
 
-function firstMessage(errors) {
+/** Shopify's first error message, with quoted values, emails and phones taken out. */
+export function firstMessage(errors) {
   const m = errors[0]?.message;
-  return typeof m === 'string' ? m.slice(0, 200) : '';
+  return typeof m === 'string' ? scrub(m).slice(0, 200) : '';
 }
 
 function errName(err) {

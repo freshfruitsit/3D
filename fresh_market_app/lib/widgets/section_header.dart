@@ -114,7 +114,8 @@ class SectionTag extends StatelessWidget {
 
   /// The height of a one-line tag at the current text size.
   static double heightOf(BuildContext context) {
-    final text = MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
+    final text =
+        MediaQuery.textScalerOf(context).scale(titleStyle.fontSize!) *
         titleStyle.height!;
     final h = text + 2 * verticalPadding;
     return h < height ? height : h;

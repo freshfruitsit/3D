@@ -42,15 +42,15 @@ class ProductListScreen extends StatefulWidget {
   /// The store's marked-down products, biggest saving first: the Deals
   /// tab, and "See all" of Home's "Best Deals" rail.
   const ProductListScreen.deals({super.key, this.title = Catalog.dealsTitle})
-      : handle = Deals.sourceHandle,
-        onSaleOnly = true;
+    : handle = Deals.sourceHandle,
+      onSaleOnly = true;
 
   /// The shopper's favourites, from the FavouritesStore; their price and
   /// stock are refreshed from the store when the list opens.
   const ProductListScreen.favourites({super.key})
-      : handle = null,
-        title = 'Favourites',
-        onSaleOnly = false;
+    : handle = null,
+      title = 'Favourites',
+      onSaleOnly = false;
 
   /// Collection handle; null for the favourites list.
   final String? handle;
@@ -106,9 +106,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   /// Favourites are saved copies; bring their price and stock up to date.
-  Future<void> _refreshFavourites() => context
-      .read<FavouritesStore>()
-      .refresh(context.read<ShopifyApi>());
+  Future<void> _refreshFavourites() =>
+      context.read<FavouritesStore>().refresh(context.read<ShopifyApi>());
 
   @override
   void didUpdateWidget(ProductListScreen oldWidget) {
@@ -190,7 +189,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _moreError = null;
     });
     try {
-      final page = await api.collectionProducts(widget.handle!, page: _nextPage);
+      final page = await api.collectionProducts(
+        widget.handle!,
+        page: _nextPage,
+      );
       if (!mounted || generation != _generation) return;
       setState(() {
         _appendPage(page, ShopifyApi.pageSize);
@@ -303,16 +305,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
-  static int _priceOf(Product p) =>
-      p.defaultVariant?.priceCents ?? 0x7fffffff;
+  static int _priceOf(Product p) => p.defaultVariant?.priceCents ?? 0x7fffffff;
 
   List<Product> _sorted(List<Product> source) {
     if (_sort == ProductSort.featured) return source;
     if (_sort == ProductSort.biggestSaving) return Deals.ranked(source);
     // Stable: equal prices keep the store's order.
-    final indexed = [
-      for (var i = 0; i < source.length; i++) (i, source[i]),
-    ]..sort((a, b) {
+    final indexed = [for (var i = 0; i < source.length; i++) (i, source[i])]
+      ..sort((a, b) {
         final byPrice = _priceOf(a.$2).compareTo(_priceOf(b.$2));
         return byPrice != 0 ? byPrice : a.$1.compareTo(b.$1);
       });
@@ -378,20 +378,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     onAction: () => AppNav.goToTab(context, AppTab.home),
                   )
                 : widget.onSaleOnly
-                    ? EmptyView(
-                        icon: Icons.sell_outlined,
-                        title: 'No offers right now',
-                        message: 'Marked-down products show up here.',
-                        actionLabel: 'Start shopping',
-                        onAction: () => AppNav.goToTab(context, AppTab.home),
-                      )
-                    : EmptyView(
-                        title: 'Nothing here right now',
-                        message:
-                            'This section has no products at the moment.',
-                        actionLabel: 'Start shopping',
-                        onAction: () => AppNav.goToTab(context, AppTab.home),
-                      ),
+                ? EmptyView(
+                    icon: Icons.sell_outlined,
+                    title: 'No offers right now',
+                    message: 'Marked-down products show up here.',
+                    actionLabel: 'Start shopping',
+                    onAction: () => AppNav.goToTab(context, AppTab.home),
+                  )
+                : EmptyView(
+                    title: 'Nothing here right now',
+                    message: 'This section has no products at the moment.',
+                    actionLabel: 'Start shopping',
+                    onAction: () => AppNav.goToTab(context, AppTab.home),
+                  ),
           ),
         ),
       ];
@@ -401,7 +400,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
           SliverToBoxAdapter(
             child: ErrorView(
               compact: true,
-              message: 'Could not sort by price. '
+              message:
+                  'Could not sort by price. '
                   '${_sortError!.userMessage}',
               onRetry: _toggleSort,
             ),
@@ -435,7 +435,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
             title: widget.title,
             showBack: canPop,
             countText: showCount
-                ? _countText(products.length, more: !widget.isFavourites && _hasMore)
+                ? _countText(
+                    products.length,
+                    more: !widget.isFavourites && _hasMore,
+                  )
                 : null,
             sort: showCount ? _sort : null,
             onToggleSort: _toggleSort,
@@ -513,7 +516,9 @@ class _Header extends StatelessWidget {
         children: [
           ConstrainedBox(
             // As tall as the back button when there is one.
-            constraints: BoxConstraints(minHeight: showBack ? AppDims.touch : 0),
+            constraints: BoxConstraints(
+              minHeight: showBack ? AppDims.touch : 0,
+            ),
             child: Row(
               children: [
                 if (showBack) ...[
@@ -547,8 +552,7 @@ class _Header extends StatelessWidget {
                       style: AppText.caption,
                     ),
                   ),
-                  if (sort != null)
-                    _SortChip(sort: sort!, onTap: onToggleSort),
+                  if (sort != null) _SortChip(sort: sort!, onTap: onToggleSort),
                 ],
               ),
             ),

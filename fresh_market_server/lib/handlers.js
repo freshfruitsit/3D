@@ -21,6 +21,9 @@ import { VERSION } from './version.js';
  * @property {number} [budgetMs] how long a request may spend waiting on Shopify
  */
 
+/** How long one request may spend on Shopify. Below maxDuration (60 s) and the order lock (90 s). */
+export const BUDGET_MS = 50_000;
+
 /** @param {Deps} deps */
 function makeCtx(deps) {
   const now = deps.now ?? (() => Date.now());
@@ -29,7 +32,9 @@ function makeCtx(deps) {
     fetch: deps.fetch ?? ((...args) => globalThis.fetch(...args)),
     now,
     sleep: deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
-    deadline: now() + (deps.budgetMs ?? 25_000),
+    // Vercel stops the function at maxDuration (60 s in vercel.json); every
+    // Shopify call is cut off at this deadline, well before that.
+    deadline: now() + (deps.budgetMs ?? BUDGET_MS),
     stats: { shopifyCalls: 0 },
     log: deps.log ?? defaultLog,
   };
@@ -58,7 +63,8 @@ export function createQuoteHandler(deps = {}) {
       const parsed = parseQuoteBody(body, ctx.config);
       if (parsed.errors.length) throw validationError(parsed.errors);
       try {
-        const variants = await fetchVariants(ctx, parsed.lines);
+        // Low priority: refused while Shopify's points are low, so orders keep them.
+        const variants = await fetchVariants(ctx, parsed.lines, { priority: 'low' });
         const quote = buildQuote({ lines: parsed.lines, delivery: parsed.delivery, variants, config: ctx.config, now: new Date(ctx.now()) });
         logFields.lines = quote.lines.length;
         logFields.problems = quote.problems.map((p) => p.kind);

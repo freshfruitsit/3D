@@ -8,14 +8,16 @@ export class ApiError extends Error {
    * @param {string} message human text, safe to show
    * @param {Record<string, unknown>} [extra] more JSON fields for the body
    * @param {Record<string, string>} [headers] extra response headers
+   * @param {string} [logDetail] written to the log only, never sent to the app
    */
-  constructor(status, code, message, extra = {}, headers = {}) {
+  constructor(status, code, message, extra = {}, headers = {}, logDetail = '') {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.extra = extra;
     this.headers = headers;
+    this.logDetail = logDetail;
   }
 
   toBody() {
@@ -86,6 +88,9 @@ export function toApiError(err) {
   if (err instanceof ApiError) return err;
   if (err instanceof UpstreamError) {
     const headers = err.retryAfterSeconds ? { 'Retry-After': String(Math.ceil(err.retryAfterSeconds)) } : {};
+    if (err.kind === 'in_progress') {
+      return new ApiError(503, 'in_progress', 'Your order is still being placed. Please wait a moment.', { retryable: true }, headers);
+    }
     return new ApiError(
       503,
       err.kind === 'throttled' ? 'busy' : 'unavailable',
@@ -102,4 +107,21 @@ export function toApiError(err) {
     });
   }
   return new ApiError(500, 'internal', 'Something went wrong. Please try again.', { retryable: true });
+}
+
+/**
+ * Shopify's text for the log with customer values taken out: anything it
+ * quoted ("..."), email addresses and international phone numbers. Shopify's
+ * input-error messages can repeat the values that were sent.
+ * @param {unknown} text
+ */
+export function scrub(text) {
+  return scrubContacts(String(text ?? '').replace(/"[^"]*"/g, '"…"'));
+}
+
+/** Email addresses and international phone numbers out, everything else kept. */
+export function scrubContacts(text) {
+  return String(text ?? '')
+    .replace(/[^\s"'<>@(),;:]+@[^\s"'<>@(),;:]+\.[a-z]{2,}/gi, '[email]')
+    .replace(/\+\d[\d ]{6,}\d/g, '[phone]');
 }

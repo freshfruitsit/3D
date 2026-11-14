@@ -1,7 +1,7 @@
 // Checks and cleans what the app sends. Every problem becomes a
 // {field, message} pair; the handler answers 422 with all of them.
 
-import { EMIRATES, isDeliverablePoint, pinOf } from './delivery.js';
+import { EMIRATES, isDeliverablePoint, km, pinOf } from './delivery.js';
 
 /** Field limits, matching the app's CustomerInput (customer_details.dart). */
 export const LIMITS = Object.freeze({
@@ -175,6 +175,15 @@ function text(obj, key, field, max, errors, { required = true, clean = cleanLine
 const inUae = (lat, lng) => lat >= 22 && lat <= 27 && lng >= 51 && lng <= 57;
 
 /**
+ * In the app, delivery.area's lat/lng already is the shopper's pin
+ * (delivery_rules.dart: DeliveryPlace.at "the website keeps the pin"), and
+ * every rule (Express zone, 60 km reach) is checked on it. A `pin` further
+ * than this from the area would send the driver somewhere the rules never
+ * looked at, so it is refused.
+ */
+export const PIN_MATCH_KM = 0.2;
+
+/**
  * @param {unknown} delivery
  * @param {{field: string, message: string}[]} errors
  * @param {{forOrder?: boolean}} [opts]
@@ -209,20 +218,20 @@ export function parseDelivery(delivery, errors, { forOrder = false } = {}) {
     }
     if (errors.length === before) parsedArea = { name, emirate, lat, lng };
   }
-  let pin = '';
   if (delivery.pin !== undefined && delivery.pin !== null && delivery.pin !== '') {
     const m = typeof delivery.pin === 'string' ? /^\s*(-?\d{1,3}(?:\.\d{1,10})?)\s*,\s*(-?\d{1,3}(?:\.\d{1,10})?)\s*$/.exec(delivery.pin) : null;
     if (!m || !inUae(Number(m[1]), Number(m[2]))) {
       errors.push({ field: 'delivery.pin', message: "The pin must be 'lat,lng' inside the UAE." });
-    } else {
-      pin = pinOf(Number(m[1]), Number(m[2]));
+    } else if (parsedArea && km({ lat: Number(m[1]), lng: Number(m[2]) }, parsedArea) > PIN_MATCH_KM) {
+      errors.push({ field: 'delivery.pin', message: "The map pin doesn't match the delivery area. Please choose the place again." });
     }
   }
   const promise = forOrder
     ? text(delivery, 'promise', 'delivery.promise', LIMITS.promise, errors, { required: false })
     : '';
   if (errors.length !== before || !parsedArea) return null;
-  return { mode, area: parsedArea, pin: pin || pinOf(parsedArea.lat, parsedArea.lng), promise };
+  // The pin the driver gets is the point the rules were checked on.
+  return { mode, area: parsedArea, pin: pinOf(parsedArea.lat, parsedArea.lng), promise };
 }
 
 /**

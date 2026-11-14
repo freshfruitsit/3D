@@ -413,64 +413,64 @@ class _SummaryCardState extends State<_SummaryCard> {
     // (see CartScreen.pinnedSummaryMaxScale).
     final total = widget.subtotalCents;
     return Container(
-        decoration: AppDecor.card.copyWith(boxShadow: AppDecor.floatShadow),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // One line when it fits; at a large font size the amount goes
-            // under "Subtotal" rather than shrinking.
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.end,
-              spacing: 16,
-              children: [
-                const Text('Subtotal', style: AppText.cardHeading),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: MoneyText(
-                    total,
-                    style: AppText.price.copyWith(fontSize: 20),
-                  ),
+      decoration: AppDecor.card.copyWith(boxShadow: AppDecor.floatShadow),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // One line when it fits; at a large font size the amount goes
+          // under "Subtotal" rather than shrinking.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 16,
+            children: [
+              const Text('Subtotal', style: AppText.cardHeading),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerEnd,
+                child: MoneyText(
+                  total,
+                  style: AppText.price.copyWith(fontSize: 20),
                 ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              widget.soldOut
-                  ? '${CartScreen.vatNote} ${CartScreen.soldOutNote}'
-                  : CartScreen.vatNote,
-              style: AppText.caption,
-            ),
-            const _AccountLine(),
-            const SizedBox(height: 14),
-            FilledButton(
-              onPressed: widget.canCheckout ? _checkout : null,
-              child: _checking
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        // On the green button.
-                        color: AppColors.onDark,
-                      ),
-                    )
-                  : Text(
-                      widget.canCheckout
-                          ? CartScreen.checkoutLabel(total)
-                          : 'Remove sold-out items to check out',
-                      semanticsLabel: widget.canCheckout
-                          ? 'Checkout, ${moneySemantics(total)}'
-                          : null,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            widget.soldOut
+                ? '${CartScreen.vatNote} ${CartScreen.soldOutNote}'
+                : CartScreen.vatNote,
+            style: AppText.caption,
+          ),
+          const _AccountLine(),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: widget.canCheckout ? _checkout : null,
+            child: _checking
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      // On the green button.
+                      color: AppColors.onDark,
                     ),
-            ),
-          ],
-        ),
+                  )
+                : Text(
+                    widget.canCheckout
+                        ? CartScreen.checkoutLabel(total)
+                        : 'Remove sold-out items to check out',
+                    semanticsLabel: widget.canCheckout
+                        ? 'Checkout, ${moneySemantics(total)}'
+                        : null,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

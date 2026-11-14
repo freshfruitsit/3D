@@ -117,18 +117,24 @@ abstract final class AppDims {
   static double floatingSpace(BuildContext context) =>
       bottomBarSpace(context) + askButtonClearance;
 
-  static const BorderRadius cardBorderRadius =
-      BorderRadius.all(Radius.circular(cardRadius));
-  static const BorderRadius wellBorderRadius =
-      BorderRadius.all(Radius.circular(wellRadius));
-  static const BorderRadius buttonBorderRadius =
-      BorderRadius.all(Radius.circular(buttonRadius));
-  static const BorderRadius controlBorderRadius =
-      BorderRadius.all(Radius.circular(controlRadius));
-  static const BorderRadius bannerBorderRadius =
-      BorderRadius.all(Radius.circular(bannerRadius));
-  static const BorderRadius pillBorderRadius =
-      BorderRadius.all(Radius.circular(999));
+  static const BorderRadius cardBorderRadius = BorderRadius.all(
+    Radius.circular(cardRadius),
+  );
+  static const BorderRadius wellBorderRadius = BorderRadius.all(
+    Radius.circular(wellRadius),
+  );
+  static const BorderRadius buttonBorderRadius = BorderRadius.all(
+    Radius.circular(buttonRadius),
+  );
+  static const BorderRadius controlBorderRadius = BorderRadius.all(
+    Radius.circular(controlRadius),
+  );
+  static const BorderRadius bannerBorderRadius = BorderRadius.all(
+    Radius.circular(bannerRadius),
+  );
+  static const BorderRadius pillBorderRadius = BorderRadius.all(
+    Radius.circular(999),
+  );
 }
 
 /// Shadows. Cards get a barely-there lift; floating things a soft one.
@@ -256,6 +262,18 @@ abstract final class AppText {
     // Explicit 0: otherwise Material 3 typography adds 0.1-0.5 of
     // tracking through the inherited text style.
     letterSpacing: 0,
+  );
+
+  /// 12/700 small caps captions over checkout sections ("DELIVER TO"), in
+  /// [AppColors.secondary]. Write the text in capitals.
+  static const TextStyle overline = TextStyle(
+    fontFamily: family,
+    fontFamilyFallback: fallback,
+    fontSize: 12,
+    height: 1.35,
+    fontWeight: FontWeight.w700,
+    color: AppColors.secondary,
+    letterSpacing: 0.6,
   );
 
   /// 13/600: chip and pill labels, small buttons.
@@ -439,7 +457,8 @@ abstract final class AppButtons {
   /// Pressed, hovered and focused fills are the [AppColors.greenPressed]
   /// token rather than a white overlay (which would make an off-palette
   /// green).
-  static ButtonStyle get primary => FilledButton.styleFrom(
+  static ButtonStyle get primary =>
+      FilledButton.styleFrom(
         foregroundColor: AppColors.onDark,
         disabledForegroundColor: AppColors.disabledText,
         minimumSize: const Size(64, AppDims.buttonHeight),
@@ -465,50 +484,50 @@ abstract final class AppButtons {
 
   /// Ink filled, white label: strong actions that are not buying (send).
   static ButtonStyle get dark => FilledButton.styleFrom(
-        backgroundColor: AppColors.ink,
-        foregroundColor: AppColors.onDark,
-        disabledBackgroundColor: AppColors.disabledFill,
-        disabledForegroundColor: AppColors.disabledText,
-        minimumSize: const Size(64, AppDims.buttonHeight),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppDims.buttonBorderRadius,
-        ),
-        textStyle: AppText.button,
-      );
+    backgroundColor: AppColors.ink,
+    foregroundColor: AppColors.onDark,
+    disabledBackgroundColor: AppColors.disabledFill,
+    disabledForegroundColor: AppColors.disabledText,
+    minimumSize: const Size(64, AppDims.buttonHeight),
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    shape: const RoundedRectangleBorder(
+      borderRadius: AppDims.buttonBorderRadius,
+    ),
+    textStyle: AppText.button,
+  );
 
   /// Ink outline on white (theme default for OutlinedButton): "Start
   /// shopping" on empty states other than the cart's, "Discover now",
   /// destructive confirms.
   static ButtonStyle get outline => OutlinedButton.styleFrom(
-        foregroundColor: AppColors.ink,
-        backgroundColor: AppColors.surface,
-        disabledForegroundColor: AppColors.disabledText,
-        minimumSize: const Size(64, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        side: const BorderSide(color: AppColors.ink, width: 1.5),
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppDims.buttonBorderRadius,
-        ),
-        textStyle: AppText.buttonSmall,
-      );
+    foregroundColor: AppColors.ink,
+    backgroundColor: AppColors.surface,
+    disabledForegroundColor: AppColors.disabledText,
+    minimumSize: const Size(64, 48),
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    side: const BorderSide(color: AppColors.ink, width: 1.5),
+    shape: const RoundedRectangleBorder(
+      borderRadius: AppDims.buttonBorderRadius,
+    ),
+    textStyle: AppText.buttonSmall,
+  );
 
   /// Fully round ink outline pill (assistant action pills).
   static ButtonStyle get outlinePill => outline.copyWith(
-        shape: const WidgetStatePropertyAll(StadiumBorder()),
-        minimumSize: const WidgetStatePropertyAll(Size(64, AppDims.touch)),
-      );
+    shape: const WidgetStatePropertyAll(StadiumBorder()),
+    minimumSize: const WidgetStatePropertyAll(Size(64, AppDims.touch)),
+  );
 
   /// White pill with a hairline (sort pill, chips).
   static ButtonStyle get chip => OutlinedButton.styleFrom(
-        foregroundColor: AppColors.ink,
-        backgroundColor: AppColors.surface,
-        minimumSize: const Size(44, AppDims.touch),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        side: const BorderSide(color: AppColors.hairline),
-        shape: const StadiumBorder(),
-        textStyle: AppText.label,
-      );
+    foregroundColor: AppColors.ink,
+    backgroundColor: AppColors.surface,
+    minimumSize: const Size(44, AppDims.touch),
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    side: const BorderSide(color: AppColors.hairline),
+    shape: const StadiumBorder(),
+    textStyle: AppText.label,
+  );
 }
 
 /// Status bar style for the white canvas.

@@ -17,7 +17,7 @@ void main() {
       cart.addListener(() => notified++);
 
       expect(cart.isEmpty, isTrue);
-      expect(cart.checkoutUrl, isNull);
+      expect(cart.hasAvailableLines, isFalse);
 
       cart.add(kiwi, kiwi.variants[0]);
       cart.add(kiwi, kiwi.variants[0]);
@@ -78,24 +78,30 @@ void main() {
     });
   });
 
-  group('checkout URL', () {
-    test('lists variant:quantity pairs in cart order', () {
+  group('what the order server says', () {
+    test('a line it has sold out is marked and left out; a new price is '
+        'kept, with the old one only while it is higher', () {
       final cart = CartStore();
       cart.add(kiwi, kiwi.variants[1], quantity: 2);
       cart.add(beef, beef.variants[0]);
-      expect(
-        cart.checkoutUrl.toString(),
-        'https://testtfm.myshopify.com/cart/2002:2,2003:1',
-      );
-    });
+      var notified = 0;
+      cart.addListener(() => notified++);
 
-    test('skips empty quantities; null when nothing is left', () {
-      expect(
-        CartStore.buildCheckoutUrl({67691515740237: 3, 5: 0}).toString(),
-        'https://testtfm.myshopify.com/cart/67691515740237:3',
-      );
-      expect(CartStore.buildCheckoutUrl({}), isNull);
-      expect(CartStore.buildCheckoutUrl({5: 0}), isNull);
+      cart.markSoldOut(2002);
+      expect(cart.lineOf(2002)!.available, isFalse);
+      expect(cart.subtotalCents, 6250);
+      expect(cart.hasAvailableLines, isTrue);
+      cart.markSoldOut(2002);
+      cart.markSoldOut(999);
+      expect(notified, 1, reason: 'nothing new, nothing said');
+
+      cart.updatePrice(2003, 7000);
+      expect(cart.lineOf(2003)!.priceCents, 7000);
+      expect(cart.lineOf(2003)!.onSale, isTrue, reason: 'was 115.00');
+      cart.updatePrice(2003, 12000);
+      expect(cart.lineOf(2003)!.onSale, isFalse);
+      expect(cart.lineOf(2003)!.compareAtCents, isNull);
+      expect(cart.subtotalCents, 12000);
     });
   });
 

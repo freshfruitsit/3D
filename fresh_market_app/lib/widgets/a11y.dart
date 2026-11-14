@@ -30,7 +30,10 @@ double fittingFontSize(
     for (final word in label.split(RegExp(r'\s+'))) {
       if (word.isEmpty) continue;
       final painter = TextPainter(
-        text: TextSpan(text: word, style: style.copyWith(fontSize: fontSize)),
+        text: TextSpan(
+          text: word,
+          style: style.copyWith(fontSize: fontSize),
+        ),
         textScaler: scaler,
         textDirection: TextDirection.ltr,
         maxLines: 1,
@@ -112,8 +115,7 @@ class FocusRingLayerState extends State<FocusRingLayer> {
   }
 
   Rect? _ringRect() {
-    if (FocusManager.instance.highlightMode !=
-        FocusHighlightMode.traditional) {
+    if (FocusManager.instance.highlightMode != FocusHighlightMode.traditional) {
       return null;
     }
     final node = FocusManager.instance.primaryFocus;
@@ -151,9 +153,7 @@ class FocusRingLayerState extends State<FocusRingLayer> {
           widget.child,
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _FocusRingPainter(this, _repaint),
-              ),
+              child: CustomPaint(painter: _FocusRingPainter(this, _repaint)),
             ),
           ),
         ],

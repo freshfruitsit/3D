@@ -800,7 +800,10 @@ void main() {
       );
 
       reply = await brain.reply('what does blueberry cost');
-      expect(reply.text, 'Blueberry is \u20C3 31.25. It is sold out right now.');
+      expect(
+        reply.text,
+        'Blueberry is \u20C3 31.25. It is sold out right now.',
+      );
       expectGoodChips(reply);
     });
 
@@ -1208,8 +1211,9 @@ void main() {
       var reply = await brain.reply('How can I pay?');
       expect(
         reply.text,
-        'The website lists Visa, Mastercard, Apple Pay and cash on '
-        'delivery. You choose how to pay at checkout.',
+        'Orders in the app are cash on delivery: you pay the driver when '
+        'your order arrives. The website also takes Visa, Mastercard and '
+        'Apple Pay.',
       );
       expect(reply.actions, isEmpty);
       expectGoodChips(reply);

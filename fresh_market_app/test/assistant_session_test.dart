@@ -107,7 +107,11 @@ void main() {
       handle: 'kiwi-pack',
       variants: [Variant(id: 3031, title: 'Default Title', priceCents: 1895)],
     );
-    final shop = FakeShopifyApi(collections: {'fruits': [box, pack]});
+    final shop = FakeShopifyApi(
+      collections: {
+        'fruits': [box, pack],
+      },
+    );
     await session.send('find kiwi green', api: shop, cart: cart);
     expect(session.lastReply!.suggestions, contains('Add 1 Kiwi Green Zespri'));
     await session.send('Add 1 Kiwi Green Zespri', api: shop, cart: cart);

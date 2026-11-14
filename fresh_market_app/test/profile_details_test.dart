@@ -3,12 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/delivery/delivery.dart';
-import 'package:fresh_market_app/profile/checkout_prefill.dart';
 import 'package:fresh_market_app/profile/customer_details.dart';
 import 'package:fresh_market_app/profile/profile_vault.dart';
 import 'package:fresh_market_app/app_nav.dart';
-import 'package:fresh_market_app/services/fake_shopify_api.dart';
-import 'package:fresh_market_app/state/cart_store.dart';
+import 'package:fresh_market_app/services/order_api.dart';
 import 'package:fresh_market_app/state/profile_store.dart';
 
 /// Fictional demo data only.
@@ -166,345 +164,6 @@ void main() {
     });
   });
 
-  group('emirates to Shopify province codes', () {
-    test('every emirate maps to the code the checkout lists', () {
-      final codes = {
-        for (final e in Emirate.values) e.code: CustomerInput.provinceCode(e),
-      };
-      expect(codes, {
-        'dubai': 'DU',
-        'auh': 'AZ',
-        'shj': 'SH',
-        'ajm': 'AJ',
-        'uaq': 'UQ',
-        'rak': 'RK',
-        'fuj': 'FU',
-      });
-    });
-  });
-
-  group('checkout prefill', () {
-    final bay = area('Business Bay');
-
-    test('contact and the address in the delivery area, in checkout order', () {
-      final params = CheckoutPrefill.params(
-        contact: sara,
-        address: home(),
-        area: bay,
-      );
-      expect(params, {
-        'checkout[email]': 'sara@example.com',
-        'checkout[shipping_address][first_name]': 'Sara',
-        'checkout[shipping_address][last_name]': 'Ahmed',
-        'checkout[shipping_address][address1]': 'Bay Square, Building 5',
-        'checkout[shipping_address][address2]': 'Flat 302',
-        'checkout[shipping_address][city]': 'Business Bay',
-        'checkout[shipping_address][province]': 'DU',
-        'checkout[shipping_address][country]': 'AE',
-        'checkout[shipping_address][phone]': '+971501234567',
-      });
-      expect(params.keys.toList(), [
-        CheckoutPrefill.email,
-        CheckoutPrefill.firstName,
-        CheckoutPrefill.lastName,
-        CheckoutPrefill.address1,
-        CheckoutPrefill.address2,
-        CheckoutPrefill.city,
-        CheckoutPrefill.province,
-        CheckoutPrefill.country,
-        CheckoutPrefill.phone,
-      ]);
-    });
-
-    test('address1 is the building, then the street', () {
-      final params = CheckoutPrefill.params(
-        contact: ContactDetails.empty,
-        address: office(),
-        area: area('Dubai Marina'),
-      );
-      expect(params[CheckoutPrefill.address1], 'Marina Plaza, Al Marsa Street');
-      expect(params[CheckoutPrefill.address2], 'Office 1204');
-      expect(params[CheckoutPrefill.city], 'Dubai Marina');
-      expect(params[CheckoutPrefill.country], 'AE');
-    });
-
-    test('an address in another area: never its building; city and '
-        'province are the current area', () {
-      final params = CheckoutPrefill.params(
-        contact: sara,
-        address: office(), // Dubai Marina
-        area: bay,
-      );
-      expect(params.containsKey(CheckoutPrefill.address1), isFalse);
-      expect(params.containsKey(CheckoutPrefill.address2), isFalse);
-      expect(params[CheckoutPrefill.city], 'Business Bay');
-      expect(params[CheckoutPrefill.province], 'DU');
-      expect(params[CheckoutPrefill.country], 'AE');
-      expect(params[CheckoutPrefill.email], 'sara@example.com');
-      expect(CheckoutPrefill.attributes(address: office(), area: bay), isEmpty);
-    });
-
-    test('the same area by name and emirate, pins close together', () {
-      const pin = DeliveryArea(
-        name: 'business bay',
-        emirate: Emirate.dubai,
-        lat: 25.19,
-        lng: 55.27,
-      );
-      expect(
-        CheckoutPrefill.params(
-          contact: ContactDetails.empty,
-          address: home(),
-          area: pin,
-        )[CheckoutPrefill.address1],
-        'Bay Square, Building 5',
-      );
-      const sharjahBay = DeliveryArea(
-        name: 'Business Bay',
-        emirate: Emirate.sharjah,
-        lat: 25.3,
-        lng: 55.4,
-      );
-      final inSharjah = CheckoutPrefill.params(
-        contact: ContactDetails.empty,
-        address: home(),
-        area: sharjahBay,
-      );
-      expect(inSharjah.keys, isNot(contains(CheckoutPrefill.address1)));
-      expect(inSharjah[CheckoutPrefill.province], 'SH');
-    });
-
-    test('a "Near" area of the same name far away is another place; the '
-        'city is sent without "Near"', () {
-      // 118 km apart, both called "Near Jebel Ali" by the picker.
-      const saved = DeliveryArea(
-        name: 'Near Jebel Ali',
-        emirate: Emirate.dubai,
-        lat: 24.5,
-        lng: 55.22,
-      );
-      const here = DeliveryArea(
-        name: 'Near Jebel Ali',
-        emirate: Emirate.dubai,
-        lat: 25.46,
-        lng: 54.72,
-      );
-      const villa = SavedAddress(
-        id: 'v',
-        label: AddressLabel.home,
-        area: saved,
-        building: 'Villa 12',
-      );
-      expect(CustomerInput.sameArea(saved, here), isFalse);
-      expect(CustomerInput.sameArea(saved, saved), isTrue);
-      final params = CheckoutPrefill.params(
-        contact: sara,
-        address: villa,
-        area: here,
-      );
-      expect(params.containsKey(CheckoutPrefill.address1), isFalse);
-      expect(params[CheckoutPrefill.city], 'Jebel Ali');
-      expect(
-        CheckoutPrefill.params(
-          contact: sara,
-          address: villa,
-          area: saved,
-        )[CheckoutPrefill.address1],
-        'Villa 12',
-      );
-      expect(CustomerInput.cityName(area('Business Bay')), 'Business Bay');
-      // 3 km is the most two pins of one place can be apart.
-      const nearby = DeliveryArea(
-        name: 'Business Bay',
-        emirate: Emirate.dubai,
-        lat: 25.215,
-        lng: 55.265,
-      );
-      expect(CustomerInput.sameArea(nearby, area('Business Bay')), isFalse);
-    });
-
-    test('empty values are left out; nothing saved sends nothing', () {
-      expect(
-        CheckoutPrefill.params(contact: ContactDetails.empty, area: bay),
-        isEmpty,
-      );
-      final params = CheckoutPrefill.params(
-        contact: const ContactDetails(firstName: 'Sara'),
-        address: home(flat: ''),
-        area: bay,
-      );
-      expect(params.keys, isNot(contains(CheckoutPrefill.email)));
-      expect(params.keys, isNot(contains(CheckoutPrefill.lastName)));
-      expect(params.keys, isNot(contains(CheckoutPrefill.phone)));
-      expect(params.keys, isNot(contains(CheckoutPrefill.address2)));
-      expect(params[CheckoutPrefill.firstName], 'Sara');
-      // Contact only, no address: the area's city and emirate still help.
-      final contactOnly = CheckoutPrefill.params(contact: sara, area: bay);
-      expect(contactOnly[CheckoutPrefill.city], 'Business Bay');
-      expect(contactOnly[CheckoutPrefill.province], 'DU');
-      expect(contactOnly.keys, isNot(contains(CheckoutPrefill.address1)));
-      // Only an address in another area: the current city and emirate.
-      final elsewhere = CheckoutPrefill.params(
-        contact: ContactDetails.empty,
-        address: office(),
-        area: bay,
-      );
-      expect(elsewhere, {
-        CheckoutPrefill.city: 'Business Bay',
-        CheckoutPrefill.province: 'DU',
-        CheckoutPrefill.country: 'AE',
-      });
-      // No area: contact only.
-      final noArea = CheckoutPrefill.params(contact: sara, address: home());
-      expect(noArea.keys, [
-        CheckoutPrefill.email,
-        CheckoutPrefill.firstName,
-        CheckoutPrefill.lastName,
-        CheckoutPrefill.phone,
-      ]);
-    });
-
-    test('every emirate goes as its province code', () {
-      for (final e in Emirate.values) {
-        final a = DeliveryArea(name: 'Somewhere', emirate: e, lat: 25, lng: 55);
-        expect(
-          CheckoutPrefill.params(
-            contact: sara,
-            area: a,
-          )[CheckoutPrefill.province],
-          CustomerInput.provinceCode(e),
-        );
-      }
-    });
-
-    test('delivery instructions go as a cart attribute', () {
-      expect(CheckoutPrefill.attributes(address: home(), area: bay), {
-        'Delivery instructions': 'Call when you arrive',
-      });
-      expect(
-        CheckoutPrefill.attributes(
-          address: home().copyWith(instructions: '  '),
-          area: bay,
-        ),
-        isEmpty,
-      );
-    });
-  });
-
-  group('checkout URL', () {
-    final products = sampleProducts();
-    final kiwi = products[0];
-    final beef = products[1];
-    final bay = area('Business Bay');
-
-    test('the demo cart: attributes kept, then the details, encoded', () {
-      final cart = CartStore()
-        ..add(kiwi, kiwi.variants[0], quantity: 2)
-        ..add(beef, beef.variants[0]);
-      final delivery = DeliveryRules.cartAttributes(
-        bay,
-        DeliveryMode.market,
-        DateTime.utc(2026, 11, 13, 6),
-      );
-      final url = cart.checkoutUrlWith(
-        {
-          ...delivery,
-          ...CheckoutPrefill.attributes(address: home(), area: bay),
-        },
-        prefill: CheckoutPrefill.params(
-          contact: sara,
-          address: home(),
-          area: bay,
-        ),
-      )!;
-      expect(
-        url.toString(),
-        'https://testtfm.myshopify.com/cart/2001:2,2003:1'
-        '?attributes%5BDelivery%20mode%5D=Fresh%20Market'
-        '&attributes%5BDelivery%20area%5D=Business%20Bay%2C%20Dubai'
-        '&attributes%5BDelivery%20promise%5D=Today%20within%206%20hours'
-        '&attributes%5BDelivery%20pin%5D=25.18500%2C55.26500'
-        '&attributes%5BDelivery%20instructions%5D=Call%20when%20you%20arrive'
-        '&checkout%5Bemail%5D=sara%40example.com'
-        '&checkout%5Bshipping_address%5D%5Bfirst_name%5D=Sara'
-        '&checkout%5Bshipping_address%5D%5Blast_name%5D=Ahmed'
-        '&checkout%5Bshipping_address%5D%5Baddress1%5D='
-        'Bay%20Square%2C%20Building%205'
-        '&checkout%5Bshipping_address%5D%5Baddress2%5D=Flat%20302'
-        '&checkout%5Bshipping_address%5D%5Bcity%5D=Business%20Bay'
-        '&checkout%5Bshipping_address%5D%5Bprovince%5D=DU'
-        '&checkout%5Bshipping_address%5D%5Bcountry%5D=AE'
-        '&checkout%5Bshipping_address%5D%5Bphone%5D=%2B971501234567',
-      );
-      // Shopify reads every value back exactly.
-      final query = url.queryParameters;
-      expect(query['checkout[shipping_address][phone]'], '+971501234567');
-      expect(query['attributes[Delivery area]'], 'Business Bay, Dubai');
-    });
-
-    test('Arabic, &, +, # and spaces survive the round trip', () {
-      const tricky = ContactDetails(
-        firstName: 'سارة',
-        lastName: 'Ahmed & Sons',
-        email: 'sara+shop@example.com',
-      );
-      final address = SavedAddress(
-        id: 'x',
-        label: AddressLabel.other,
-        area: bay,
-        building: 'برج #5 & Co',
-        flat: 'Flat 3+4',
-        instructions: 'Ring #2 & knock + wait',
-      );
-      final url = CartStore.buildCheckoutUrl(
-        {2001: 1},
-        attributes: CheckoutPrefill.attributes(address: address, area: bay),
-        prefill: CheckoutPrefill.params(
-          contact: tricky,
-          address: address,
-          area: bay,
-        ),
-      )!;
-      final text = url.toString();
-      // Nothing that would end or split a value is left raw.
-      final query = text.substring(text.indexOf('?') + 1);
-      for (final pair in query.split('&')) {
-        final value = pair.substring(pair.indexOf('=') + 1);
-        expect(value, isNot(matches(RegExp(r'[&+# \[\]]'))), reason: pair);
-      }
-      expect(text, contains('first_name%5D=%D8%B3%D8%A7%D8%B1%D8%A9'));
-      expect(text, contains('last_name%5D=Ahmed%20%26%20Sons'));
-      expect(text, contains('email%5D=sara%2Bshop%40example.com'));
-      final q = url.queryParameters;
-      expect(q['checkout[shipping_address][first_name]'], 'سارة');
-      expect(q['checkout[shipping_address][last_name]'], 'Ahmed & Sons');
-      expect(q['checkout[email]'], 'sara+shop@example.com');
-      expect(q['checkout[shipping_address][address1]'], 'برج #5 & Co');
-      expect(q['checkout[shipping_address][address2]'], 'Flat 3+4');
-      expect(q['attributes[Delivery instructions]'], 'Ring #2 & knock + wait');
-      expect(url.fragment, isEmpty);
-    });
-
-    test('sold-out lines stay out and empty prefill changes nothing', () {
-      final cart = CartStore()..add(kiwi, kiwi.variants[0]);
-      expect(
-        cart.checkoutUrlWith(const {'A': 'b'}, prefill: const {}).toString(),
-        cart.checkoutUrlWith(const {'A': 'b'}).toString(),
-      );
-      expect(
-        CartStore.buildCheckoutUrl(
-          {2001: 1},
-          prefill: const {'checkout[email]': '  '},
-        ).toString(),
-        'https://testtfm.myshopify.com/cart/2001:1',
-      );
-      expect(
-        CartStore.buildCheckoutUrl({2001: 0}, prefill: {'a': 'b'}),
-        isNull,
-      );
-    });
-  });
-
   group('ProfileStore', () {
     test('saves encrypted-vault records and reads them back', () async {
       final vault = MemoryProfileVault();
@@ -623,75 +282,28 @@ void main() {
       await store.deleteAll();
       expect(store.hasDetails, isFalse);
       expect(vault.value, isNull);
-      expect(store.offersCheckoutSheet, isTrue);
     });
 
-    test('the checkout sheet: save, one checkout only, skip', () async {
-      final bay = area('Business Bay');
-      const answer = CheckoutSheetResult(
-        contact: sara,
-        building: 'Bay Square, Building 5',
-        flat: 'Flat 302',
-      );
-
-      final saving = ProfileStore(vault: MemoryProfileVault());
-      expect(saving.offersCheckoutSheet, isFalse, reason: 'not read yet');
-      await saving.load();
-      expect(saving.offersCheckoutSheet, isTrue);
-      saving.applyCheckoutSheet(answer, bay);
-      expect(saving.contact, sara);
-      expect(saving.addresses.single.building, 'Bay Square, Building 5');
-      expect(saving.addresses.single.label, AddressLabel.home);
-      expect(saving.offersCheckoutSheet, isFalse);
-
+    test('the store account fills only the empty contact fields', () async {
       final vault = MemoryProfileVault();
-      final once = ProfileStore(vault: vault);
-      once.applyCheckoutSheet(
-        const CheckoutSheetResult(
-          contact: sara,
-          building: 'Bay Square, Building 5',
-          save: false,
-        ),
-        bay,
+      final store = ProfileStore(vault: vault)
+        ..saveContact(const ContactDetails(firstName: 'Sara'));
+      store.fillMissingContact(
+        firstName: 'Sarah',
+        lastName: 'Ahmed',
+        mobile: '+971501234567',
+        email: 'sara@example.com',
       );
-      await once.idle;
-      expect(once.hasDetails, isFalse);
-      expect(vault.writes, isEmpty, reason: 'nothing kept on the phone');
-      final details = once.checkoutDetails(bay);
-      expect(details.contact, sara);
-      expect(details.address!.building, 'Bay Square, Building 5');
-      expect(once.checkoutDetails(area('Mirdif')).address, isNull);
-
-      final skipVault = MemoryProfileVault();
-      final skipping = ProfileStore(vault: skipVault);
-      skipping.applyCheckoutSheet(const CheckoutSheetResult.skip(), bay);
-      expect(skipping.offersCheckoutSheet, isFalse);
-      await skipping.idle;
-      final later = ProfileStore(vault: skipVault);
-      await later.load();
-      expect(later.offersCheckoutSheet, isFalse, reason: 'skip remembered');
-      expect(later.checkoutSheetSkipped, isTrue);
-    });
-
-    test('the store AppScope makes by default never asks', () {
-      expect(ProfileStore(askAtCheckout: false).offersCheckoutSheet, isFalse);
-    });
-
-    test('Continue with nothing typed counts as a skip', () async {
-      final vault = MemoryProfileVault();
-      final store = ProfileStore(vault: vault);
-      await store.load();
-      store.applyCheckoutSheet(
-        const CheckoutSheetResult(contact: ContactDetails.empty),
-        area('Business Bay'),
-      );
-      expect(store.offersCheckoutSheet, isFalse);
-      expect(store.checkoutSheetSkipped, isTrue);
-      expect(store.hasDetails, isFalse);
+      expect(store.contact, sara, reason: 'the typed first name is kept');
       await store.idle;
       final later = ProfileStore(vault: vault);
       await later.load();
-      expect(later.offersCheckoutSheet, isFalse, reason: 'remembered');
+      expect(later.contact, sara);
+      // Nothing new: nothing written.
+      final writes = vault.writes.length;
+      later.fillMissingContact(firstName: 'Other');
+      await later.idle;
+      expect(vault.writes, hasLength(writes));
     });
   });
 
@@ -708,33 +320,11 @@ void main() {
       final store = ProfileStore(vault: vault);
       final loading = store.load();
       expect(store.loaded, isFalse);
-      expect(store.offersCheckoutSheet, isFalse);
       vault.open();
       await loading;
       expect(store.loaded, isTrue);
       expect(store.contact, sara);
-      expect(store.offersCheckoutSheet, isFalse);
-    });
-
-    test('Skip during the read keeps the saved details', () async {
-      final vault = _GatedVault(saved);
-      final store = ProfileStore(vault: vault);
-      final loading = store.load();
-      store.applyCheckoutSheet(
-        const CheckoutSheetResult.skip(),
-        area('Business Bay'),
-      );
-      expect(vault.writes, isEmpty, reason: 'nothing written unread');
-      vault.open();
-      await loading;
-      await store.idle;
-      expect(store.contact, sara);
-      expect(store.addresses.map((a) => a.id), ['h1', 'o1']);
-      expect(store.checkoutSheetSkipped, isTrue);
-      final again = ProfileStore(vault: MemoryProfileVault(vault.value));
-      await again.load();
-      expect(again.contact, sara);
-      expect(again.addresses, hasLength(2));
+      expect(vault.writes, isEmpty);
     });
 
     test('saving My details or an address during the read merges', () async {
@@ -778,9 +368,7 @@ void main() {
   });
 
   group('checkout pin', () {
-    test('the order\'s Delivery pin is the pin of the address sent', () {
-      final kiwi = sampleProducts()[0];
-      final cart = CartStore()..add(kiwi, kiwi.variants[0]);
+    test('the order\'s delivery pin is the pin of the address sent', () {
       final delivery = DeliveryStore(
         now: () => DateTime.utc(2026, 11, 13, 6),
         refreshEvery: null,
@@ -797,17 +385,18 @@ void main() {
       final profile = ProfileStore()..saveAddress(home());
       // What checkout does first: the delivery pin moves to the address.
       AppNav.alignDeliveryWithAddress(delivery: delivery, profile: profile);
-      final q = AppNav.checkoutUrlFor(
-        cart: cart,
-        delivery: delivery,
-        profile: profile,
-      )!.queryParameters;
-      expect(q['checkout[shipping_address][address1]'], home().address1);
+      expect(delivery.area, home().area);
+      final request = DeliveryRequest(
+        mode: delivery.mode,
+        area: delivery.area!,
+        pin: profile.checkoutDetails(delivery.area).address!.area.pin,
+      ).toJson();
       final pin = home().area;
       expect(
-        q['attributes[Delivery pin]'],
+        request['pin'],
         '${pin.lat.toStringAsFixed(5)},${pin.lng.toStringAsFixed(5)}',
       );
+      expect((request['area'] as Map)['emirate'], 'dubai');
     });
   });
 }

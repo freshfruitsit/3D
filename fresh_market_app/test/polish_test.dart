@@ -61,8 +61,7 @@ List<String> _deadButtons(WidgetTester tester) {
 Finder _plain(String text) => find.byWidgetPredicate(
   (w) =>
       w is Text &&
-      (w.data ?? w.textSpan?.toPlainText())?.replaceAll(' ', ' ') ==
-          text,
+      (w.data ?? w.textSpan?.toPlainText())?.replaceAll(' ', ' ') == text,
   description: 'text "$text"',
 );
 
@@ -134,8 +133,10 @@ void main() {
       );
       expect(plain('Mango Kesar 500 GM', '').sizeLine(), '500 g · Australia');
       expect(
-        plain('Australian Beef Cubes', '<p>Tender cubes, 1 Kg pack.</p>')
-            .sizeLine(),
+        plain(
+          'Australian Beef Cubes',
+          '<p>Tender cubes, 1 Kg pack.</p>',
+        ).sizeLine(),
         '1 kg · Australia',
       );
       // Two different sizes in the text: nothing is guessed.
@@ -186,8 +187,10 @@ void main() {
         AppColors.ink,
       );
       // The Express bolt keeps its live green.
-      expect(tester.widget<Icon>(find.byIcon(Icons.bolt)).color,
-          AppColors.green);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.bolt)).color,
+        AppColors.green,
+      );
 
       store.setMode(DeliveryMode.express);
       await tester.pump(const Duration(milliseconds: 300));
@@ -238,7 +241,10 @@ void main() {
       );
       expect(_spansIn(line, AppColors.green), ['30–40 min']);
       expect(line.style!.color, AppColors.ink);
-      expect(line.semanticsLabel, 'Express: Get it in 30–40 min to Business Bay');
+      expect(
+        line.semanticsLabel,
+        'Express: Get it in 30–40 min to Business Bay',
+      );
     });
 
     testWidgets('product detail in Express mode, and the cart card', (
@@ -286,8 +292,10 @@ void main() {
         style.backgroundColor!.resolve({WidgetState.disabled}),
         AppColors.disabledFill,
       );
-      expect(style.overlayColor!.resolve({WidgetState.pressed}),
-          Colors.transparent);
+      expect(
+        style.overlayColor!.resolve({WidgetState.pressed}),
+        Colors.transparent,
+      );
     });
 
     test('text styles carry no inherited tracking', () {
@@ -418,12 +426,13 @@ void main() {
           await tester.pump();
           expect(tester.takeException(), isNull, reason: '$width x $scale');
           // Every label fits its two lines: no word is cut or ellipsized.
-          for (final element in find
-              .descendant(
-                of: find.byType(SquareTile),
-                matching: find.byType(RichText),
-              )
-              .evaluate()) {
+          for (final element
+              in find
+                  .descendant(
+                    of: find.byType(SquareTile),
+                    matching: find.byType(RichText),
+                  )
+                  .evaluate()) {
             final paragraph = element.renderObject! as RenderParagraph;
             expect(
               paragraph.didExceedMaxLines,
@@ -504,12 +513,7 @@ void main() {
         const CartScreen(),
         const AccountScreen(),
       ]) {
-        await pumpScreen(
-          tester,
-          screen,
-          cart: cart,
-          delivery: testDelivery(),
-        );
+        await pumpScreen(tester, screen, cart: cart, delivery: testDelivery());
         tester.view.physicalSize = const Size(1080, 2340);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 500));
@@ -564,13 +568,16 @@ void main() {
       expect(find.text('Sold out'), findsOneWidget);
       expect(find.byType(QuantityStepper), findsOneWidget); // beef only
       expect(find.text('Checkout · ⃃ 62.50'), findsOneWidget);
-      expect(
-        find.textContaining(CartScreen.soldOutNote),
-        findsOneWidget,
-      );
+      expect(find.textContaining(CartScreen.soldOutNote), findsOneWidget);
       expect(find.text(soldOutMessage), findsOneWidget);
-      expect(cart.checkoutUrl.toString(), isNot(contains('2001')));
-      expect(cart.checkoutUrl.toString(), contains('2003:1'));
+      // Only the line that can be bought goes to the order.
+      expect(
+        [
+          for (final l in cart.lines)
+            if (l.available) l.variantId,
+        ],
+        [2003],
+      );
 
       await tester.tap(find.widgetWithText(TextButton, 'Remove'));
       await tester.pump();
@@ -685,12 +692,13 @@ void main() {
         'bin offers Undo', (tester) async {
       final handle = tester.ensureSemantics();
       final messages = <Object?>[];
-      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<
-        Object?
-      >(SystemChannels.accessibility, (message) async {
-        messages.add(message);
-        return null;
-      });
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<Object?>(SystemChannels.accessibility, (
+            message,
+          ) async {
+            messages.add(message);
+            return null;
+          });
       addTearDown(
         () => tester.binding.defaultBinaryMessenger
             .setMockDecodedMessageHandler<Object?>(
@@ -701,7 +709,9 @@ void main() {
       final cart = CartStore();
       await pumpScreen(
         tester,
-        Scaffold(body: Center(child: AddControl(product: kiwi))),
+        Scaffold(
+          body: Center(child: AddControl(product: kiwi)),
+        ),
         cart: cart,
       );
 
@@ -771,11 +781,7 @@ void main() {
     testWidgets('says how many are in the cart; a new weight clears the '
         'added notice', (tester) async {
       final cart = CartStore()..add(kiwi, kiwi.variants[0], quantity: 3);
-      await pumpScreen(
-        tester,
-        ProductDetailScreen(product: kiwi),
-        cart: cart,
-      );
+      await pumpScreen(tester, ProductDetailScreen(product: kiwi), cart: cart);
       expect(find.text('3 in your cart'), findsOneWidget);
 
       await tester.tap(find.byType(FilledButton));
@@ -793,11 +799,7 @@ void main() {
         'says its count', (tester) async {
       final handle = tester.ensureSemantics();
       final cart = CartStore()..add(beef, beef.variants[0], quantity: 2);
-      await pumpScreen(
-        tester,
-        ProductDetailScreen(product: kiwi),
-        cart: cart,
-      );
+      await pumpScreen(tester, ProductDetailScreen(product: kiwi), cart: cart);
       expect(
         tester.getSemantics(find.bySemanticsLabel('Cart, 2 items')),
         isSemantics(isButton: true, hasTapAction: true),
@@ -918,8 +920,11 @@ void main() {
           isTrue,
           reason: 'focus $i at $rect is under the bar or Ask',
         );
-        expect(rect.bottom, lessThanOrEqualTo(covered.top + 0.5),
-            reason: 'focus $i at $rect');
+        expect(
+          rect.bottom,
+          lessThanOrEqualTo(covered.top + 0.5),
+          reason: 'focus $i at $rect',
+        );
         final ring = tester
             .state<FocusRingLayerState>(find.byType(FocusRingLayer))
             .ringRect;
@@ -945,12 +950,13 @@ void main() {
       await tester.pump();
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -900));
       await tester.pump();
-      for (final element in find
-          .descendant(
-            of: find.byType(SectionTag),
-            matching: find.byType(RichText),
-          )
-          .evaluate()) {
+      for (final element
+          in find
+              .descendant(
+                of: find.byType(SectionTag),
+                matching: find.byType(RichText),
+              )
+              .evaluate()) {
         final paragraph = element.renderObject! as RenderParagraph;
         expect(
           paragraph.didExceedMaxLines,

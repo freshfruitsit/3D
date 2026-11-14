@@ -9,13 +9,11 @@ import 'assistant_brain.dart';
 /// One bubble of the conversation.
 @immutable
 class AssistantMessage {
-  const AssistantMessage.user(this.text)
-      : fromUser = true,
-        reply = null;
+  const AssistantMessage.user(this.text) : fromUser = true, reply = null;
 
   AssistantMessage.assistant(AssistantReply this.reply)
-      : fromUser = false,
-        text = reply.text;
+    : fromUser = false,
+      text = reply.text;
 
   final bool fromUser;
   final String text;
@@ -38,8 +36,8 @@ class AssistantSession extends ChangeNotifier {
   final Duration minReplyDelay;
 
   static AssistantMessage _greeting() => AssistantMessage.assistant(
-        const AssistantReply(AssistantBrain.greeting, showOptions: true),
-      );
+    const AssistantReply(AssistantBrain.greeting, showOptions: true),
+  );
 
   final List<AssistantMessage> _messages = [_greeting()];
   bool _busy = false;

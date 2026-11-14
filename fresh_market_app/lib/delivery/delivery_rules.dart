@@ -421,23 +421,6 @@ abstract final class DeliveryRules {
     return ProductPromise(kind: ProductPromiseKind.market, text: mk.short);
   }
 
-  /// The cart attributes the website sends with each order.
-  static Map<String, String> cartAttributes(
-    DeliveryArea area,
-    DeliveryMode mode,
-    DateTime now,
-  ) {
-    final isExpress = mode == DeliveryMode.express;
-    return {
-      'Delivery mode': mode.label,
-      'Delivery area': area.label,
-      'Delivery promise': isExpress
-          ? express(area, now).range
-          : market(area, now).line,
-      'Delivery pin': area.pin,
-    };
-  }
-
   // ---- messages (the website's toasts) -----------------------------------
 
   /// After choosing an area.

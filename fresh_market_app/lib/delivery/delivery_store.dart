@@ -89,12 +89,6 @@ class DeliveryStore extends ChangeNotifier {
   bool isExpressEligible(Product product) =>
       DeliveryRules.isExpressEligible(product);
 
-  /// The cart attributes to send with the order; null without an area.
-  Map<String, String>? get cartAttributes {
-    final a = _area;
-    return a == null ? null : DeliveryRules.cartAttributes(a, _mode, now());
-  }
-
   /// True once per app run while no area is set: the website opens the
   /// location picker by itself once per session. Call [markAskedForLocation]
   /// after asking.

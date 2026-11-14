@@ -694,6 +694,11 @@ class _SessionCard extends StatelessWidget {
       "Use your email. We'll send you a 6-digit code, no password needed. "
       'You stay signed in on this phone.';
   static const String signInLabel = 'Sign in with email';
+
+  /// Signed out, in an app built without a Customer Account API client.
+  static const String unavailableLine =
+      "Sign-in isn't available in the app yet. Your cart and details are "
+      'kept until it is.';
   static const String signedInCaption = 'Signed in';
 
   /// Shown for the email when the app did not see it.
@@ -764,6 +769,8 @@ class _SessionCard extends StatelessWidget {
   }
 
   Widget _signedOut(BuildContext context) {
+    final session = context.watch<AccountSession>();
+    final available = session.signInAvailable;
     return Container(
       key: const ValueKey('account-session'),
       decoration: AppDecor.card,
@@ -789,7 +796,10 @@ class _SessionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      signedOutLine,
+                      available ? signedOutLine : unavailableLine,
+                      key: available
+                          ? null
+                          : const ValueKey('account-sign-in-unavailable'),
                       style: AppText.bodySmall.copyWith(
                         color: AppColors.secondary,
                       ),
@@ -799,14 +809,24 @@ class _SessionCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          // Ink: signing in is not buying.
-          FilledButton(
-            key: const ValueKey('account-sign-in'),
-            style: AppButtons.dark,
-            onPressed: () => AppNav.openSignIn(context),
-            child: const Text(signInLabel, textAlign: TextAlign.center),
-          ),
+          if (available) ...[
+            const SizedBox(height: 14),
+            // Ink: signing in is not buying.
+            FilledButton(
+              key: const ValueKey('account-sign-in'),
+              style: AppButtons.dark,
+              onPressed: session.signingIn
+                  ? null
+                  : () => AppNav.signIn(context),
+              child: session.signingIn
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Text(signInLabel, textAlign: TextAlign.center),
+            ),
+          ],
         ],
       ),
     );

@@ -42,21 +42,21 @@ Future<void> _centre(WidgetTester tester, Finder target) async {
 
 /// A marked-down product that is not in "Today's Top Deals".
 Product _platter(int id, int cents, int compareAt) => Product(
-      id: id,
-      title: 'Fruit Platter $id',
-      handle: 'fruit-platter-$id',
-      vendor: 'Ambrosia',
-      productType: 'Platters',
-      variants: [
-        Variant(
-          id: id + 100,
-          title: 'Default Title',
-          priceCents: cents,
-          compareAtCents: compareAt,
-        ),
-      ],
-      images: const [],
-    );
+  id: id,
+  title: 'Fruit Platter $id',
+  handle: 'fruit-platter-$id',
+  vendor: 'Ambrosia',
+  productType: 'Platters',
+  variants: [
+    Variant(
+      id: id + 100,
+      title: 'Default Title',
+      priceCents: cents,
+      compareAtCents: compareAt,
+    ),
+  ],
+  images: const [],
+);
 
 /// The sample store, where the whole catalogue ("all") also holds two
 /// marked-down platters that no rail above "Best Deals" shows.
@@ -74,8 +74,9 @@ int _railCalls(FakeShopifyApi api) =>
     api.calls.where((c) => c.startsWith('collectionProducts(')).length;
 
 void main() {
-  testWidgets('shows header, search, banners and the category grid',
-      (tester) async {
+  testWidgets('shows header, search, banners and the category grid', (
+    tester,
+  ) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
 
@@ -109,61 +110,69 @@ void main() {
     final shell = ShellController();
     await pumpScreen(tester, const HomeScreen(), shell: shell);
     await tester.pump();
-    await tester.tap(find.descendant(
-      of: find.widgetWithText(SectionHeader, 'Shop By Category'),
-      matching: find.text('See all'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(SectionHeader, 'Shop By Category'),
+        matching: find.text('See all'),
+      ),
+    );
     await tester.pump();
     expect(shell.tab, AppTab.categories);
   });
 
-  testWidgets('sections come in the specified order, brands and offers between rails',
-      (tester) async {
-    final api = _storeWithDeals();
-    await pumpScreen(tester, const HomeScreen(), api: api);
-    await tester.pump();
-
-    // Every rail asked for its own collection once.
-    for (final rail in Catalog.rails) {
-      expect(api.calls, contains('collectionProducts(${rail.handle}, page 1)'));
-    }
-    expect(_railCalls(api), 5);
-
-    const order = [
-      "Today's Top Deals",
-      'Best Deals',
-      'Brands We Love',
-      'Fresh Pick For You',
-      'Offers',
-      'Berries',
-      'Seasonal Blooms',
-      'Discover our fresh local products',
-    ];
-    // Headings are the slanted tags (a category tile is also "Berries").
-    Finder heading(String title) => title == order.last
-        ? find.text(title)
-        : find.descendant(
-            of: find.byType(SectionTag),
-            matching: find.text(title),
-          );
-    final seen = <String>[];
-    for (var i = 0; i < 40 && seen.length < order.length; i++) {
-      for (final title in order) {
-        if (!seen.contains(title) && heading(title).evaluate().isNotEmpty) {
-          seen.add(title);
-        }
-      }
-      await tester.drag(_page, const Offset(0, -250));
+  testWidgets(
+    'sections come in the specified order, brands and offers between rails',
+    (tester) async {
+      final api = _storeWithDeals();
+      await pumpScreen(tester, const HomeScreen(), api: api);
       await tester.pump();
-    }
-    expect(seen, order);
-    expect(find.text('MADE IN UAE'), findsOneWidget);
-    expect(find.text('Discover now'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
 
-  testWidgets('a rail shows product cards and See all opens its collection',
-      (tester) async {
+      // Every rail asked for its own collection once.
+      for (final rail in Catalog.rails) {
+        expect(
+          api.calls,
+          contains('collectionProducts(${rail.handle}, page 1)'),
+        );
+      }
+      expect(_railCalls(api), 5);
+
+      const order = [
+        "Today's Top Deals",
+        'Best Deals',
+        'Brands We Love',
+        'Fresh Pick For You',
+        'Offers',
+        'Berries',
+        'Seasonal Blooms',
+        'Discover our fresh local products',
+      ];
+      // Headings are the slanted tags (a category tile is also "Berries").
+      Finder heading(String title) => title == order.last
+          ? find.text(title)
+          : find.descendant(
+              of: find.byType(SectionTag),
+              matching: find.text(title),
+            );
+      final seen = <String>[];
+      for (var i = 0; i < 40 && seen.length < order.length; i++) {
+        for (final title in order) {
+          if (!seen.contains(title) && heading(title).evaluate().isNotEmpty) {
+            seen.add(title);
+          }
+        }
+        await tester.drag(_page, const Offset(0, -250));
+        await tester.pump();
+      }
+      expect(seen, order);
+      expect(find.text('MADE IN UAE'), findsOneWidget);
+      expect(find.text('Discover now'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('a rail shows product cards and See all opens its collection', (
+    tester,
+  ) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
 
@@ -175,19 +184,24 @@ void main() {
     await tester.pump();
     await tester.pump(_settle);
     final list = tester.widget<ProductListScreen>(
-        find.byType(ProductListScreen));
+      find.byType(ProductListScreen),
+    );
     expect(list.handle, 'fresh-meat');
     expect(list.title, "Today's Top Deals");
   });
 
-  testWidgets('rails show a skeleton while loading, then products',
-      (tester) async {
+  testWidgets('rails show a skeleton while loading, then products', (
+    tester,
+  ) async {
     final api = FakeShopifyApi.sample()..delay = const Duration(seconds: 30);
     await pumpScreen(tester, const HomeScreen(), api: api);
     await tester.pump();
     await _scrollTo(tester, find.text("Today's Top Deals"));
 
-    expect(find.byKey(const ValueKey('rail-loading-fresh-meat')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('rail-loading-fresh-meat')),
+      findsOneWidget,
+    );
     expect(find.byType(ProductCard), findsNothing);
 
     await tester.pump(const Duration(seconds: 30));
@@ -196,8 +210,9 @@ void main() {
     expect(find.byType(ProductCard), findsWidgets);
   });
 
-  testWidgets('a failed rail offers a retry that loads only that rail',
-      (tester) async {
+  testWidgets('a failed rail offers a retry that loads only that rail', (
+    tester,
+  ) async {
     final api = FakeShopifyApi.sample()
       ..error = const NetworkException('offline');
     await pumpScreen(tester, const HomeScreen(), api: api);
@@ -219,15 +234,13 @@ void main() {
     expect(find.byType(ProductCard), findsWidgets);
   });
 
-  testWidgets('a collection the store does not have shows an error row',
-      (tester) async {
+  testWidgets('a collection the store does not have shows an error row', (
+    tester,
+  ) async {
     // No "berries" collection: only that rail fails.
-    final api = FakeShopifyApi.sample(handles: const [
-      'fresh-meat',
-      'all',
-      'best-sellers',
-      'ambrosia-flowers',
-    ]);
+    final api = FakeShopifyApi.sample(
+      handles: const ['fresh-meat', 'all', 'best-sellers', 'ambrosia-flowers'],
+    );
     await pumpScreen(tester, const HomeScreen(), api: api);
     await tester.pump();
     await _scrollTo(
@@ -257,7 +270,10 @@ void main() {
     await tester.pump();
     // The whole catalogue is searched for products on sale.
     expect(api.calls, contains('collectionProducts(all, page 1)'));
-    expect(api.calls, isNot(contains('collectionProducts(best-deals, page 1)')));
+    expect(
+      api.calls,
+      isNot(contains('collectionProducts(best-deals, page 1)')),
+    );
 
     await _centre(tester, find.widgetWithText(SectionHeader, 'Best Deals'));
     final rail = find.byKey(const PageStorageKey('rail-all'));
@@ -283,14 +299,17 @@ void main() {
     }
 
     // "See all" opens every product on sale, biggest saving first.
-    await tester.tap(find.descendant(
-      of: find.widgetWithText(SectionHeader, 'Best Deals'),
-      matching: find.text('See all'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(SectionHeader, 'Best Deals'),
+        matching: find.text('See all'),
+      ),
+    );
     await tester.pump();
     await tester.pump(_settle);
-    final list =
-        tester.widget<ProductListScreen>(find.byType(ProductListScreen));
+    final list = tester.widget<ProductListScreen>(
+      find.byType(ProductListScreen),
+    );
     expect(list.handle, Deals.sourceHandle);
     expect(list.onSaleOnly, isTrue);
     expect(list.title, 'Best Deals');
@@ -316,10 +335,7 @@ void main() {
 
   /// The brand rail's own (sideways) scroll view.
   Finder brandRail() => find
-      .descendant(
-        of: find.byType(BrandRail),
-        matching: find.byType(Scrollable),
-      )
+      .descendant(of: find.byType(BrandRail), matching: find.byType(Scrollable))
       .first;
 
   /// Scrolls Home to the brands, then the brand rail to brand [i].
@@ -333,8 +349,9 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('brands sit in one sideways row, the next one peeking',
-      (tester) async {
+  testWidgets('brands sit in one sideways row, the next one peeking', (
+    tester,
+  ) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
     await _centre(tester, find.byType(BrandRail));
@@ -367,12 +384,17 @@ void main() {
         scrollable: brandRail(),
       );
       final tile = find.byKey(ValueKey('brand-$i'));
-      expect(find.descendant(of: tile, matching: find.text(labels[i])),
-          findsOneWidget);
+      expect(
+        find.descendant(of: tile, matching: find.text(labels[i])),
+        findsOneWidget,
+      );
       final image = tester.widget<Image>(
-          find.descendant(of: tile, matching: find.byType(Image)));
-      expect((image.image as AssetImage).assetName,
-          'assets/brands/${files[i]}');
+        find.descendant(of: tile, matching: find.byType(Image)),
+      );
+      expect(
+        (image.image as AssetImage).assetName,
+        'assets/brands/${files[i]}',
+      );
       expect(image.fit, BoxFit.cover);
     }
     expect(tester.takeException(), isNull);
@@ -387,24 +409,28 @@ void main() {
     final tile = find.byKey(const ValueKey('brand-0'));
     final rect = tester.getRect(tile);
     final image = tester.getRect(
-        find.descendant(of: tile, matching: find.byType(Image)));
+      find.descendant(of: tile, matching: find.byType(Image)),
+    );
     expect(image.width, moreOrLessEquals(BrandRail.tileWidth));
     expect(image.height, moreOrLessEquals(BrandRail.tileWidth));
     expect(image.left, moreOrLessEquals(rect.left));
     expect(image.top, moreOrLessEquals(rect.top));
     final clip = tester.widget<ClipRRect>(
-        find.descendant(of: tile, matching: find.byType(ClipRRect)));
+      find.descendant(of: tile, matching: find.byType(ClipRRect)),
+    );
     expect(clip.borderRadius, BorderRadius.circular(14));
 
     // Same tile look as the category grid: an off-white square.
-    final square = tester.widget<DecoratedBox>(find
-        .descendant(of: tile, matching: find.byType(DecoratedBox))
-        .first);
+    final square = tester.widget<DecoratedBox>(
+      find.descendant(of: tile, matching: find.byType(DecoratedBox)).first,
+    );
     expect((square.decoration as BoxDecoration).color, AppColors.subtle);
     // A short name: no word needs shrinking to fit the tile.
     final label = tester.widget<Text>(find.text('Jazz'));
-    expect(tester.getRect(find.text('Chiquita')).top,
-        greaterThan(image.bottom));
+    expect(
+      tester.getRect(find.text('Chiquita')).top,
+      greaterThan(image.bottom),
+    );
     expect(label.style!.fontSize, 12);
     expect(label.style!.fontWeight, FontWeight.w600);
     expect(label.style!.color, AppColors.ink);
@@ -433,8 +459,9 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('offers row shows the four portrait banners in order',
-      (tester) async {
+  testWidgets('offers row shows the four portrait banners in order', (
+    tester,
+  ) async {
     final handle = tester.ensureSemantics();
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
@@ -443,7 +470,8 @@ void main() {
     expect(find.text('Offers'), findsOneWidget);
     // No "See all" beside the Offers heading.
     final heading = tester.widget<SectionHeader>(
-        find.widgetWithText(SectionHeader, 'Offers'));
+      find.widgetWithText(SectionHeader, 'Offers'),
+    );
     expect(heading.onViewAll, isNull);
 
     final row = find.descendant(
@@ -460,14 +488,19 @@ void main() {
       await tester.pump();
       expect(tester.getSize(banner), const Size(156, 208));
       final ink = tester.widget<Ink>(
-          find.descendant(of: banner, matching: find.byType(Ink)));
+        find.descendant(of: banner, matching: find.byType(Ink)),
+      );
       final decoration = ink.decoration! as BoxDecoration;
-      expect((decoration.image!.image as AssetImage).assetName,
-          'assets/promos/${assets[i]}.jpg');
+      expect(
+        (decoration.image!.image as AssetImage).assetName,
+        'assets/promos/${assets[i]}.jpg',
+      );
       expect(decoration.image!.fit, BoxFit.cover);
       expect(find.bySemanticsLabel('Shop ${titles[i]}'), findsOneWidget);
     }
-    final material = tester.widget<Material>(find.byKey(const ValueKey('promo-3')));
+    final material = tester.widget<Material>(
+      find.byKey(const ValueKey('promo-3')),
+    );
     // A photo banner: radius 14, no border.
     expect(
       material.shape,
@@ -487,8 +520,9 @@ void main() {
     ('ambrosia', 'Ambrosia'),
   ];
   for (var i = 0; i < offerTargets.length; i++) {
-    testWidgets('offer banner ${i + 1} opens ${offerTargets[i].$1}',
-        (tester) async {
+    testWidgets('offer banner ${i + 1} opens ${offerTargets[i].$1}', (
+      tester,
+    ) async {
       await pumpScreen(tester, const HomeScreen());
       await tester.pump();
       final banner = find.byKey(ValueKey('promo-$i'));
@@ -506,7 +540,8 @@ void main() {
       await tester.pump();
       await tester.pump(_settle);
       final list = tester.widget<ProductListScreen>(
-          find.byType(ProductListScreen));
+        find.byType(ProductListScreen),
+      );
       expect(list.handle, offerTargets[i].$1);
       expect(list.title, offerTargets[i].$2);
       expect(list.onSaleOnly, offerTargets[i].$1 == Deals.sourceHandle);
@@ -523,8 +558,9 @@ void main() {
     expect(search.initialQuery, isNull);
   });
 
-  testWidgets('banners open their collections and advance by themselves',
-      (tester) async {
+  testWidgets('banners open their collections and advance by themselves', (
+    tester,
+  ) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
 
@@ -538,7 +574,8 @@ void main() {
     await tester.pump();
     await tester.pump(_settle);
     final list = tester.widget<ProductListScreen>(
-        find.byType(ProductListScreen));
+      find.byType(ProductListScreen),
+    );
     expect(list.handle, 'vegetables');
   });
 
@@ -550,7 +587,8 @@ void main() {
     await tester.pump();
     await tester.pump(_settle);
     final list = tester.widget<ProductListScreen>(
-        find.byType(ProductListScreen));
+      find.byType(ProductListScreen),
+    );
     expect(list.handle, 'local-uae');
   });
 
@@ -561,12 +599,14 @@ void main() {
     await tester.pump();
     await tester.pump(_settle);
     final list = tester.widget<ProductListScreen>(
-        find.byType(ProductListScreen));
+      find.byType(ProductListScreen),
+    );
     expect(list.handle, 'fruits');
   });
 
-  testWidgets('the header is white with a hairline under it, no colour bar',
-      (tester) async {
+  testWidgets('the header is white with a hairline under it, no colour bar', (
+    tester,
+  ) async {
     await pumpScreen(tester, const HomeScreen(), delivery: testDelivery());
     await tester.pump();
 
@@ -574,9 +614,9 @@ void main() {
     final image = tester.widget<Image>(logo);
     expect((image.image as AssetImage).assetName, Catalog.logoWideAsset);
     expect(image.semanticLabel, 'Fresh Market');
-    final header = tester.widget<DecoratedBox>(find
-        .ancestor(of: logo, matching: find.byType(DecoratedBox))
-        .first);
+    final header = tester.widget<DecoratedBox>(
+      find.ancestor(of: logo, matching: find.byType(DecoratedBox)).first,
+    );
     final decoration = header.decoration as BoxDecoration;
     expect(decoration.color, AppColors.surface);
     expect(
@@ -597,12 +637,17 @@ void main() {
   testWidgets('banners have radius 16 and ink / grey dots', (tester) async {
     await pumpScreen(tester, const HomeScreen());
     await tester.pump();
-    final banner =
-        tester.widget<Material>(find.byKey(const ValueKey('banner-0')));
+    final banner = tester.widget<Material>(
+      find.byKey(const ValueKey('banner-0')),
+    );
     expect(banner.borderRadius, BorderRadius.circular(16));
-    BoxDecoration dot(int i) => tester
-        .widget<AnimatedContainer>(find.byKey(ValueKey('banner-dot-$i')))
-        .decoration! as BoxDecoration;
+    BoxDecoration dot(int i) =>
+        tester
+                .widget<AnimatedContainer>(
+                  find.byKey(ValueKey('banner-dot-$i')),
+                )
+                .decoration!
+            as BoxDecoration;
     expect(dot(0).color, AppColors.ink);
     expect(dot(1).color, isNot(AppColors.ink));
     expect(dot(1).color, isNot(AppColors.green));
@@ -614,13 +659,18 @@ void main() {
     await pumpScreen(tester, const HomeScreen(), api: _storeWithDeals());
     await tester.pump();
     // The ink tag itself (its row is a 44pt touch target around it).
-    Rect heading(String title) => tester.getRect(find.descendant(
-          of: find.widgetWithText(SectionHeader, title),
-          matching: find.byType(SectionTag),
-        ));
+    Rect heading(String title) => tester.getRect(
+      find.descendant(
+        of: find.widgetWithText(SectionHeader, title),
+        matching: find.byType(SectionTag),
+      ),
+    );
 
     // Banner dots, then "Shop By Category".
-    await _centre(tester, find.widgetWithText(SectionHeader, 'Shop By Category'));
+    await _centre(
+      tester,
+      find.widgetWithText(SectionHeader, 'Shop By Category'),
+    );
     expect(
       heading('Shop By Category').top -
           tester.getRect(find.byKey(const ValueKey('banner-dot-0'))).bottom,
@@ -633,7 +683,9 @@ void main() {
 
     // The last row of category names, then the first rail.
     await _centre(
-        tester, find.widgetWithText(SectionHeader, "Today's Top Deals"));
+      tester,
+      find.widgetWithText(SectionHeader, "Today's Top Deals"),
+    );
     expect(
       heading("Today's Top Deals").top -
           lastRowBottom(['Flowers', 'Hampers', 'Citrus', 'Mangoes']),
@@ -648,7 +700,9 @@ void main() {
     );
     // The row of brand names, then "Fresh Pick For You".
     await _centre(
-        tester, find.widgetWithText(SectionHeader, 'Fresh Pick For You'));
+      tester,
+      find.widgetWithText(SectionHeader, 'Fresh Pick For You'),
+    );
     expect(
       heading('Fresh Pick For You').top -
           lastRowBottom(['Chiquita', 'Zespri', 'Sebastiano', 'Jazz']),
@@ -670,16 +724,19 @@ void main() {
 
     expect(find.widgetWithText(OutlinedButton, 'Discover now'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Discover now'), findsNothing);
-    final heading =
-        tester.widget<Text>(find.text('Discover our fresh local products'));
+    final heading = tester.widget<Text>(
+      find.text('Discover our fresh local products'),
+    );
     expect(heading.style!.color, AppColors.ink);
     expect(heading.style!.fontSize, 18);
-    final card = tester.widget<Container>(find
-        .ancestor(
-          of: find.text('Discover our fresh local products'),
-          matching: find.byType(Container),
-        )
-        .last);
+    final card = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.text('Discover our fresh local products'),
+            matching: find.byType(Container),
+          )
+          .last,
+    );
     expect(card.decoration, AppDecor.card);
   });
 
@@ -699,8 +756,9 @@ void main() {
           await tester.pump();
           expect(tester.takeException(), isNull, reason: '$at $mode $area');
           // The chip keeps to its share of the row, at the right end.
-          final chip =
-              tester.getRect(find.byKey(const ValueKey('location-chip')));
+          final chip = tester.getRect(
+            find.byKey(const ValueKey('location-chip')),
+          );
           expect(chip.right, moreOrLessEquals(360 - 16));
           expect(chip.width, lessThanOrEqualTo(360 * 0.55 + 0.01));
         }

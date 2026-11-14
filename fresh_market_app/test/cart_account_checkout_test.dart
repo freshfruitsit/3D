@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/assistant/assistant_brain.dart';
 import 'package:fresh_market_app/app.dart';
@@ -14,29 +13,8 @@ import 'package:fresh_market_app/theme/app_theme.dart';
 import 'package:fresh_market_app/widgets/add_control.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'support/order_fakes.dart';
 import 'support/test_app.dart';
-
-const _launcher = MethodChannel('plugins.flutter.io/url_launcher');
-
-/// Answers url_launcher calls with [result] and records the URLs asked for.
-List<String> mockLauncher(WidgetTester tester, {required bool result}) {
-  final launched = <String>[];
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(_launcher, (
-    call,
-  ) async {
-    if (call.method == 'launch') {
-      launched.add((call.arguments as Map)['url'] as String);
-    }
-    return result;
-  });
-  addTearDown(
-    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      _launcher,
-      null,
-    ),
-  );
-  return launched;
-}
 
 void main() {
   final products = sampleProducts();
@@ -80,10 +58,7 @@ void main() {
       expect(find.textContaining('taxes are calculated'), findsNothing);
       // The Checkout button carries the total.
       expect(find.text('Checkout · \u20C3 102.40'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Checkout, AED 102.40'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Checkout, AED 102.40'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -135,57 +110,71 @@ void main() {
       await pumpScreen(tester, const CartScreen(), cart: cart);
       expect(tester.takeException(), isNull);
       final button = tester.getRect(
-        find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)),
+        find.ancestor(
+          of: find.textContaining('Checkout · '),
+          matching: find.byType(FilledButton),
+        ),
       );
       expect(button.bottom, lessThanOrEqualTo(844 - 88));
     });
 
-    testWidgets('Checkout opens the cart permalink and keeps the cart', (
-      tester,
-    ) async {
-      final launched = mockLauncher(tester, result: true);
+    testWidgets("Checkout opens the app's own checkout at the order "
+        "server's prices and keeps the cart", (tester) async {
+      final server = FakeOrderServer();
       final cart = CartStore()..add(kiwi, kiwi.variants[0], quantity: 2);
       await pumpScreen(
         tester,
         const CartScreen(),
         cart: cart,
         delivery: testDelivery(),
+        orderApi: server.api(),
       );
 
-      await tester.tap(find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)));
+      await tester.tap(
+        find.ancestor(
+          of: find.textContaining('Checkout · '),
+          matching: find.byType(FilledButton),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      // No WebView in tests: the browser fallback takes over. The link
-      // carries the website's delivery cart attributes.
       expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(launched, [
-        'https://testtfm.myshopify.com/cart/${kiwi.variants[0].id}:2'
-            '?attributes%5BDelivery%20mode%5D=Fresh%20Market'
-            '&attributes%5BDelivery%20area%5D=Business%20Bay%2C%20Dubai'
-            '&attributes%5BDelivery%20promise%5D=Today%20within%206%20hours'
-            '&attributes%5BDelivery%20pin%5D=25.18500%2C55.26500',
+      final quote = server.body(server.quoteRequests.single);
+      expect(quote['lines'], [
+        {'variantId': kiwi.variants[0].id, 'quantity': 2},
       ]);
-      expect(find.text('Checkout opened in your browser'), findsOneWidget);
+      expect(quote['delivery'], {
+        'mode': 'market',
+        'area': {
+          'name': 'Business Bay',
+          'emirate': 'dubai',
+          'lat': 25.185,
+          'lng': 55.265,
+        },
+      });
+      // 39.90 + 25.00 delivery.
+      expect(find.text('Place order · \u20C3 64.90'), findsOneWidget);
 
-      await tester.tap(find.text('Back to cart'));
+      await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       expect(find.byType(CheckoutScreen), findsNothing);
       expect(cart.itemCount, 2);
     });
   });
 
-  group('Express closed at checkout', () {
-    Future<List<String>> openCheckout(
+  group('Express at checkout', () {
+    Future<FakeOrderServer> openCheckout(
       WidgetTester tester,
-      DeliveryStore delivery,
-    ) async {
-      final launched = mockLauncher(tester, result: true);
-      final cart = CartStore()..add(kiwi, kiwi.variants[0]);
+      DeliveryStore delivery, {
+      CartStore? cart,
+    }) async {
+      final server = FakeOrderServer();
       await pumpScreen(
         tester,
         const CartScreen(),
-        cart: cart,
+        cart: cart ?? (CartStore()..add(kiwi, kiwi.variants[0])),
         delivery: delivery,
+        orderApi: server.api(),
       );
       await tester.tap(
         find.ancestor(
@@ -193,75 +182,115 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      // The button spins while the question is open: no pumpAndSettle.
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      return launched;
+      return server;
     }
 
-    Finder inDialog(String text) => find.descendant(
-      of: find.byType(AlertDialog),
-      matching: find.text(text),
-    );
+    String mode(FakeOrderServer server) =>
+        (server.body(server.quoteRequests.last)['delivery'] as Map)['mode']
+            as String;
 
-    testWidgets('23:00 in Express: asked first; Fresh Market goes to the '
-        'store as Fresh Market', (tester) async {
+    Finder row(String key) => find.byKey(ValueKey('checkout-mode-$key'));
+
+    testWidgets('23:00 in Express: no question first; checkout keeps '
+        'Express, says it is closed, and Fresh Market is one tap away', (
+      tester,
+    ) async {
       final delivery = testDelivery(
         at: uaeTime(23),
         mode: DeliveryMode.express,
       );
-      final launched = await openCheckout(tester, delivery);
-      expect(find.byType(CheckoutScreen), findsNothing);
-      expect(inDialog('Express is closed'), findsOneWidget);
+      final server = await openCheckout(tester, delivery);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(mode(server), 'express');
       expect(
-        inDialog(
+        find.descendant(of: row('express'), matching: find.text('Closed')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
           'Express is closed right now. It runs 8 AM to 10 PM. Fresh Market '
           'delivers tomorrow morning before 11 am.',
         ),
         findsOneWidget,
       );
-
-      await tester.tap(inDialog('Switch to Fresh Market'));
+      await tester.tap(row('market'));
       await tester.pumpAndSettle();
       expect(delivery.mode, DeliveryMode.market);
-      expect(find.byType(CheckoutScreen), findsOneWidget);
-      expect(launched.single, contains('Delivery%20mode%5D=Fresh%20Market'));
+      expect(mode(server), 'market');
     });
 
-    testWidgets('keeping Express checks out as before', (tester) async {
+    testWidgets('items not on Express: Fresh Market is selected and the '
+        'Express row cannot be chosen', (tester) async {
+      final delivery = testDelivery(mode: DeliveryMode.express);
+      final server = await openCheckout(
+        tester,
+        delivery,
+        cart: CartStore()
+          ..add(kiwi, kiwi.variants[0])
+          ..add(beef, beef.variants[0]),
+      );
+      await tester.pumpAndSettle();
+      expect(delivery.mode, DeliveryMode.market);
+      expect(mode(server), 'market');
+      expect(
+        find.text(
+          'Not every item in your cart comes by Express, so Fresh Market '
+          'delivery is selected.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(row('express'));
+      await tester.pumpAndSettle();
+      expect(delivery.mode, DeliveryMode.market);
+    });
+
+    testWidgets('Express open: quoted as Express, the fee on its row', (
+      tester,
+    ) async {
       final delivery = testDelivery(
-        at: uaeTime(23),
+        at: uaeTime(10),
         mode: DeliveryMode.express,
       );
-      final launched = await openCheckout(tester, delivery);
-      await tester.tap(inDialog('Keep Express'));
+      final server = await openCheckout(tester, delivery);
       await tester.pumpAndSettle();
-      expect(delivery.mode, DeliveryMode.express);
-      expect(launched.single, contains('Delivery%20mode%5D=Express'));
-    });
-
-    testWidgets('Express open: no question', (tester) async {
-      final delivery = testDelivery(at: uaeTime(10), mode: DeliveryMode.express);
-      final launched = await openCheckout(tester, delivery);
       expect(find.byType(AlertDialog), findsNothing);
-      expect(launched.single, contains('Delivery%20mode%5D=Express'));
+      expect(mode(server), 'express');
+      expect(
+        find.descendant(
+          of: row('express'),
+          matching: find.text('30–40 min · selected items only'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row('express'),
+          matching: find.text('\u20C3 25.00'),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
   group('CheckoutScreen', () {
-    final url = Uri.parse('https://testtfm.myshopify.com/cart/2001:1');
-
-    testWidgets('says so when no browser can be opened, and retries', (
-      tester,
-    ) async {
-      final launched = mockLauncher(tester, result: false);
-      await pumpScreen(tester, CheckoutScreen(url: url));
+    testWidgets('without an order server it says ordering is not available '
+        'yet, and goes back to the cart', (tester) async {
+      await pumpScreen(
+        tester,
+        const CheckoutScreen(),
+        delivery: testDelivery(),
+      );
       await tester.pumpAndSettle();
-
-      expect(find.text('Could not open checkout'), findsOneWidget);
-      await tester.tap(find.text('Try again'));
-      await tester.pumpAndSettle();
-      expect(launched.length, 2);
+      expect(find.text(CheckoutScreen.unavailableTitle), findsOneWidget);
+      expect(find.text(CheckoutScreen.unavailableMessage), findsOneWidget);
+      expect(find.byKey(const ValueKey('checkout-place-order')), findsNothing);
+      expect(
+        find.widgetWithText(OutlinedButton, CheckoutScreen.backToCart),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     });
   });
@@ -269,7 +298,11 @@ void main() {
   group('AccountScreen', () {
     testWidgets('signed out: "Sign in to order" first, with the ink '
         '"Sign in with email"; no "Coming soon" note', (tester) async {
-      await pumpScreen(tester, const AccountScreen());
+      await pumpScreen(
+        tester,
+        const AccountScreen(),
+        session: signedOutSession(),
+      );
 
       expect(find.text('Account'), findsOneWidget);
       final card = find.byKey(const ValueKey('account-session'));
@@ -302,11 +335,7 @@ void main() {
     testWidgets('Delivery location row shows the area and opens the picker', (
       tester,
     ) async {
-      await pumpScreen(
-        tester,
-        const AccountScreen(),
-        delivery: testDelivery(),
-      );
+      await pumpScreen(tester, const AccountScreen(), delivery: testDelivery());
       final row = find.byKey(const ValueKey('account-location'));
       expect(
         find.descendant(of: row, matching: find.text('Delivery location')),
@@ -447,22 +476,29 @@ void main() {
       // One hairline between the two lines (none after the last).
       expect(find.byType(Divider), findsOneWidget);
       expect(
-        tester.widget<Text>(find.text('500 g · \u20C3 19.95 each'))
+        tester
+            .widget<Text>(find.text('500 g · \u20C3 19.95 each'))
             .semanticsLabel,
         '500 g, AED 19.95 each',
       );
       expect(find.bySemanticsLabel('AED 102.40'), findsOneWidget);
       expect(find.byKey(const ValueKey('cart-delivery')), findsOneWidget);
       expect(
-        tester.widget<FilledButton>(
-          find.ancestor(of: find.textContaining('Checkout · '), matching: find.byType(FilledButton)),
-        ).style,
+        tester
+            .widget<FilledButton>(
+              find.ancestor(
+                of: find.textContaining('Checkout · '),
+                matching: find.byType(FilledButton),
+              ),
+            )
+            .style,
         isNull, // the theme's green buying button
       );
     });
 
-    testWidgets('the empty cart offers the green Start shopping',
-        (tester) async {
+    testWidgets('the empty cart offers the green Start shopping', (
+      tester,
+    ) async {
       await pumpScreen(tester, const CartScreen());
       final button = find.widgetWithText(FilledButton, 'Start shopping');
       expect(button, findsOneWidget);
@@ -476,9 +512,14 @@ void main() {
       expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
     });
 
-    testWidgets('Account has no green: "Sign in with email" is ink',
-        (tester) async {
-      await pumpScreen(tester, const AccountScreen());
+    testWidgets('Account has no green: "Sign in with email" is ink', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const AccountScreen(),
+        session: signedOutSession(),
+      );
       final button = find.widgetWithText(FilledButton, 'Sign in with email');
       expect(button, findsOneWidget);
       expect(find.byType(FilledButton), findsOneWidget);
@@ -488,29 +529,6 @@ void main() {
       expect(material.color, AppColors.ink);
       expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
       expect(find.byKey(const ValueKey('sign-in-coming-soon')), findsNothing);
-    });
-
-    testWidgets('checkout: a retry is ink, opening again is green',
-        (tester) async {
-      final url = Uri.parse('https://testtfm.myshopify.com/cart/2001:1');
-      mockLauncher(tester, result: false);
-      await pumpScreen(tester, CheckoutScreen(url: url));
-      await tester.pumpAndSettle();
-      final retry = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Try again'),
-      );
-      expect(
-        retry.style!.backgroundColor!.resolve(const <WidgetState>{}),
-        AppColors.ink,
-      );
-
-      mockLauncher(tester, result: true);
-      await tester.tap(find.text('Try again'));
-      await tester.pumpAndSettle();
-      final again = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Open again'),
-      );
-      expect(again.style, isNull);
     });
 
     testWidgets('no overflow at 360dp and text scale 1.3', (tester) async {

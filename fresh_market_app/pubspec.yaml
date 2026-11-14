@@ -38,23 +38,19 @@ dependencies:
   http: ^1.6.0
   provider: ^6.1.5+1
   shared_preferences: ^2.5.6
-  webview_flutter: ^4.14.1
-  # Android-only checkout settings (third-party cookies for PayPal and
-  # Shop Pay frames); already the version webview_flutter uses.
-  webview_flutter_android: ^4.14.1
   url_launcher: ^6.3.3
   video_player: ^2.14.1
   geolocator: ^14.1.2
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   flutter_secure_storage: ^11.2.0
+  # Customer sign-in (Shopify Customer Account API, OAuth 2.0 with PKCE)
+  # in a Chrome Custom Tab that returns to the app by itself.
+  flutter_appauth: ^13.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  # A fake WebView for the checkout tests.
-  webview_flutter_platform_interface: ^2.15.1
-
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your

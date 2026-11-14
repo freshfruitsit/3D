@@ -11,13 +11,16 @@
 //   `429` with a `THROTTLED` error and a `Retry-After` header"; "Exceeding the
 //   cost limit returns `200 OK` with a `THROTTLED` error instead."
 // - Customer object (cust_api_customer_2026-10_objects_Customer.md):
-//   id, firstName, lastName, emailAddress { emailAddress },
-//   phoneNumber { phoneNumber }.
+//   id, emailAddress { emailAddress }, phoneNumber { phoneNumber }
+//   (CustomerPhoneNumber "Requires `customer_read_customers` access scope";
+//   a field the client may not read comes back as a field error, the id
+//   still arrives).
 // - Live discovery for testtfm (live_testtfm_well-known_customer-account-api.json):
 //   {"graphql_api":"https://shopify.com/79173124173/account/customer/api/2026-10/graphql", ...}
 
 import { createHash } from 'node:crypto';
 import { UpstreamError, unauthorized, rateLimited } from './errors.js';
+import { callTimeout } from './shopify-admin.js';
 
 const USER_AGENT = 'fresh-market-server/1.0';
 const DISCOVERY_TTL_MS = 60 * 60 * 1000;
@@ -37,8 +40,6 @@ export function resetCustomerCaches() {
 export const CUSTOMER_QUERY = `query FreshMarketWhoAmI {
   customer {
     id
-    firstName
-    lastName
     emailAddress { emailAddress }
     phoneNumber { phoneNumber }
   }
@@ -50,8 +51,6 @@ export const CUSTOMER_QUERY = `query FreshMarketWhoAmI {
  * @property {string} numericId  N
  * @property {string} email      '' when Shopify has none (or redacts it)
  * @property {string} phone      '' when none
- * @property {string} firstName
- * @property {string} lastName
  */
 
 /**
@@ -67,7 +66,7 @@ export async function customerApiUrl(ctx) {
     ctx.stats.shopifyCalls++;
     const res = await ctx.fetch(`https://${config.storeDomain}/.well-known/customer-account-api`, {
       headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-      signal: AbortSignal.timeout(5_000),
+      signal: AbortSignal.timeout(callTimeout(ctx, 5_000)),
     });
     if (res.ok) {
       const body = await res.json();
@@ -114,7 +113,7 @@ export async function verifyCustomer(ctx, token) {
         'User-Agent': USER_AGENT,
       },
       body: JSON.stringify({ operationName: 'FreshMarketWhoAmI', query: CUSTOMER_QUERY, variables: {} }),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(callTimeout(ctx, 10_000)),
     });
   } catch (err) {
     throw new UpstreamError(`Customer Account API network error: ${err instanceof Error ? err.name : 'error'}`);
@@ -154,8 +153,6 @@ export async function verifyCustomer(ctx, token) {
     numericId: m[1],
     email: typeof c.emailAddress?.emailAddress === 'string' ? c.emailAddress.emailAddress : '',
     phone: typeof c.phoneNumber?.phoneNumber === 'string' ? c.phoneNumber.phoneNumber : '',
-    firstName: typeof c.firstName === 'string' ? c.firstName : '',
-    lastName: typeof c.lastName === 'string' ? c.lastName : '',
   };
   if (tokenCache.size >= TOKEN_CACHE_MAX) tokenCache.delete(tokenCache.keys().next().value);
   tokenCache.set(key, { customer, expiresAt: ctx.now() + TOKEN_TTL_MS });

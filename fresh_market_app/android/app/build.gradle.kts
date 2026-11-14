@@ -38,6 +38,11 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Customer sign-in (flutter_appauth): Shopify sends the shopper
+        // back to shop.79173124173.app://callback, which AppAuth's
+        // RedirectUriReceiverActivity takes. Shopify requires the
+        // "shop.<shop id>." scheme for mobile apps; keep it lower case.
+        manifestPlaceholders += mapOf("appAuthRedirectScheme" to "shop.79173124173.app")
     }
 
     signingConfigs {

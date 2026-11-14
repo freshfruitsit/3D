@@ -1,8 +1,12 @@
 import { createHealthHandler, createOrdersHandler, createQuoteHandler, resetCaches } from '../../lib/handlers.js';
 import { ENV, NOON_ISH, CUSTOMER, fakeShopify } from './fake-shopify.js';
 
-/** Fresh handlers wired to a fake Shopify, a fixed clock and instant sleeps. */
-export function setup({ now = NOON_ISH, env = {} } = {}) {
+/**
+ * Fresh handlers wired to a fake Shopify, a fixed clock and instant sleeps.
+ * A sleep moves the clock on, except with `parallel: true`, where it only
+ * lets the other requests run (many requests share one clock there).
+ */
+export function setup({ now = NOON_ISH, env = {}, parallel = false, budgetMs } = {}) {
   resetCaches();
   const clock = { now };
   const shop = fakeShopify({ now: () => clock.now });
@@ -13,8 +17,10 @@ export function setup({ now = NOON_ISH, env = {} } = {}) {
     now: () => clock.now,
     sleep: async (ms) => {
       sleeps.push(ms);
-      clock.now += ms;
+      if (parallel) await new Promise((resolve) => setImmediate(resolve));
+      else clock.now += ms;
     },
+    ...(budgetMs ? { budgetMs } : {}),
     env: { ...ENV, ...env },
     log: (fields) => logs.push(fields),
   };

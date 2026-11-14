@@ -4,30 +4,29 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'delivery/delivery.dart';
 import 'models/product.dart';
-import 'profile/checkout_prefill.dart';
 import 'profile/customer_details.dart';
 import 'screens/address_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/location_screen.dart';
 import 'screens/my_details_screen.dart';
+import 'screens/my_orders_screen.dart';
 import 'screens/product_detail_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/search_screen.dart';
-import 'screens/shopify_account_screen.dart';
+import 'services/customer_account_api.dart';
 import 'services/shopify_api.dart';
-import 'services/shopify_web.dart';
 import 'state/account_session.dart';
 import 'state/cart_store.dart';
 import 'state/profile_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/a11y.dart';
-import 'widgets/deliver_to.dart';
 import 'widgets/sign_in_sheet.dart';
 
 /// Every way of moving between screens. Screens call these instead of
 /// building routes themselves, so the bottom bar rules stay in one place:
 /// lists and search open inside the current tab (bar visible, tab stays
-/// highlighted); product detail and checkout cover the whole screen.
+/// highlighted); product detail, checkout and the account pages cover the
+/// whole screen.
 abstract final class AppNav {
   /// A collection's product list (category tile, banner, "View all",
   /// "Discover now").
@@ -38,16 +37,15 @@ abstract final class AppNav {
     required String handle,
     required String title,
     bool onSaleOnly = false,
-  }) =>
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ProductListScreen.collection(
-            handle: handle,
-            title: title,
-            onSaleOnly: onSaleOnly,
-          ),
-        ),
-      );
+  }) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ProductListScreen.collection(
+        handle: handle,
+        title: title,
+        onSaleOnly: onSaleOnly,
+      ),
+    ),
+  );
 
   /// The favourites list (Account).
   static Future<void> openFavourites(BuildContext context) =>
@@ -58,12 +56,14 @@ abstract final class AppNav {
       );
 
   /// Search, optionally pre-filled (brands, popular chips).
-  static Future<void> openSearch(BuildContext context, {String? initialQuery}) =>
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => SearchScreen(initialQuery: initialQuery),
-        ),
-      );
+  static Future<void> openSearch(
+    BuildContext context, {
+    String? initialQuery,
+  }) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => SearchScreen(initialQuery: initialQuery),
+    ),
+  );
 
   /// Product detail, full screen (no bottom bar).
   static Future<void> openProduct(BuildContext context, Product product) =>
@@ -290,46 +290,94 @@ abstract final class AppNav {
   /// Said to screen readers when sign-in completes.
   static const String signedInAnnouncement = 'Signed in';
 
-  /// Shopify's sign-in page (email, then a 6-digit code) inside the app,
-  /// full screen. It closes by itself once signed in, which is said to
-  /// screen readers. [forCheckout]: opened by checkout (see
-  /// [SignInOutcome.inBrowser]). Null when closed without signing in.
-  static Future<SignInOutcome?> openSignIn(
+  /// Shown when the app was built without a Customer Account API client.
+  static const String signInUnavailableMessage =
+      "Sign-in isn't available in the app yet, so orders can't be placed "
+      'here for now.';
+  static const String signInOfflineMessage =
+      "We couldn't reach Shopify to sign you in. Check your connection and "
+      'try again.';
+  static const String signInFailedMessage =
+      "Sign-in didn't work. Please try again.";
+
+  /// Shopify's sign-in page (email, then a 6-digit code) in a Custom Tab
+  /// over the app. It comes back by itself once signed in, which is said
+  /// to screen readers; the account's name, mobile and email then fill any
+  /// empty "My details" field. Closing it says nothing; anything else that
+  /// stops it is said (see [showNotice] for [noticeBottomMargin]). True
+  /// when signed in.
+  static Future<bool> signIn(
     BuildContext context, {
-    bool forCheckout = false,
+    double? noticeBottomMargin,
   }) async {
-    final outcome = await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<SignInOutcome>(
-        fullscreenDialog: true,
-        builder: (_) => ShopifyAccountScreen(forCheckout: forCheckout),
-      ),
-    );
-    if (outcome == SignInOutcome.signedIn && context.mounted) {
-      announce(context, signedInAnnouncement);
+    final session = context.read<AccountSession>();
+    final outcome = await session.signIn();
+    if (!context.mounted) return outcome == SignInOutcome.signedIn;
+    final message = switch (outcome) {
+      SignInOutcome.signedIn => null,
+      SignInOutcome.cancelled => null,
+      SignInOutcome.unavailable => signInUnavailableMessage,
+      SignInOutcome.offline => signInOfflineMessage,
+      SignInOutcome.failed => signInFailedMessage,
+    };
+    if (message != null) {
+      showNotice(context, message, bottomMargin: noticeBottomMargin);
     }
-    return outcome;
+    if (outcome != SignInOutcome.signedIn) return false;
+    announce(context, signedInAnnouncement);
+    // In the background: checkout opens meanwhile.
+    _fillDetailsFromAccount(
+      session: session,
+      api: context.read<CustomerAccountApi>(),
+      profile: context.read<ProfileStore>(),
+    );
+    return true;
   }
 
-  /// The customer's orders (Shopify's account page) inside the app, full
-  /// screen.
-  static Future<void> openOrders(BuildContext context) =>
-      Navigator.of(context, rootNavigator: true).push(
-        MaterialPageRoute<void>(
-          fullscreenDialog: true,
-          builder: (_) =>
-              const ShopifyAccountScreen(mode: ShopifyAccountMode.orders),
-        ),
+  /// The account's email for the screens, and its names, mobile and email
+  /// for any "My details" field still empty. Best effort: a failure
+  /// changes nothing.
+  static Future<void> _fillDetailsFromAccount({
+    required AccountSession session,
+    required CustomerAccountApi api,
+    required ProfileStore profile,
+  }) async {
+    try {
+      final token = await session.accessToken();
+      if (token == null) return;
+      final customer = await api.customer(token);
+      await session.rememberEmail(customer.email);
+      await profile.load().timeout(_profileWait, onTimeout: () {});
+      final email = customer.email ?? '';
+      profile.fillMissingContact(
+        firstName: CustomerInput.cleanLine(customer.firstName),
+        lastName: CustomerInput.cleanLine(customer.lastName),
+        mobile: CustomerInput.normaliseMobile(customer.phone ?? '') ?? '',
+        email: CustomerInput.isValidEmail(email) ? email.trim() : '',
       );
+    } catch (_) {
+      // The details stay as they are; checkout asks for what is missing.
+    }
+  }
+
+  /// "My orders" (the signed-in customer's orders), full screen; with
+  /// [replace], in place of the current full-screen page.
+  static Future<void> openOrders(BuildContext context, {bool replace = false}) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = MaterialPageRoute<void>(
+      builder: (_) => const MyOrdersScreen(),
+    );
+    return replace ? navigator.pushReplacement(route) : navigator.push(route);
+  }
 
   static const String signOutTitle = 'Sign out?';
   static const String signOutMessage = "You'll need to sign in again to order.";
   static const String signOutLabel = 'Sign out';
   static const String signedOutMessage = "You're signed out.";
 
-  /// "Sign out" asks first, then signs out of Shopify in the app's
-  /// WebViews (their cookies) and forgets the session on the phone. The
-  /// shopper's details for checkout ("My details", addresses) stay.
-  /// True when signed out.
+  /// "Sign out" asks first, then signs out at Shopify and forgets the
+  /// tokens on the phone. The shopper's details for checkout ("My
+  /// details", addresses) stay. True when signed out.
   static Future<bool> signOut(
     BuildContext context, {
     double? noticeBottomMargin,
@@ -353,41 +401,30 @@ abstract final class AppNav {
       ),
     );
     if (sure != true || !context.mounted) return false;
-    final session = context.read<AccountSession>();
-    try {
-      await ShopifyWeb.clearCookies().timeout(ShopifyWeb.platformWait);
-    } catch (_) {
-      // The WebViews keep their cookies; the app is signed out all the
-      // same, and the store asks again at checkout.
-    }
-    await session.signOut();
-    if (context.mounted) {
-      showNotice(context, signedOutMessage, bottomMargin: noticeBottomMargin);
-    }
+    final signingOut = context.read<AccountSession>().signOut();
+    showNotice(context, signedOutMessage, bottomMargin: noticeBottomMargin);
+    await signingOut;
     return true;
   }
 
   /// Checkout for the current cart, full screen. Does nothing when the
-  /// cart is empty.
+  /// cart is empty. Every way into checkout (the cart, the assistant)
+  /// comes here.
   ///
   /// With no delivery area yet the location picker opens first. The cart
-  /// is then checked against the store, because Shopify refuses a
-  /// checkout that contains a variant it no longer has. If lines had to
-  /// be removed the shopper stays on the cart and is told so, above the
-  /// bottom bar, or [noticeBottomMargin] above the bottom of a screen that
-  /// has none (see [showNotice]). The checkout link carries the website's
-  /// delivery cart attributes.
+  /// is then checked against the store; if lines had to be removed the
+  /// shopper stays on the cart and is told so, above the bottom bar, or
+  /// [noticeBottomMargin] above the bottom of a screen that has none (see
+  /// [showNotice]).
   ///
   /// Orders need a signed-in account
   /// ([AccountSession.signInNeededToOrder]): signed out, the "Sign in to
-  /// place your order" sheet comes next. "Sign in with email" opens the
-  /// sign-in page, and checkout goes on as below once signed in; "Not
-  /// now", closing the sheet or the sign-in page stays on the cart.
+  /// place your order" sheet comes next. "Sign in with email" opens
+  /// Shopify's sign-in, and checkout opens once signed in; "Not now",
+  /// closing the sheet or the sign-in page stays on the cart.
   ///
-  /// Checkout opens with the shopper's saved details filled in (see
-  /// [CheckoutPrefill]). With nothing saved, the first checkout offers the
-  /// "Fill in checkout faster" sheet; closing it stays on the cart.
-  /// Every way into checkout (the cart, the assistant) comes here.
+  /// The app's own checkout ([CheckoutScreen]) then opens: Cash on
+  /// Delivery, at the order server's prices.
   static Future<void> openCheckout(
     BuildContext context, {
     double? noticeBottomMargin,
@@ -415,112 +452,53 @@ abstract final class AppNav {
       );
       return;
     }
-    // The store takes orders from signed-in customers only (and asks at
-    // checkout too): sign in first, then checkout goes on.
+    if (!cart.hasAvailableLines) {
+      showNotice(context, soldOutOnly, bottomMargin: noticeBottomMargin);
+      return;
+    }
+    // Orders are placed for a signed-in customer only: sign in first,
+    // then checkout goes on.
     final session = context.read<AccountSession>();
     await session.load().timeout(_profileWait, onTimeout: () {});
     if (!context.mounted) return;
     if (session.signInNeededToOrder) {
-      if (!await showSignInSheet(context) || !context.mounted) return;
-      final outcome = await openSignIn(context, forCheckout: true);
-      if (outcome == null || !context.mounted) return;
-    }
-    // Express is chosen but closed: say so before the order goes to the
-    // store as Express, and offer Fresh Market.
-    final closed = delivery.isExpress ? delivery.expressClosedNotice : null;
-    if (closed != null) {
-      final choice = await showDialog<_ClosedChoice>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text(expressClosedTitle),
-          content: Text(closed),
-          actions: [
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(_ClosedChoice.express),
-              child: const Text(keepExpress),
-            ),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(_ClosedChoice.market),
-              child: const Text(switchToMarket),
-            ),
-          ],
-        ),
-      );
-      if (choice == null || !context.mounted) return;
-      if (choice == _ClosedChoice.market) {
-        delivery.setMode(DeliveryMode.market);
+      if (!session.signInAvailable) {
+        showNotice(
+          context,
+          signInUnavailableMessage,
+          bottomMargin: noticeBottomMargin,
+        );
+        return;
       }
+      if (!await showSignInSheet(context) || !context.mounted) return;
+      final signedIn = await signIn(
+        context,
+        noticeBottomMargin: noticeBottomMargin,
+      );
+      if (!signedIn || !context.mounted) return;
     }
     final profile = context.read<ProfileStore>();
-    // The saved details are read before deciding, so a returning shopper
-    // is never offered the first-checkout sheet (or loses what is saved).
+    // The saved details are read before checkout shows what is missing.
     await profile.load().timeout(_profileWait, onTimeout: () {});
     if (!context.mounted) return;
     final switched = alignDeliveryWithAddress(
       delivery: delivery,
       profile: profile,
     );
-    if (switched != null) {
-      // Express does not reach the address: say so on the cart.
-      showNotice(context, switched, bottomMargin: noticeBottomMargin);
-      return;
-    }
-    if (profile.offersCheckoutSheet && delivery.area != null) {
-      final area = delivery.area!;
-      final answer = await showCheckoutDetailsSheet(
-        context,
-        area: area,
-        initial: profile.oneTime,
-      );
-      if (answer == null || !context.mounted) return;
-      profile.applyCheckoutSheet(answer, area);
-    }
-    final url = checkoutUrlFor(
-      cart: cart,
-      delivery: delivery,
-      profile: profile,
-    );
-    if (url == null) {
-      if (cart.soldOutLines > 0) {
-        showNotice(context, soldOutOnly, bottomMargin: noticeBottomMargin);
-      }
-      return;
-    }
     // A notice still up (a "Removed … Undo" has no time limit) must not
     // stay behind checkout: its Undo would change the cart being bought,
     // or refill it after the order.
     ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
-    await _closeKeyboard(context);
-    if (!context.mounted) return;
     await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(builder: (_) => CheckoutScreen(url: url)),
+      MaterialPageRoute<void>(
+        builder: (_) => CheckoutScreen(deliveryNote: switched),
+      ),
     );
   }
 
-  /// Closes the keyboard (the details sheet, the assistant) and waits a
-  /// moment for it to go, so the checkout WebView is created once at its
-  /// full size rather than resized as the keyboard slides away.
-  static Future<void> _closeKeyboard(BuildContext context) async {
-    // Only a text field lets go of focus: a focused Checkout button gets
-    // it back when checkout closes (keyboard and D-pad users).
-    final focus = FocusManager.instance.primaryFocus;
-    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
-      focus!.unfocus();
-    }
-    for (var i = 0; i < _keyboardChecks; i++) {
-      if (!context.mounted || View.of(context).viewInsets.bottom <= 0) return;
-      await Future<void>.delayed(_keyboardCheckEvery);
-    }
-  }
-
-  static const int _keyboardChecks = 12;
-  static const Duration _keyboardCheckEvery = Duration(milliseconds: 50);
-
   /// Moves the delivery location to the pin of the saved address checkout
-  /// fills in (the same area, but its pin can be up to 3 km away), so the
-  /// order's "Delivery pin", promise and Express check follow the
+  /// delivers to (the same area, but its pin can be up to 3 km away), so
+  /// the order's "Delivery pin", promise and Express check follow the
   /// building sent. Returns the delivery store's message when the move
   /// switched Express to Fresh Market (to be said), otherwise null.
   static String? alignDeliveryWithAddress({
@@ -536,38 +514,8 @@ abstract final class AppNav {
     return delivery.mode != mode ? message : null;
   }
 
-  /// The checkout link for [cart]: the website's delivery cart attributes
-  /// (plus the address's delivery instructions) and the shopper's details
-  /// for the current delivery area. Null when nothing can be bought.
-  static Uri? checkoutUrlFor({
-    required CartStore cart,
-    required DeliveryStore delivery,
-    required ProfileStore profile,
-  }) {
-    final area = delivery.area;
-    final details = profile.checkoutDetails(area);
-    return cart.checkoutUrlWith(
-      {
-        ...?delivery.cartAttributes,
-        ...CheckoutPrefill.attributes(address: details.address, area: area),
-      },
-      prefill: CheckoutPrefill.params(
-        contact: details.contact,
-        // One in another area still gives checkout the city and emirate
-        // (never its building).
-        address: details.address ?? profile.addressElsewhere(area),
-        area: area,
-      ),
-    );
-  }
-
   /// How long checkout waits for the saved details to be read.
   static const Duration _profileWait = Duration(seconds: 3);
-
-  /// The checkout question while Express is chosen but closed.
-  static const String expressClosedTitle = 'Express is closed';
-  static const String keepExpress = 'Keep Express';
-  static const String switchToMarket = 'Switch to Fresh Market';
 
   /// Checkout with nothing but sold-out lines.
   static const String soldOutOnly =
@@ -578,10 +526,10 @@ abstract final class AppNav {
   /// first screen. Use for "View cart" and "Start shopping".
   static void goToTab(BuildContext context, AppTab tab) {
     final shell = context.read<ShellController>();
-    Navigator.of(context, rootNavigator: true)
-        .popUntil((route) => route.isFirst);
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).popUntil((route) => route.isFirst);
     shell.select(tab);
   }
 }
-
-enum _ClosedChoice { express, market }

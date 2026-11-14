@@ -16,51 +16,55 @@ import 'support/test_app.dart';
 /// [count] single-variant products; prices fall as the index rises, so the
 /// cheapest product is on the last page.
 List<Product> manyProducts(int count) => [
-      for (var i = 0; i < count; i++)
-        Product(
-          id: 5000 + i,
-          title: 'Item $i',
-          handle: 'item-$i',
-          vendor: 'Fresh Market',
-          productType: 'Fruits',
-          variants: [
-            Variant(
-              id: 9000 + i,
-              title: 'Default Title',
-              priceCents: 10000 - i * 100,
-            ),
-          ],
-          images: const [],
-        ),
-    ];
-
-/// A single-variant product at [cents], marked down from [compareAt] when
-/// given.
-Product dealProduct(int id, int cents, {int? compareAt, bool available = true}) =>
+  for (var i = 0; i < count; i++)
     Product(
-      id: id,
-      title: 'Deal $id',
-      handle: 'deal-$id',
+      id: 5000 + i,
+      title: 'Item $i',
+      handle: 'item-$i',
       vendor: 'Fresh Market',
-      productType: 'Meat',
+      productType: 'Fruits',
       variants: [
         Variant(
-          id: 7000 + id,
+          id: 9000 + i,
           title: 'Default Title',
-          priceCents: cents,
-          compareAtCents: compareAt,
-          available: available,
+          priceCents: 10000 - i * 100,
         ),
       ],
       images: const [],
-    );
+    ),
+];
+
+/// A single-variant product at [cents], marked down from [compareAt] when
+/// given.
+Product dealProduct(
+  int id,
+  int cents, {
+  int? compareAt,
+  bool available = true,
+}) => Product(
+  id: id,
+  title: 'Deal $id',
+  handle: 'deal-$id',
+  vendor: 'Fresh Market',
+  productType: 'Meat',
+  variants: [
+    Variant(
+      id: 7000 + id,
+      title: 'Default Title',
+      priceCents: cents,
+      compareAtCents: compareAt,
+      available: available,
+    ),
+  ],
+  images: const [],
+);
 
 const fruits = ProductListScreen.collection(handle: 'fruits', title: 'Fruits');
 
 List<String> cardTitles(WidgetTester tester) => [
-      for (final card in tester.widgetList<ProductCard>(find.byType(ProductCard)))
-        card.product.title,
-    ];
+  for (final card in tester.widgetList<ProductCard>(find.byType(ProductCard)))
+    card.product.title,
+];
 
 /// The header scrolls away with the list; bring it back to read the count.
 Future<void> scrollToTop(WidgetTester tester) async {
@@ -69,8 +73,9 @@ Future<void> scrollToTop(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('loads a collection into a grid with title and count',
-      (tester) async {
+  testWidgets('loads a collection into a grid with title and count', (
+    tester,
+  ) async {
     final api = FakeShopifyApi.sample()..delay = const Duration(seconds: 1);
     await pumpScreen(tester, fruits, api: api);
 
@@ -90,7 +95,10 @@ void main() {
     expect(find.text('Australian Beef Cubes'), findsOneWidget);
     // Two columns: the first two cards share a row.
     final cards = find.byType(ProductCard);
-    expect(tester.getTopLeft(cards.at(0)).dy, tester.getTopLeft(cards.at(1)).dy);
+    expect(
+      tester.getTopLeft(cards.at(0)).dy,
+      tester.getTopLeft(cards.at(1)).dy,
+    );
     expect(tester.getTopLeft(cards.at(0)).dx, 16);
     expect(tester.getTopRight(cards.at(1)).dx, 390 - 16);
     expect(tester.takeException(), isNull);
@@ -158,8 +166,9 @@ void main() {
     expect(cardTitles(tester).first, 'Item 59');
   });
 
-  testWidgets('a failed price sort stays on Featured and can be retried',
-      (tester) async {
+  testWidgets('a failed price sort stays on Featured and can be retried', (
+    tester,
+  ) async {
     final api = FakeShopifyApi(collections: {'fruits': manyProducts(60)});
     await pumpScreen(tester, fruits, api: api);
     await tester.pump();
@@ -181,8 +190,9 @@ void main() {
     expect(cardTitles(tester).first, 'Item 59');
   });
 
-  testWidgets('shows an error with retry when the first load fails',
-      (tester) async {
+  testWidgets('shows an error with retry when the first load fails', (
+    tester,
+  ) async {
     final api = FakeShopifyApi.sample()
       ..error = const NetworkException('offline');
     await pumpScreen(tester, fruits, api: api);
@@ -201,8 +211,9 @@ void main() {
     expect(find.text('6 products'), findsOneWidget);
   });
 
-  testWidgets('a failed next page keeps the list and offers retry',
-      (tester) async {
+  testWidgets('a failed next page keeps the list and offers retry', (
+    tester,
+  ) async {
     final api = FakeShopifyApi(collections: {'fruits': manyProducts(60)});
     await pumpScreen(tester, fruits, api: api);
     await tester.pump();
@@ -227,8 +238,9 @@ void main() {
     expect(find.text('48+ products'), findsOneWidget);
   });
 
-  testWidgets('an empty collection offers a way back to shopping',
-      (tester) async {
+  testWidgets('an empty collection offers a way back to shopping', (
+    tester,
+  ) async {
     final api = FakeShopifyApi(collections: {'fruits': const []});
     await pumpScreen(tester, fruits, api: api);
     await tester.pump();
@@ -238,8 +250,9 @@ void main() {
     expect(find.text('Featured'), findsNothing);
   });
 
-  testWidgets('favourites list shows the saved products and refreshes them',
-      (tester) async {
+  testWidgets('favourites list shows the saved products and refreshes them', (
+    tester,
+  ) async {
     final api = FakeShopifyApi.sample();
     final favourites = FavouritesStore();
     final products = sampleProducts();
@@ -257,8 +270,10 @@ void main() {
 
     // Each saved product is reloaded once for today's price and stock;
     // no collection is loaded.
-    expect(api.calls.toSet(),
-        {'product(zespri-kiwi-sungold)', 'product(cucumber)'});
+    expect(api.calls.toSet(), {
+      'product(zespri-kiwi-sungold)',
+      'product(cucumber)',
+    });
     expect(find.text('Favourites'), findsOneWidget);
     expect(find.text('2 products'), findsOneWidget);
     // Newest favourite first.
@@ -282,9 +297,9 @@ void main() {
         builder: (context) => Scaffold(
           body: Center(
             child: TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => fruits),
-              ),
+              onPressed: () =>
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => fruits)),
               child: const Text('open'),
             ),
           ),
@@ -342,17 +357,18 @@ void main() {
     // The store's whole catalogue: three products really on sale among
     // plain ones, past the first page of 250 (one is sold out).
     List<Product> store() => [
-          ...manyProducts(240),
-          dealProduct(1, 4500, compareAt: 5200), // 13%
-          dealProduct(2, 6250, compareAt: 11500), // 46%
-          ...manyProducts(30).map((p) => dealProduct(p.id + 1000, 900)),
-          dealProduct(3, 1950, compareAt: 2300), // 15%
-          dealProduct(4, 1000, compareAt: 5000, available: false), // 80%
-          dealProduct(5, 500, compareAt: 400), // "compare-at" below price
-        ];
+      ...manyProducts(240),
+      dealProduct(1, 4500, compareAt: 5200), // 13%
+      dealProduct(2, 6250, compareAt: 11500), // 46%
+      ...manyProducts(30).map((p) => dealProduct(p.id + 1000, 900)),
+      dealProduct(3, 1950, compareAt: 2300), // 15%
+      dealProduct(4, 1000, compareAt: 5000, available: false), // 80%
+      dealProduct(5, 500, compareAt: 400), // "compare-at" below price
+    ];
 
-    testWidgets('the tab shows only real savings, biggest saving first',
-        (tester) async {
+    testWidgets('the tab shows only real savings, biggest saving first', (
+      tester,
+    ) async {
       final api = FakeShopifyApi(collections: {'all': store()});
       await pumpScreen(tester, const ProductListScreen.deals(), api: api);
       await tester.pump();
@@ -410,8 +426,9 @@ void main() {
       expect(cardTitles(tester).first, 'Deal 2');
     });
 
-    testWidgets('nothing on sale: says so, never a made-up saving',
-        (tester) async {
+    testWidgets('nothing on sale: says so, never a made-up saving', (
+      tester,
+    ) async {
       final api = FakeShopifyApi(collections: {'all': manyProducts(12)});
       await pumpScreen(tester, const ProductListScreen.deals(), api: api);
       await tester.pump();

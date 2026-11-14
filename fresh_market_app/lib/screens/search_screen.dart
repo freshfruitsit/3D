@@ -52,8 +52,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final initial = widget.initialQuery?.trim() ?? '';
     _controller = TextEditingController(text: initial);
     if (initial.isNotEmpty) {
-      _controller.selection =
-          TextSelection.collapsed(offset: initial.length);
+      _controller.selection = TextSelection.collapsed(offset: initial.length);
       _search(initial);
     }
   }
@@ -124,8 +123,7 @@ class _SearchScreenState extends State<SearchScreen> {
       _error = null;
     });
     try {
-      var results =
-          await api.search(query, limit: SearchScreen.resultLimit);
+      var results = await api.search(query, limit: SearchScreen.resultLimit);
       if (!mounted || request != _request) return;
       if (_isInitialQuery(query)) {
         results = results.where((p) => _mentions(p, query)).toList();
@@ -195,7 +193,12 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_query.isEmpty) {
       return SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(AppDims.gutter, 16, AppDims.gutter, bottom),
+        padding: EdgeInsets.fromLTRB(
+          AppDims.gutter,
+          16,
+          AppDims.gutter,
+          bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -269,8 +272,8 @@ class _SearchScreenState extends State<SearchScreen> {
     final caption = count >= SearchScreen.resultLimit
         ? 'Top $count results'
         : count == 1
-            ? '1 result'
-            : '$count results';
+        ? '1 result'
+        : '$count results';
 
     return CustomScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
