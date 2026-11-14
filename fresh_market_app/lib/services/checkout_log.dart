@@ -26,9 +26,12 @@ class CheckoutEvent {
 /// shopper's name, email, phone, address and delivery pin in their query
 /// strings, so an address is only ever kept as scheme, host and path
 /// (long tokens in the path are shortened, and links such as `tel:` and
-/// `mailto:` keep their scheme only). Every text is also cleared of
-/// whatever looks like an email address or a phone number and of the
-/// values the checkout link was filled in with.
+/// `mailto:` keep their scheme only); the query of an address inside a
+/// message is shown as `?…`. Every text is also cleared of whatever
+/// looks like an email address or a phone number and of the values the
+/// checkout link was filled in with. What the shopper types on the
+/// checkout page itself is not known to the app, so only the patterns
+/// above catch it.
 ///
 /// Kept in memory only, never on disk: the checkout open now (or the
 /// last one) and the one before it.
@@ -83,6 +86,10 @@ class CheckoutLog {
   /// The longest text kept for one event.
   static const int maxText = 200;
 
+  /// How much of a long text [scrub] looks at after its links are
+  /// reduced (a console message can be a whole page of data).
+  static const int maxScrubbed = 2000;
+
   final int capacity;
   final DateTime Function() _now;
   final List<String> _private;
@@ -99,6 +106,8 @@ class CheckoutLog {
   /// stop being recorded after [noisyLimit] of them. The same event again
   /// straight after counts as a repeat.
   void add(String kind, String text, {String? link, bool noisy = false}) {
+    // A noisy page past its limit costs nothing more.
+    if (noisy && _noisyCut) return;
     final at = _now().difference(opened);
     final words = _truncate(clean(text));
     final safe = link == null
@@ -144,7 +153,8 @@ class CheckoutLog {
     final lines = <String>[
       'Fresh Market checkout log',
       'Checkout opened ${_clock(opened)}',
-      'Links show site and path only; personal details are removed.',
+      'Links show site and path only. Emails, phone numbers and your saved '
+          'details are removed.',
       for (final e in _events)
         '${_elapsed(e.at).padLeft(8)}  ${e.kind.padRight(5)}  ${e.text}'
             '${e.repeats > 1 ? ' (x${e.repeats})' : ''}',
@@ -158,8 +168,9 @@ class CheckoutLog {
   /// addresses, with no query string or fragment (they carry the
   /// shopper's details), long tokens in the path shown as `<id>`, and
   /// emails, phone numbers and [private] values removed; the scheme only
-  /// (plus the host, if there is one) for every other kind of link, as a
-  /// `tel:` or `mailto:` link is itself a phone number or an email.
+  /// (plus the host, if there is one, cleared the same way) for every
+  /// other kind of link, as a `tel:` or `mailto:` link is itself a phone
+  /// number or an email.
   static String safeUrl(String? url, {List<String> private = const []}) {
     if (url == null || url.trim().isEmpty) return '-';
     final text = url.trim();
@@ -169,6 +180,8 @@ class CheckoutLog {
       return scheme == null ? '<link>' : '${scheme.toLowerCase()}:';
     }
     final scheme = uri.scheme.toLowerCase();
+    // `tel://0501234567`: a host can be a phone number or an email too.
+    final host = scrub(uri.host, private: private, urls: false);
     if (_webSchemes.contains(scheme)) {
       final port = uri.hasPort ? ':${uri.port}' : '';
       final path = uri.path
@@ -176,17 +189,22 @@ class CheckoutLog {
           .map((part) => _token.hasMatch(part) ? '<id>' : part)
           .join('/');
       final safePath = scrub(path, private: private, urls: false);
-      return '$scheme://${uri.host}$port$safePath';
+      return '$scheme://$host$port$safePath';
     }
     if (scheme == 'about' && _word.hasMatch(uri.path)) {
       return 'about:${uri.path}';
     }
-    return uri.host.isEmpty ? '$scheme:' : '$scheme://${uri.host}';
+    return host.isEmpty ? '$scheme:' : '$scheme://$host';
   }
 
-  /// [text] with every link in it reduced by [safeUrl] (unless [urls] is
-  /// false), then [private] values, email addresses and phone numbers
-  /// replaced by `[removed]`, `[email]` and `[phone]`.
+  /// [text] with every link in it reduced by [safeUrl] and the query of
+  /// every other address (`/graphql?firstName=…`) shown as `?…` (unless
+  /// [urls] is false), then [private] values, email addresses and phone
+  /// numbers replaced by `[removed]`, `[email]` and `[phone]`.
+  ///
+  /// Only the first [maxScrubbed] characters are kept once the links are
+  /// reduced (a log shows far less), so a long text costs little. Every
+  /// pattern here takes time in step with the text's length.
   static String scrub(
     String text, {
     List<String> private = const [],
@@ -194,7 +212,13 @@ class CheckoutLog {
   }) {
     var out = text;
     if (urls) {
-      out = out.replaceAllMapped(_link, (m) => safeUrl(m[0], private: private));
+      out = out
+          .replaceAllMapped(_link, (m) => safeUrl(m[0], private: private))
+          .replaceAll(_query, '?…');
+    }
+    if (out.length > maxScrubbed) {
+      // The cut can split a value: the end of the last word goes too.
+      out = '${out.substring(0, maxScrubbed).replaceFirst(_lastWord, '')}…';
     }
     for (final value in private) {
       out = out.replaceAll(value, '[removed]');
@@ -213,10 +237,18 @@ class CheckoutLog {
         for (final raw in list) {
           final value = raw.trim();
           if (value.length < 3) continue;
-          values
-            ..add(value)
-            ..add(Uri.encodeQueryComponent(value))
-            ..add(Uri.encodeComponent(value));
+          for (final encoded in [
+            Uri.encodeQueryComponent(value),
+            Uri.encodeComponent(value),
+          ]) {
+            // Pages also write the escapes in lower case (`%d8%b3`).
+            values
+              ..add(encoded)
+              ..add(
+                encoded.replaceAllMapped(_escape, (m) => m[0]!.toLowerCase()),
+              );
+          }
+          values.add(value);
         }
       }
     } on FormatException {
@@ -246,17 +278,31 @@ class CheckoutLog {
   );
   static final RegExp _word = RegExp(r'^[a-z]{1,16}$');
   static final RegExp _schemeOnly = RegExp(r'^([A-Za-z][A-Za-z0-9+.-]*):');
+  static final RegExp _escape = RegExp(r'%[0-9A-F]{2}');
+  static final RegExp _lastWord = RegExp(r'\S{1,100}$');
+
+  // The patterns below have bounded repeats where a match could start
+  // over and over inside one long run of letters (a token in a console
+  // message): unbounded, they took seconds on a 10,000-character token.
+
   static final RegExp _link = RegExp(
-    r'''\b[A-Za-z][A-Za-z0-9+.-]*://[^\s"'<>`]+''',
-  );
-  static final RegExp _email = RegExp(
-    r'[A-Za-z0-9._%+-]+(?:@|%40)[A-Za-z0-9.-]+\.[A-Za-z]{2,}',
+    r'''\b[A-Za-z][A-Za-z0-9+.-]{0,31}://[^\s"'<>`]+''',
   );
 
-  /// International (+971 50 123 4567, 00971…), national (050 123 4567)
-  /// and bare UAE mobile numbers (971501234567, 501234567).
+  /// The query of an address that is not a whole link (`/x?a=1`).
+  static final RegExp _query = RegExp(r'''(?<=[\w/.%-])\?[^\s"'<>`]+''');
+
+  static final RegExp _email = RegExp(
+    r'[A-Za-z0-9._%+-]{1,64}(?:@|%40)'
+    r'[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,24}',
+  );
+
+  /// International (+971 50 123 4567, 00971…), national (050 123 4567,
+  /// (050) 123-4567) and bare UAE mobile numbers (971501234567,
+  /// 501234567).
   static final RegExp _phone = RegExp(
     r'(?:\+|%2B|\b00)\s?\d[\d\s().-]{6,}\d'
+    r'|\(\d{2,3}\)\s?\d{3}[\s.-]?\d{4}\b'
     r'|\b0\d(?:[\s.-]?\d){7,10}\b'
     r'|\b971(?:[\s.-]?\d){8,9}\b'
     r'|\b5\d(?:[\s.-]?\d){7}\b',

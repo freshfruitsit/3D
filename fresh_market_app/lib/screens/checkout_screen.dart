@@ -101,6 +101,36 @@ class CheckoutScreen extends StatefulWidget {
   static const String linkFailed = "Couldn't open that link.";
   static const String browserFailed = "Couldn't open your browser.";
 
+  /// How long checkout's own notices stay up.
+  static const Duration noticeTime = Duration(seconds: 4);
+
+  /// Shown when the order went through in the app after the shopper chose
+  /// to continue in the browser (the page left behind here finished it).
+  static const String orderPlacedHereTitle = 'Your order went through';
+  static const String orderPlacedHereMessage =
+      "It was placed here in the app. Don't finish it in your browser too.";
+  static const String continueShoppingLabel = 'Continue shopping';
+
+  /// Allows the cookies PayPal and Shop Pay need in their frames inside
+  /// checkout (Android only). True when it was done. Tests replace it.
+  @visibleForTesting
+  static Future<bool> Function(WebViewController controller)
+  allowThirdPartyCookies = _allowThirdPartyCookies;
+
+  static Future<bool> _allowThirdPartyCookies(
+    WebViewController controller,
+  ) async {
+    final platform = controller.platform;
+    // PayPal and Shop Pay run in frames from their own sites inside
+    // checkout and need their cookies there. Android's WebView blocks
+    // such third-party cookies unless asked (Chrome allows them).
+    if (platform is! AndroidWebViewController) return false;
+    final cookies = WebViewCookieManager().platform;
+    if (cookies is! AndroidWebViewCookieManager) return false;
+    await cookies.setAcceptThirdPartyCookies(platform, true);
+    return true;
+  }
+
   /// Shown above a page outside checkout (see [offCheckoutHost]).
   static String offSiteHint(String host) =>
       "You're on ${host.startsWith('www.') ? host.substring(4) : host}. "
@@ -151,10 +181,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   _BrowserState _browser = _BrowserState.opening;
 
-  /// Checkout's own notices ("Checkout log copied."). Its own messenger
-  /// also keeps the app's notices (a "Removed … Undo" from the cart) off
-  /// the checkout page.
-  final _messenger = GlobalKey<ScaffoldMessengerState>();
+  /// Checkout's own notice ("Checkout log copied."), shown under the app
+  /// bar for [CheckoutScreen.noticeTime]: at the bottom it would cover
+  /// the page's own Pay now bar.
+  String? _noticeText;
+  Timer? _noticeTimer;
 
   late final CheckoutLog _log = CheckoutLog.begin(widget.url);
 
@@ -185,6 +216,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _watchdog?.cancel();
+    _noticeTimer?.cancel();
     _lifecycle.dispose();
     _log.add('app', 'checkout screen closed');
     super.dispose();
@@ -238,22 +270,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// Settings checkout works without; none of them may stop it loading.
   Future<void> _prepare(WebViewController controller) async {
-    final platform = controller.platform;
-    if (platform is AndroidWebViewController) {
-      // PayPal and Shop Pay run in frames from their own sites inside
-      // checkout and need their cookies there. Android's WebView blocks
-      // such third-party cookies unless asked (Chrome allows them).
-      try {
-        final cookies = WebViewCookieManager().platform;
-        if (cookies is AndroidWebViewCookieManager) {
-          await cookies
-              .setAcceptThirdPartyCookies(platform, true)
-              .timeout(CheckoutScreen.platformWait);
-          _log.add('app', 'third-party cookies allowed');
-        }
-      } catch (e) {
-        _log.add('app', 'third-party cookies not allowed (${e.runtimeType})');
-      }
+    try {
+      final allowed = await CheckoutScreen.allowThirdPartyCookies(controller)
+          .timeout(CheckoutScreen.platformWait);
+      if (allowed) _log.add('app', 'third-party cookies allowed');
+    } catch (e) {
+      _log.add('app', 'third-party cookies not allowed (${e.runtimeType})');
     }
     try {
       await controller
@@ -354,10 +376,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
     final where = request.isMainFrame ? 'page' : 'frame';
     final url = request.url;
+    // Checkout went on in the browser. The page left behind here keeps
+    // running (an order it finishes is still caught), but it opens no
+    // app and does not close checkout behind the shopper's back.
+    final hidden = _inBrowser;
     // Payment and wallet apps: `intent://…#Intent;scheme=…;end`.
     if (url.toLowerCase().startsWith('intent:')) {
-      _log.add('nav', 'app link ($where)', link: url);
-      _openIntent(url);
+      _log.add(
+        'nav',
+        'app link ($where)${hidden ? ': page hidden' : ''}',
+        link: url,
+      );
+      if (!hidden) _openIntent(url);
       return NavigationDecision.prevent;
     }
     final target = Uri.tryParse(url);
@@ -369,15 +399,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       case 'http' || 'https':
         if (request.isMainFrame && leavesCheckoutUrl(url)) {
           // A link back to the web storefront: return to the app.
-          _log.add('nav', 'store page: closing checkout', link: url);
-          _leave();
+          _log.add(
+            'nav',
+            hidden ? 'store page: page hidden' : 'store page: closing checkout',
+            link: url,
+          );
+          if (!hidden) _leave();
           return NavigationDecision.prevent;
         }
         _log.add('nav', 'allowed ($where)', link: url);
         return NavigationDecision.navigate;
       case 'about':
         // A frame may be blank, but the whole page never is: a window the
-        // page opens (PayPal) would otherwise blank checkout.
+        // page opens (PayPal) would otherwise blank checkout. (Android's
+        // WebView plugin asks about the whole page only; frames load
+        // without asking. Blocking blank frames would break PayPal's and
+        // Shop Pay's should it ever ask.)
         if (!request.isMainFrame) return NavigationDecision.navigate;
         _log.add('nav', 'blocked blank page', link: url);
         return NavigationDecision.prevent;
@@ -386,8 +423,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return NavigationDecision.prevent;
       default:
         // Phone, mail and payment-app links belong to other apps.
-        _log.add('nav', 'other app ($where)', link: url);
-        _openInOtherApp(target);
+        _log.add(
+          'nav',
+          'other app ($where)${hidden ? ': page hidden' : ''}',
+          link: url,
+        );
+        if (!hidden) _openInOtherApp(target);
         return NavigationDecision.prevent;
     }
   }
@@ -399,18 +440,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   /// An `intent:` link: its app when one can open it, otherwise its web
-  /// address (`S.browser_fallback_url`) in checkout.
+  /// address (`S.browser_fallback_url`) in checkout. An app link that is
+  /// itself a web address (`scheme=https`) counts as opened only when an
+  /// app, not a browser, takes it, as in Chrome; otherwise it loads in
+  /// checkout when there is no other web address.
   Future<void> _openIntent(String url) async {
     final link = IntentLink.parse(url);
     final app = link?.appUri;
-    if (app != null && await _launchExternally(app)) {
+    final webApp =
+        app != null && (app.scheme == 'https' || app.scheme == 'http');
+    if (app != null && await _launchExternally(app, appOnly: webApp)) {
       _log.add('nav', 'app link opened in its app');
       return;
     }
-    final fallback = link?.fallbackUrl;
+    final fallback =
+        link?.fallbackUrl ?? (webApp && app.host.isNotEmpty ? app : null);
     final controller = _controller;
     if (!mounted) return;
-    if (fallback == null || controller == null || _inBrowser) {
+    if (_orderPlaced || _inBrowser) {
+      // The order went through, or checkout went on in the browser,
+      // while the app was asked.
+      _log.add('nav', 'app link: not loaded, checkout moved on');
+      return;
+    }
+    if (fallback == null || controller == null) {
       _log.add('nav', 'app link: no app and no web address');
       _notice(CheckoutScreen.linkFailed);
       return;
@@ -485,13 +538,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// store links in a row, and a second pop would close the app's home.
   void _leave() {
     if (!mounted || _leaving) return;
+    final route = ModalRoute.of(context);
+    // Already closing (system back): a store link from the page must not
+    // close the screen under checkout.
+    if (route != null && !route.isActive) return;
     _leaving = true;
     _log.add('app', _orderPlaced ? 'done: back to Home' : 'back to the cart');
     if (_orderPlaced) {
       AppNav.goToTab(context, AppTab.home);
-    } else {
-      Navigator.of(context).pop();
+      return;
     }
+    final navigator = Navigator.of(context);
+    // The checkout menu may be open over checkout: it closes too, or the
+    // pop below would close only the menu and leave checkout stuck.
+    if (route != null && !route.isCurrent) {
+      navigator.popUntil((r) => r == route);
+    }
+    navigator.pop();
   }
 
   void _setProgress(double? value) {
@@ -499,9 +562,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _progress = value);
   }
 
-  Future<bool> _launchExternally(Uri target) async {
+  /// Opens [target] in another app; with [appOnly], never in a browser
+  /// (Android 11 and later).
+  Future<bool> _launchExternally(Uri target, {bool appOnly = false}) async {
     try {
-      return await launchUrl(target, mode: LaunchMode.externalApplication);
+      return await launchUrl(
+        target,
+        mode: appOnly
+            ? LaunchMode.externalNonBrowserApplication
+            : LaunchMode.externalApplication,
+      );
     } catch (_) {
       return false;
     }
@@ -519,7 +589,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// "Open in browser": the same checkout link in the phone's browser
   /// (the cart is kept). Checkout then says to finish there, so the order
-  /// is not also placed here.
+  /// is not also placed here; should the page left behind here place it
+  /// all the same, checkout says that instead.
   Future<void> _continueInBrowser() async {
     _log.add('app', 'open in browser chosen');
     final opened = await _launchExternally(widget.url);
@@ -550,12 +621,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (mounted) _notice(CheckoutScreen.logCopied);
   }
 
-  void _notice(String message) => AppNav.showNotice(
-    context,
-    message,
-    bottomMargin: AppDims.gutter,
-    messenger: _messenger.currentState,
-  );
+  void _notice(String message) {
+    if (!mounted) return;
+    _noticeTimer?.cancel();
+    _noticeTimer = Timer(CheckoutScreen.noticeTime, () {
+      if (mounted) setState(() => _noticeText = null);
+    });
+    setState(() => _noticeText = message);
+  }
 
   void _reload() {
     _log.add('app', 'try again');
@@ -595,14 +668,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final offSiteHost = inApp && !_pageFailed && !_orderPlaced
         ? _offSiteHost
         : null;
+    final notice = _noticeText;
 
     return PopScope(
-      canPop: !inApp,
+      // Once the order is placed, back goes Home like Done.
+      canPop: !inApp && !_orderPlaced,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _handleBack();
       },
+      // Its own messenger keeps the app's notices (a "Removed … Undo"
+      // from the cart) off the checkout page.
       child: ScaffoldMessenger(
-        key: _messenger,
         child: Scaffold(
           backgroundColor: inApp && !_pageFailed ? AppColors.surface : null,
           appBar: AppBar(
@@ -638,46 +714,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           body: SafeArea(
             top: false,
-            child: !inApp
-                ? _buildBrowserFallback()
-                : _pageFailed
-                ? _CheckoutMessage(
-                    icon: Icons.wifi_off_rounded,
-                    title: 'Could not load checkout',
-                    message:
-                        'Check your connection and try again. '
-                        'Your cart is saved.',
-                    primaryLabel: 'Try again',
-                    onPrimary: _reload,
-                    primaryIsCheckout: false,
-                    secondaryLabel: CheckoutScreen.openInBrowserLabel,
-                    onSecondary: _continueInBrowser,
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (offSiteHost != null)
-                        _OffSiteHint(
-                          host: offSiteHost,
-                          onOpenInBrowser: _continueInBrowser,
-                        ),
-                      Expanded(
-                        key: const ValueKey('checkout-webview'),
-                        // Notes touches (never where) so the log shows
-                        // whether the page was used before it stopped.
-                        // A Listener takes no part in the page's gestures.
-                        child: Listener(
-                          onPointerUp: (_) => _log.add('touch', 'tap/scroll'),
-                          child: WebViewWidget(controller: controller),
-                        ),
-                      ),
-                    ],
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: _buildBody(inApp: inApp, offSiteHost: offSiteHost),
+                ),
+                if (notice != null)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: _CheckoutNotice(message: notice),
                   ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildBody({required bool inApp, String? offSiteHost}) {
+    final controller = _controller;
+    if (!inApp || controller == null) {
+      return _orderPlaced ? _buildOrderPlacedHere() : _buildBrowserFallback();
+    }
+    if (_pageFailed) {
+      return _CheckoutMessage(
+        icon: Icons.wifi_off_rounded,
+        title: 'Could not load checkout',
+        message:
+            'Check your connection and try again. '
+            'Your cart is saved.',
+        primaryLabel: 'Try again',
+        onPrimary: _reload,
+        primaryIsCheckout: false,
+        secondaryLabel: CheckoutScreen.openInBrowserLabel,
+        onSecondary: _continueInBrowser,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (offSiteHost != null)
+          _OffSiteHint(host: offSiteHost, onOpenInBrowser: _continueInBrowser),
+        Expanded(
+          key: const ValueKey('checkout-webview'),
+          // Notes touches (never where) so the log shows
+          // whether the page was used before it stopped.
+          // A Listener takes no part in the page's gestures.
+          child: Listener(
+            onPointerUp: (_) => _log.add('touch', 'tap/scroll'),
+            child: WebViewWidget(controller: controller),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The order went through in the app after the shopper chose the
+  /// browser: never "Open again" then, or the same cart could be bought
+  /// twice.
+  Widget _buildOrderPlacedHere() => _CheckoutMessage(
+    icon: Icons.check_rounded,
+    title: CheckoutScreen.orderPlacedHereTitle,
+    message: CheckoutScreen.orderPlacedHereMessage,
+    primaryLabel: CheckoutScreen.continueShoppingLabel,
+    onPrimary: _leave,
+    primaryIsCheckout: false,
+  );
 
   Widget _buildMenu({required bool canOpenBrowser}) =>
       PopupMenuButton<_MenuAction>(
@@ -805,9 +910,49 @@ class _OffSiteHint extends StatelessWidget {
   }
 }
 
+/// Checkout's own short notice, under the app bar over the top of the
+/// page. It takes no touches: the page under it stays usable.
+class _CheckoutNotice extends StatelessWidget {
+  const _CheckoutNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Semantics(
+        container: true,
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppDims.gutter,
+            8,
+            AppDims.gutter,
+            0,
+          ),
+          child: DecoratedBox(
+            key: const ValueKey('checkout-notice'),
+            decoration: const BoxDecoration(
+              color: AppColors.ink,
+              borderRadius: AppDims.buttonBorderRadius,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text(
+                message,
+                style: AppText.bodySmall.copyWith(color: AppColors.onDark),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A full-page message in checkout: grey icon circle, title, secondary
-/// text, a primary button and an ink text link. The primary button is the
-/// green buying button only when it continues the checkout
+/// text, a primary button and, optionally, an ink text link. The primary
+/// button is the green buying button only when it continues the checkout
 /// ([primaryIsCheckout]); a retry after a failure is ink.
 class _CheckoutMessage extends StatelessWidget {
   const _CheckoutMessage({
@@ -817,8 +962,8 @@ class _CheckoutMessage extends StatelessWidget {
     required this.primaryLabel,
     required this.onPrimary,
     required this.primaryIsCheckout,
-    required this.secondaryLabel,
-    required this.onSecondary,
+    this.secondaryLabel,
+    this.onSecondary,
   });
 
   final IconData icon;
@@ -827,8 +972,8 @@ class _CheckoutMessage extends StatelessWidget {
   final String primaryLabel;
   final VoidCallback onPrimary;
   final bool primaryIsCheckout;
-  final String secondaryLabel;
-  final VoidCallback onSecondary;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -873,8 +1018,10 @@ class _CheckoutMessage extends StatelessWidget {
                 onPressed: onPrimary,
                 child: Text(primaryLabel),
               ),
-              const SizedBox(height: 4),
-              TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
+              if (secondaryLabel case final label?) ...[
+                const SizedBox(height: 4),
+                TextButton(onPressed: onSecondary, child: Text(label)),
+              ],
             ],
           ),
         ),

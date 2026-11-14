@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fresh_market_app/app_nav.dart';
@@ -9,6 +11,7 @@ import 'package:fresh_market_app/services/fake_shopify_api.dart';
 import 'package:fresh_market_app/services/intent_link.dart';
 import 'package:fresh_market_app/state/cart_store.dart';
 import 'package:fresh_market_app/widgets/deliver_to.dart';
+import 'package:fresh_market_app/widgets/details_fields.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
@@ -18,18 +21,22 @@ import 'support/test_app.dart';
 const _launcher = MethodChannel('plugins.flutter.io/url_launcher');
 
 /// Answers url_launcher calls with [result] (per URL when it is a
-/// function) and records the URLs asked for.
+/// function) and records the URLs asked for; those that only an app, not
+/// a browser, may open are also added to [appOnly].
 List<String> mockLauncher(
   WidgetTester tester, {
   bool Function(String url)? result,
+  List<String>? appOnly,
 }) {
   final launched = <String>[];
   tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(_launcher, (
     call,
   ) async {
     if (call.method != 'launch') return true;
-    final url = (call.arguments as Map)['url'] as String;
+    final args = call.arguments as Map;
+    final url = args['url'] as String;
     launched.add(url);
+    if (args['universalLinksOnly'] == true) appOnly?.add(url);
     return result?.call(url) ?? true;
   });
   addTearDown(
@@ -285,6 +292,106 @@ void main() {
           'Chrome/131.0.6778.39 Mobile Safari/537.36',
         ),
         'Android 14 · Chrome 131 · WebView',
+      );
+    });
+  });
+
+  group('CheckoutLog: what else is removed, and at what cost', () {
+    test('a host can be a phone number too', () {
+      expect(CheckoutLog.safeUrl('tel://0501234567'), 'tel://[phone]');
+      expect(CheckoutLog.safeUrl('sms://+971501234567'), 'sms://[phone]');
+      expect(
+        CheckoutLog.safeUrl('intent://pay#Intent;scheme=upi;end'),
+        'intent://pay',
+      );
+    });
+
+    test('the query of an address that is not a whole link goes', () {
+      expect(
+        CheckoutLog.scrub(
+          'POST /checkouts/unstable/graphql?firstName=Omar'
+          '&address1=Villa%2012 failed',
+        ),
+        'POST /checkouts/unstable/graphql?… failed',
+      );
+      // A question in a sentence stays.
+      expect(CheckoutLog.scrub('Is it ok? Yes'), 'Is it ok? Yes');
+    });
+
+    test('phone numbers written with brackets', () {
+      expect(CheckoutLog.scrub('call (050) 123-4567.'), 'call [phone].');
+      expect(CheckoutLog.scrub('call (04) 123 4567.'), 'call [phone].');
+    });
+
+    test('filled-in values written with lower-case escapes', () {
+      final url = Uri.parse('https://testtfm.myshopify.com/cart/2001:1')
+          .replace(
+            queryParameters: {
+              'checkout[shipping_address][first_name]': 'سارة',
+              'checkout[shipping_address][address1]': 'Villa 12 شارع',
+            },
+          );
+      final log = CheckoutLog(checkoutUrl: url);
+      final name = Uri.encodeComponent('سارة');
+      final street = Uri.encodeQueryComponent('Villa 12 شارع')
+          .replaceAllMapped(RegExp('%[0-9A-F]{2}'), (m) => m[0]!.toLowerCase());
+      expect(name, contains('%D8'));
+      expect(street, startsWith('Villa+12+%d8'));
+      expect(
+        log.clean('a=${name.toLowerCase()} b=$name c=سارة d=$street'),
+        'a=[removed] b=[removed] c=[removed] d=[removed]',
+      );
+    });
+
+    test('the report says what is removed, no more', () {
+      expect(
+        CheckoutLog().report(),
+        contains(
+          'Links show site and path only. Emails, phone numbers and your '
+          'saved details are removed.',
+        ),
+      );
+    });
+
+    test('a very long text is cut, never in the middle of a value', () {
+      final out = CheckoutLog.scrub('${'a ' * 999}Sara%20Ahmed rest');
+      expect(out, endsWith(' …'));
+      expect(out, isNot(contains('Sa')));
+      expect(out.length, lessThanOrEqualTo(CheckoutLog.maxScrubbed + 1));
+      // A link at the start is still reduced first.
+      expect(
+        CheckoutLog.scrub('$checkoutPage ${'b' * 5000}'),
+        startsWith('https://testtfm.myshopify.com/checkouts/cn/<id>/en-ae '),
+      );
+    });
+
+    test('a long token or run of dots costs little', () {
+      final log = CheckoutLog(checkoutUrl: prefilledUrl);
+      final watch = Stopwatch()..start();
+      // Each took seconds before (patterns that start over at every
+      // letter of a long run).
+      log.add('js', 'Failed: ${'aB3_-' * 4000}', noisy: true);
+      log.add('js', 'x ${'a.' * 10000}', noisy: true);
+      log.add('js', 'page data ${'word ' * 30000}', noisy: true);
+      expect(watch.elapsedMilliseconds, lessThan(1000));
+      expect(log.events, hasLength(3));
+      expect(log.events.first.text, startsWith('Failed: aB3_-'));
+    });
+
+    test('past the limit, page errors are not even read', () {
+      final log = CheckoutLog();
+      for (var i = 0; i <= CheckoutLog.noisyLimit; i++) {
+        log.add('js', 'error $i', noisy: true);
+      }
+      final big = 'https://example.com/x ${'word ' * 30000}';
+      final watch = Stopwatch()..start();
+      for (var i = 0; i < 300; i++) {
+        log.add('js', big, noisy: true);
+      }
+      expect(watch.elapsedMilliseconds, lessThan(300));
+      expect(
+        log.events.where((e) => e.kind == 'js'),
+        hasLength(CheckoutLog.noisyLimit),
       );
     });
   });
@@ -786,6 +893,332 @@ void main() {
       await settle(tester);
       expect(copied.single, contains('no WebView: opening the browser'));
     });
+
+    testWidgets('an order the page left behind places after Open in '
+        'browser is said, and the browser is never offered again', (
+      tester,
+    ) async {
+      final launched = mockLauncher(tester);
+      final cart = _CountingCart();
+      final page = await open(tester, cart: cart);
+      page.pageStarted(checkoutPage);
+      page.pageFinished(checkoutPage);
+      await chooseFromMenu(tester, CheckoutScreen.openInBrowserLabel);
+      expect(find.text('Checkout opened in your browser'), findsOneWidget);
+
+      // The page still running in the app finishes the order.
+      page.urlChanged(thankYouPage);
+      await tester.pump();
+      expect(cart.clears, 1);
+      expect(find.text('Order placed'), findsOneWidget);
+      expect(find.text(CheckoutScreen.orderPlacedHereTitle), findsOneWidget);
+      expect(find.text(CheckoutScreen.orderPlacedHereMessage), findsOneWidget);
+      expect(find.text('Open again'), findsNothing);
+      expect(find.textContaining('Finish your order there'), findsNothing);
+      expect(launched, [prefilledUrl.toString()]);
+
+      await tester.tap(find.text(CheckoutScreen.continueShoppingLabel));
+      await settle(tester);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(find.text('Open checkout'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('after an order placed that way, system back goes on like '
+        'Done', (tester) async {
+      mockLauncher(tester);
+      final page = await open(tester);
+      await chooseFromMenu(tester, CheckoutScreen.openInBrowserLabel);
+      page.urlChanged(thankYouPage);
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(find.text('Open checkout'), findsOneWidget);
+    });
+
+    testWidgets('the page left behind for the browser opens no app and '
+        'does not close checkout; back still does', (tester) async {
+      final launched = mockLauncher(tester);
+      final page = await open(tester);
+      await chooseFromMenu(tester, CheckoutScreen.openInBrowserLabel);
+      expect(
+        await page.request('tel:+971501234567'),
+        NavigationDecision.prevent,
+      );
+      expect(
+        await page.request(
+          'intent://pay#Intent;scheme=upi;'
+          'S.browser_fallback_url=https%3A%2F%2Fexample.com%2F;end',
+        ),
+        NavigationDecision.prevent,
+      );
+      expect(
+        await page.request('https://testtfm.myshopify.com/cart'),
+        NavigationDecision.prevent,
+      );
+      // Its own pages may still load (an order it finishes is caught).
+      expect(
+        await page.request('https://www.paypal.com/checkoutnow?token=EC-1'),
+        NavigationDecision.navigate,
+      );
+      await settle(tester);
+      expect(launched, [prefilledUrl.toString()]);
+      expect(page.loaded, [prefilledUrl]);
+      expect(find.text('Checkout opened in your browser'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(find.text('Open checkout'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a store link while the menu is open closes checkout, not '
+        'just the menu', (tester) async {
+      final page = await open(tester);
+      await tester.tap(find.byTooltip(CheckoutScreen.menuTooltip));
+      await settle(tester);
+      expect(find.text(CheckoutScreen.copyLogLabel), findsOneWidget);
+
+      expect(
+        await page.request('https://testtfm.myshopify.com/cart'),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      expect(find.text(CheckoutScreen.copyLogLabel), findsNothing);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(find.text('Open checkout'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a store link while checkout is already closing leaves the '
+        'screen under it', (tester) async {
+      final page = await open(tester);
+      // Something else closes checkout (the app going to a tab).
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pump();
+      expect(find.byType(CheckoutScreen), findsOneWidget); // closing
+      expect(
+        await page.request('https://testtfm.myshopify.com/'),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(find.text('Open checkout'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an app link that is a web address goes to an app only, '
+        'else loads in checkout', (tester) async {
+      var appOpens = false;
+      final appOnly = <String>[];
+      final launched = mockLauncher(
+        tester,
+        result: (_) => appOpens,
+        appOnly: appOnly,
+      );
+      final page = await open(tester);
+
+      expect(
+        await page.request(
+          'intent://shop.app/pay/123#Intent;scheme=https;'
+          'package=com.shopify.arrive;'
+          'S.browser_fallback_url=https%3A%2F%2Fshop.app%2Fpay%2F123%3Fw%3D1;'
+          'end',
+        ),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      // Never handed to a browser: no app took it, so its web address
+      // loads here, as in Chrome.
+      expect(appOnly, ['https://shop.app/pay/123']);
+      expect(page.loaded.last, Uri.parse('https://shop.app/pay/123?w=1'));
+
+      // With no web address, the link itself loads here.
+      expect(
+        await page.request('intent://shop.app/pay/456#Intent;scheme=https;end'),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      expect(page.loaded.last, Uri.parse('https://shop.app/pay/456'));
+
+      // An app that takes it: nothing loads here.
+      appOpens = true;
+      expect(
+        await page.request('intent://shop.app/pay/789#Intent;scheme=https;end'),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      expect(page.loaded, hasLength(3));
+
+      // Other app links may still go to any app.
+      expect(
+        await page.request('intent://pay#Intent;scheme=upi;end'),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      expect(launched.last, 'upi://pay');
+      expect(appOnly, hasLength(3));
+      expect(find.text(CheckoutScreen.linkFailed), findsNothing);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+    });
+
+    testWidgets('an app link whose web address is a store page closes '
+        'checkout', (tester) async {
+      mockLauncher(tester, result: (_) => false);
+      final page = await open(tester);
+      expect(
+        await page.request(
+          'intent://scan#Intent;scheme=zxing;'
+          'S.browser_fallback_url=https%3A%2F%2Ftesttfm.myshopify.com%2Fcart;'
+          'end',
+        ),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      expect(page.loaded, [prefilledUrl]);
+      expect(find.byType(CheckoutScreen), findsNothing);
+      expect(find.text('Open checkout'), findsOneWidget);
+    });
+
+    testWidgets('an order placed while an app was asked is not covered by '
+        'its web address', (tester) async {
+      final answer = Completer<bool>();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        _launcher,
+        (call) => answer.future,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          _launcher,
+          null,
+        ),
+      );
+      final page = await open(tester);
+      expect(
+        await page.request(
+          'intent://pay#Intent;scheme=upi;'
+          'S.browser_fallback_url=https%3A%2F%2Fexample.com%2Fpay;end',
+        ),
+        NavigationDecision.prevent,
+      );
+      await tester.pump();
+      page.urlChanged(thankYouPage);
+      await tester.pump();
+      answer.complete(false);
+      await settle(tester);
+      expect(page.loaded, [prefilledUrl]);
+      expect(find.text('Order placed'), findsOneWidget);
+      expect(find.text(CheckoutScreen.linkFailed), findsNothing);
+    });
+
+    testWidgets('scripts, files and data never load or go to another app', (
+      tester,
+    ) async {
+      final launched = mockLauncher(tester);
+      final page = await open(tester);
+      for (final url in [
+        'javascript:void(0)',
+        'JAVASCRIPT:alert(1)',
+        'data:text/html;base64,PGI+eDwvYj4=',
+        'file:///sdcard/Download/x.html',
+        'blob:https://testtfm.myshopify.com/7d1c2b3a',
+        'content://com.android.contacts/contacts/1',
+        'about:blank',
+      ]) {
+        expect(
+          await page.request(url),
+          NavigationDecision.prevent,
+          reason: url,
+        );
+      }
+      await settle(tester);
+      expect(launched, isEmpty);
+      expect(page.loaded, [prefilledUrl]);
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+    });
+
+    testWidgets("checkout's notices show at the top and leave the page's "
+        'Pay now bar clear', (tester) async {
+      mockLauncher(tester, result: (_) => false);
+      final page = await open(tester);
+      expect(
+        await page.request('tel:+971501234567'),
+        NavigationDecision.prevent,
+      );
+      await settle(tester);
+      final notice = find.byKey(const ValueKey('checkout-notice'));
+      final webViewBox = find.byKey(const ValueKey('fake-webview'));
+      expect(
+        find.descendant(
+          of: notice,
+          matching: find.text(CheckoutScreen.linkFailed),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(SnackBar), findsNothing);
+      final box = tester.getRect(notice);
+      final pageBox = tester.getRect(webViewBox);
+      expect(box.top, lessThan(pageBox.top + 16));
+      expect(box.bottom, lessThan(pageBox.top + 100));
+      // It takes no touches: the page under it gets them.
+      final hit = tester.hitTestOnBinding(box.center);
+      final pageRender = tester.renderObject(webViewBox);
+      expect(hit.path.any((entry) => entry.target == pageRender), isTrue);
+
+      await tester.pump(CheckoutScreen.noticeTime);
+      await tester.pump();
+      expect(notice, findsNothing);
+      expect(find.text(CheckoutScreen.linkFailed), findsNothing);
+    });
+
+    testWidgets('third-party cookies are allowed before checkout loads', (
+      tester,
+    ) async {
+      final original = CheckoutScreen.allowThirdPartyCookies;
+      addTearDown(() => CheckoutScreen.allowThirdPartyCookies = original);
+      int? loadedWhenAsked;
+      CheckoutScreen.allowThirdPartyCookies = (_) async {
+        loadedWhenAsked = webView.controller.loaded.length;
+        return true;
+      };
+      final copied = mockClipboard(tester);
+      final page = await open(tester);
+      expect(loadedWhenAsked, 0);
+      expect(page.loaded, [prefilledUrl]);
+      await chooseFromMenu(tester, CheckoutScreen.copyLogLabel);
+      expect(copied.single, contains('app    third-party cookies allowed'));
+    });
+
+    testWidgets('checkout loads even when cookies cannot be allowed', (
+      tester,
+    ) async {
+      final original = CheckoutScreen.allowThirdPartyCookies;
+      addTearDown(() => CheckoutScreen.allowThirdPartyCookies = original);
+      // Never answers.
+      CheckoutScreen.allowThirdPartyCookies = (_) => Completer<bool>().future;
+      final copied = mockClipboard(tester);
+      final page = await open(tester);
+      expect(page.loaded, isEmpty);
+      await tester.pump(CheckoutScreen.platformWait);
+      await tester.pump();
+      expect(page.loaded, [prefilledUrl]);
+      await chooseFromMenu(tester, CheckoutScreen.copyLogLabel);
+      expect(
+        copied.single,
+        contains('third-party cookies not allowed (TimeoutException)'),
+      );
+
+      CheckoutScreen.allowThirdPartyCookies = (_) async =>
+          throw StateError('no');
+      CheckoutLog.forget();
+      webView.controllers.clear();
+      await tester.tap(find.byTooltip('Close checkout'));
+      await settle(tester);
+      final again = await open(tester);
+      expect(again.loaded, [prefilledUrl]);
+    });
   });
 
   testWidgets('the details sheet asks Android not to offer its own save '
@@ -800,5 +1233,130 @@ void main() {
     );
     final group = tester.widget<AutofillGroup>(find.byType(AutofillGroup));
     expect(group.onDisposeAction, AutofillContextAction.cancel);
+  });
+
+  group('Opening checkout and the keyboard', () {
+    late FocusNode field;
+    late FocusNode button;
+
+    setUp(() {
+      FakeWebViewPlatform.install();
+      CheckoutLog.forget();
+      field = FocusNode();
+      button = FocusNode();
+    });
+
+    tearDown(() {
+      field.dispose();
+      button.dispose();
+    });
+
+    /// A screen with a text field and a button; returns its context for
+    /// [AppNav.openCheckout]. The keyboard is up.
+    Future<BuildContext> pumpHost(WidgetTester tester) async {
+      final cart = CartStore()
+        ..add(sampleProducts()[0], sampleProducts()[0].variants[0]);
+      await pumpScreen(
+        tester,
+        Scaffold(
+          body: Column(
+            children: [
+              TextField(focusNode: field),
+              FilledButton(
+                focusNode: button,
+                onPressed: () {},
+                child: const Text('Go'),
+              ),
+            ],
+          ),
+        ),
+        cart: cart,
+        delivery: testDelivery(),
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+      await tester.pump();
+      return tester.element(find.byType(TextField));
+    }
+
+    testWidgets('a text field lets go at once; checkout opens as soon as '
+        'the keyboard has gone', (tester) async {
+      final context = await pumpHost(tester);
+      field.requestFocus();
+      await tester.pump();
+      expect(field.hasFocus, isTrue);
+
+      unawaited(AppNav.openCheckout(context));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(field.hasFocus, isFalse);
+      expect(find.byType(CheckoutScreen), findsNothing);
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump();
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+    });
+
+    testWidgets('a focused button keeps its focus; checkout waits for the '
+        'keyboard no longer than 600 ms', (tester) async {
+      final context = await pumpHost(tester);
+      button.requestFocus();
+      await tester.pump();
+
+      unawaited(AppNav.openCheckout(context));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(button.hasFocus, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(CheckoutScreen), findsNothing);
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+    });
+  });
+
+  testWidgets('Continue in the details sheet lets go of the keyboard at '
+      'once, before checkout opens', (tester) async {
+    final area = DeliveryConfig.areaNamed('Business Bay')!;
+    await pumpScreen(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () => showCheckoutDetailsSheet(context, area: area),
+              child: const Text('Open sheet'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open sheet'));
+    await tester.pumpAndSettle();
+    final first = find.descendant(
+      of: find.byWidgetPredicate(
+        (w) => w is DetailsField && w.label == 'First name',
+      ),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(first, 'Sara');
+    await tester.pump();
+    final focused = FocusManager.instance.primaryFocus;
+    expect(
+      focused?.context?.findAncestorWidgetOfExactType<EditableText>(),
+      isNotNull,
+    );
+
+    final go = find.text(CheckoutDetailsSheet.continueLabel);
+    await tester.ensureVisible(go);
+    await tester.pump();
+    await tester.tap(go);
+    // Before the sheet has gone.
+    await tester.pump();
+    expect(find.byType(CheckoutDetailsSheet), findsOneWidget);
+    expect(focused!.hasFocus, isFalse);
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckoutDetailsSheet), findsNothing);
   });
 }

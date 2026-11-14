@@ -77,19 +77,16 @@ abstract final class AppNav {
   /// Says [message] above the floating bottom bar and the Ask button, or
   /// [bottomMargin] above the bottom of a screen that has neither. With
   /// [actionLabel] and [onAction] the notice carries a button ("Undo").
-  /// A screen with its own [ScaffoldMessenger] (checkout) passes it as
-  /// [messenger].
   static void showNotice(
     BuildContext context,
     String message, {
     double? bottomMargin,
     String? actionLabel,
     VoidCallback? onAction,
-    ScaffoldMessengerState? messenger,
   }) {
-    final target = messenger ?? ScaffoldMessenger.maybeOf(context);
-    if (target == null) return;
-    target
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
