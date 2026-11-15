@@ -1,0 +1,118 @@
+{%- comment -%}
+  Fresh Market "Ask" assistant: a black "Ask" pill bottom-right that opens a
+  scripted shopping assistant (no AI, no server). Add it to the footer group.
+  The pill is drawn by fm-ask.js; the panel, the assistant and every request
+  to the store wait for the first open.
+{%- endcomment -%}
+{%- if section.settings.enabled -%}
+  <script type="application/json" id="fm-ask-config">
+    {
+      "enabled": true,
+      "buttonLabel": {{ section.settings.button_label | json }},
+      "buttonSub": {{ section.settings.button_sublabel | json }},
+      "title": {{ section.settings.title | json }},
+      "subtitle": {{ section.settings.subtitle | json }},
+      "greeting": {{ section.settings.greeting | json }},
+      "placeholder": {{ section.settings.placeholder | json }},
+      "footer": {{ section.settings.footer_note | json }},
+      "contactPhone": {{ section.settings.contact_phone | json }},
+      "contactEmail": {{ section.settings.contact_email | json }},
+      "storeName": {{ shop.name | json }},
+      "root": {{ routes.root_url | json }}
+    }
+  </script>
+  <link rel="stylesheet" href="{{ 'fm-ask.css' | asset_url }}" media="print" onload="this.media='all'">
+  <script src="{{ 'fm-ask-brain.js' | asset_url }}" defer></script>
+  <script src="{{ 'fm-ask.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Ask assistant",
+  "class": "fm-ask-section",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Show the Ask assistant",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Ask"
+    },
+    {
+      "type": "text",
+      "id": "button_sublabel",
+      "label": "Button sub-label",
+      "info": "Shown under the label on desktop.",
+      "default": "Find anything fast"
+    },
+    {
+      "type": "header",
+      "content": "Panel"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "Ask Fresh Market"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Find products, offers, delivery times"
+    },
+    {
+      "type": "textarea",
+      "id": "greeting",
+      "label": "Greeting",
+      "default": "Hi! I can find products, add them to your cart, show today’s offers and tell you when we can deliver. What do you need?"
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "Input placeholder",
+      "default": "Ask for a product or a category"
+    },
+    {
+      "type": "text",
+      "id": "footer_note",
+      "label": "Footer note",
+      "default": "Answers come from the Fresh Market catalogue"
+    },
+    {
+      "type": "header",
+      "content": "Customer care"
+    },
+    {
+      "type": "text",
+      "id": "contact_phone",
+      "label": "Contact phone",
+      "info": "Offered under Customer care as a call button.",
+      "default": "800 1 627538"
+    },
+    {
+      "type": "text",
+      "id": "contact_email",
+      "label": "Contact email",
+      "default": "care@freshmarket.ae"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Ask assistant"
+    }
+  ]
+}
+{% endschema %}
