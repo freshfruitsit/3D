@@ -1,0 +1,3400 @@
+{
+ "order-1005-cod-app": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001005,
+  "name": "#1005",
+  "order_name": "#1005",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1005/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [],
+  "transactions": [],
+  "unique_gateways": [],
+  "tax_lines": [],
+  "tax_price": 0,
+  "attributes": {
+   "Delivery mode": "Fresh Market",
+   "Delivery area": "Business Bay, Dubai",
+   "Delivery promise": "Tomorrow morning before 11 AM",
+   "Delivery pin": "25.18500,55.26500",
+   "Delivery instructions": "Please call when you reach the building – security desk at gate 2.",
+   "Payment method": "Cash on Delivery",
+   "Source": "Fresh Market app"
+  },
+  "note": null,
+  "payment_terms": {
+   "type": "fulfillment",
+   "name": "Due on fulfillment",
+   "next_payment": {
+    "due_at": null
+   }
+  },
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1005,
+  "created_at": "2026-11-15T19:35:40+04:00",
+  "customer": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "email": "customer@example.com"
+  },
+  "shipping_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "company": null,
+   "address1": "Bay Square, Building 5",
+   "address2": "Flat 302",
+   "city": "Business Bay",
+   "province": "Dubai",
+   "zip": null,
+   "country": "United Arab Emirates",
+   "country_code": "AE",
+   "phone": "+971 50 123 4567"
+  },
+  "billing_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman"
+  },
+  "financial_status": "pending",
+  "shipping_method": {
+   "title": "Fresh Market delivery",
+   "price": 2500
+  },
+  "shipping_price": 2500,
+  "subtotal_line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "item_count": 8,
+  "subtotal_price": 12745,
+  "total_price": 15245,
+  "total_discounts": 0,
+  "total_outstanding": 15245,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "local"
+   }
+  ]
+ },
+ "order-1006-paypal-web": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001006,
+  "name": "#1006",
+  "order_name": "#1006",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1006/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [
+   {
+    "target_selection": "all",
+    "target_type": "line_item",
+    "title": "WELCOME10",
+    "type": "discount_code",
+    "value": 10,
+    "value_type": "percentage",
+    "total_allocated_amount": 1183
+   },
+   {
+    "target_selection": "all",
+    "target_type": "shipping_line",
+    "title": "Free delivery over AED 100",
+    "type": "automatic",
+    "value": 100,
+    "value_type": "percentage",
+    "total_allocated_amount": 2500
+   }
+  ],
+  "transactions": [
+   {
+    "kind": "sale",
+    "status": "success",
+    "gateway": "paypal",
+    "gateway_display_name": "PayPal",
+    "amount": 10642,
+    "payment_details": {
+     "credit_card_company": null,
+     "gift_card": null
+    }
+   }
+  ],
+  "unique_gateways": [
+   "paypal"
+  ],
+  "tax_lines": [
+   {
+    "title": "VAT",
+    "rate": 0.05,
+    "rate_percentage": 5,
+    "price": 507
+   }
+  ],
+  "tax_price": 507,
+  "attributes": {},
+  "note": null,
+  "payment_terms": null,
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1006,
+  "created_at": "2026-11-15T13:12:00+04:00",
+  "customer": {
+   "first_name": "Omar",
+   "last_name": "Haddad",
+   "name": "Omar Haddad"
+  },
+  "shipping_address": {
+   "first_name": "Omar",
+   "last_name": "Haddad",
+   "name": "Omar Haddad",
+   "address1": "Marina Gate 1",
+   "address2": "Apartment 1408",
+   "city": "Dubai Marina",
+   "province": "Dubai",
+   "country": "United Arab Emirates",
+   "country_code": "AE",
+   "phone": "+971 55 987 6543"
+  },
+  "billing_address": {
+   "first_name": "Omar",
+   "last_name": "Haddad"
+  },
+  "financial_status": "paid",
+  "shipping_method": {
+   "title": "قياسي",
+   "price": 0
+  },
+  "shipping_price": 2500,
+  "subtotal_line_items": [
+   {
+    "title": "Apple Pink Lady",
+    "product": {
+     "title": "Apple Pink Lady"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 3,
+    "line_price": 3225,
+    "original_line_price": 3225,
+    "final_line_price": 3225,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911203-1.jpg?v=1791980920",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 323,
+      "discount_application": {
+       "target_selection": "all",
+       "target_type": "line_item",
+       "title": "WELCOME10",
+       "type": "discount_code",
+       "value": 10,
+       "value_type": "percentage",
+       "total_allocated_amount": 1183
+      }
+     }
+    ]
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 2,
+    "line_price": 5950,
+    "original_line_price": 5950,
+    "final_line_price": 5950,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 595,
+      "discount_application": {
+       "target_selection": "all",
+       "target_type": "line_item",
+       "title": "WELCOME10",
+       "type": "discount_code",
+       "value": 10,
+       "value_type": "percentage",
+       "total_allocated_amount": 1183
+      }
+     }
+    ]
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 265,
+      "discount_application": {
+       "target_selection": "all",
+       "target_type": "line_item",
+       "title": "WELCOME10",
+       "type": "discount_code",
+       "value": 10,
+       "value_type": "percentage",
+       "total_allocated_amount": 1183
+      }
+     }
+    ]
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Apple Pink Lady",
+    "product": {
+     "title": "Apple Pink Lady"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 3,
+    "line_price": 3225,
+    "original_line_price": 3225,
+    "final_line_price": 3225,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911203-1.jpg?v=1791980920",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 323,
+      "discount_application": {
+       "target_selection": "all",
+       "target_type": "line_item",
+       "title": "WELCOME10",
+       "type": "discount_code",
+       "value": 10,
+       "value_type": "percentage",
+       "total_allocated_amount": 1183
+      }
+     }
+    ]
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 2,
+    "line_price": 5950,
+    "original_line_price": 5950,
+    "final_line_price": 5950,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 595,
+      "discount_application": {
+       "target_selection": "all",
+       "target_type": "line_item",
+       "title": "WELCOME10",
+       "type": "discount_code",
+       "value": 10,
+       "value_type": "percentage",
+       "total_allocated_amount": 1183
+      }
+     }
+    ]
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 265,
+      "discount_application": {
+       "target_selection": "all",
+       "target_type": "line_item",
+       "title": "WELCOME10",
+       "type": "discount_code",
+       "value": 10,
+       "value_type": "percentage",
+       "total_allocated_amount": 1183
+      }
+     }
+    ]
+   }
+  ],
+  "item_count": 6,
+  "subtotal_price": 10642,
+  "total_price": 10642,
+  "total_discounts": 3683,
+  "total_outstanding": 0,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "shipping"
+   }
+  ]
+ },
+ "order-1007-edge-pickup-many-items": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001007,
+  "name": "#1007",
+  "order_name": "#1007",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1007/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [
+   {
+    "target_selection": "explicit",
+    "target_type": "line_item",
+    "title": "BANANA5",
+    "type": "discount_code",
+    "value": 500,
+    "value_type": "fixed_amount",
+    "total_allocated_amount": 500
+   }
+  ],
+  "transactions": [
+   {
+    "kind": "sale",
+    "status": "success",
+    "gateway": "gift_card",
+    "gateway_display_name": "Gift card",
+    "amount": 5000,
+    "payment_details": {
+     "gift_card": {
+      "last_four_characters": "X7Y2"
+     }
+    }
+   },
+   {
+    "kind": "sale",
+    "status": "pending",
+    "gateway": "Cash on Delivery (COD)",
+    "gateway_display_name": "Cash on Delivery (COD)",
+    "amount": 347340,
+    "payment_details": {}
+   }
+  ],
+  "unique_gateways": [
+   "gift_card",
+   "Cash on Delivery (COD)"
+  ],
+  "tax_lines": [],
+  "tax_price": 0,
+  "attributes": {},
+  "note": null,
+  "payment_terms": null,
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1007,
+  "created_at": "2026-11-15T22:05:00+04:00",
+  "customer": null,
+  "billing_address": {
+   "first_name": ""
+  },
+  "shipping_address": null,
+  "financial_status": "partially_paid",
+  "shipping_method": {
+   "title": "Pickup – Fresh Market Al Barsha",
+   "price": 0
+  },
+  "shipping_price": 0,
+  "subtotal_line_items": [
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Pink Lady",
+    "product": {
+     "title": "Apple Pink Lady"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911203-1.jpg?v=1791980920",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Dazzle",
+    "product": {
+     "title": "Apple Dazzle"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 21000,
+    "quantity": 3,
+    "line_price": 63000,
+    "original_line_price": 63000,
+    "final_line_price": 63000,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571045701_027aaf8f-29ff-40bc-911b-c7e2c291f90f.jpg?v=1791980881",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Dazzle - 500 GM",
+    "product": {
+     "title": "Apple Dazzle"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 600,
+    "quantity": 1,
+    "line_price": 600,
+    "original_line_price": 600,
+    "final_line_price": 600,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911615_024512aa-d5f4-46b6-be9d-d54fc12506d2.jpg?v=1791980881",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Green Fruitways - 500 GM",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 550,
+    "quantity": 2,
+    "line_price": 1100,
+    "original_line_price": 1100,
+    "final_line_price": 1100,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 3,
+    "line_price": 7950,
+    "original_line_price": 7950,
+    "final_line_price": 7450,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 500,
+      "discount_application": {
+       "target_selection": "explicit",
+       "target_type": "line_item",
+       "title": "BANANA5",
+       "type": "discount_code",
+       "value": 500,
+       "value_type": "fixed_amount",
+       "total_allocated_amount": 500
+      }
+     }
+    ]
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 21375,
+    "quantity": 1,
+    "line_price": 21375,
+    "original_line_price": 21375,
+    "final_line_price": 21375,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571001673.jpg?v=1791980847",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 2,
+    "line_price": 5950,
+    "original_line_price": 5950,
+    "final_line_price": 5950,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 500 GM",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 525,
+    "quantity": 3,
+    "line_price": 1575,
+    "original_line_price": 1575,
+    "final_line_price": 1575,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Manderine Nadercott Gem",
+    "product": {
+     "title": "Manderine Nadercott Gem"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 9600,
+    "quantity": 1,
+    "line_price": 9600,
+    "original_line_price": 9600,
+    "final_line_price": 9600,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571067301.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana",
+    "product": {
+     "title": "Sebastiano Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 2,
+    "line_price": 1350,
+    "original_line_price": 1350,
+    "final_line_price": 1350,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910042_09e70203-1d5c-4d44-b5a7-8fd940e18be4.jpg?v=1791980832",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana Green",
+    "product": {
+     "title": "Sebastiano Banana Green"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 3,
+    "line_price": 2025,
+    "original_line_price": 2025,
+    "final_line_price": 2025,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910042-green_03d4d9ed-e074-4264-a70a-2c618fc71852.jpg?v=1791980832",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana Half Ripe",
+    "product": {
+     "title": "Sebastiano Banana Half Ripe"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 1,
+    "line_price": 675,
+    "original_line_price": 675,
+    "final_line_price": 675,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910042-halfripe_642eebe9-431e-4980-8efb-4036645e545c.jpg?v=1791980824",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana",
+    "product": {
+     "title": "Sebastiano Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 195,
+    "quantity": 2,
+    "line_price": 390,
+    "original_line_price": 390,
+    "final_line_price": 390,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/3000157359942.jpg?v=1791980823",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 25200,
+    "quantity": 3,
+    "line_price": 75600,
+    "original_line_price": 75600,
+    "final_line_price": 75600,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571001681.jpg?v=1791980771",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Pink Lady Apple",
+    "product": {
+     "title": "Pink Lady Apple"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 18975,
+    "quantity": 1,
+    "line_price": 18975,
+    "original_line_price": 18975,
+    "final_line_price": 18975,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Jazz Apple",
+    "product": {
+     "title": "Jazz Apple"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 23175,
+    "quantity": 2,
+    "line_price": 46350,
+    "original_line_price": 46350,
+    "final_line_price": 46350,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571029061_73f4c692-09bb-4e45-aa66-7263187da13d.jpg?v=1791980736",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana",
+    "product": {
+     "title": "Sebastiano Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 7800,
+    "quantity": 3,
+    "line_price": 23400,
+    "original_line_price": 23400,
+    "final_line_price": 23400,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571000423.jpg?v=1791980711",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Class Extra Bananas",
+    "product": {
+     "title": "Chiquita Class Extra Bananas"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 9000,
+    "quantity": 1,
+    "line_price": 9000,
+    "original_line_price": 9000,
+    "final_line_price": 9000,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571000375_eb4edb2b-cdb8-4549-8c4c-570349bce1ba.jpg?v=1791980710",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Jazz",
+    "product": {
+     "title": "Apple Jazz"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1325,
+    "quantity": 2,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911184-1_e24e5863-cb73-485a-9745-950e4bce7a8c.jpg?v=1791980699",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Pink Lady Apple - 500 GM",
+    "product": {
+     "title": "Pink Lady Apple"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 525,
+    "quantity": 3,
+    "line_price": 1575,
+    "original_line_price": 1575,
+    "final_line_price": 1575,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9913899_952847c3-0cc7-4317-b045-580a6a3ca839.jpg?v=1791980698",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana Half Ripe",
+    "product": {
+     "title": "Chiquita Banana Half Ripe"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 750,
+    "quantity": 1,
+    "line_price": 750,
+    "original_line_price": 750,
+    "final_line_price": 750,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910037-halfripe_8e9e5a0d-bd5e-4e1f-910a-22f97b1eb866.jpg?v=1791980696",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana Green",
+    "product": {
+     "title": "Chiquita Banana Green"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 750,
+    "quantity": 2,
+    "line_price": 1500,
+    "original_line_price": 1500,
+    "final_line_price": 1500,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910037-green_994ba002-9a75-449d-af39-ecdc0670b7d2.jpg?v=1791980689",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Zespri Kiwi Green - 500 GM",
+    "product": {
+     "title": "Zespri Kiwi Green"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1275,
+    "quantity": 3,
+    "line_price": 3825,
+    "original_line_price": 3825,
+    "final_line_price": 3825,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168_ac875f69-9a36-433a-8484-c8f31eb053e0.jpg?v=1791980685",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Jazz Apple - 500 GM",
+    "product": {
+     "title": "Jazz Apple"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 1,
+    "line_price": 675,
+    "original_line_price": 675,
+    "final_line_price": 675,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911184_b668493c-7823-40ea-b3bb-fb3a67ead034.jpg?v=1791980639",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana Organic",
+    "product": {
+     "title": "Chiquita Banana Organic"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 900,
+    "quantity": 2,
+    "line_price": 1800,
+    "original_line_price": 1800,
+    "final_line_price": 1800,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910039_a89bd147-cf58-490b-bad4-0ec32d527e83.jpg?v=1791981031",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana",
+    "product": {
+     "title": "Chiquita Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 195,
+    "quantity": 3,
+    "line_price": 585,
+    "original_line_price": 585,
+    "final_line_price": 585,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Zespri Kiwi Sungold - 500 GM",
+    "product": {
+     "title": "Zespri Kiwi Sungold"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1995,
+    "quantity": 1,
+    "line_price": 1995,
+    "original_line_price": 1995,
+    "final_line_price": 1995,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167_f35a7f40-8b23-4173-b397-1b99c570f685.jpg?v=1791980840",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Pomegranate",
+    "product": {
+     "title": "Pomegranate"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2400,
+    "quantity": 2,
+    "line_price": 4800,
+    "original_line_price": 4800,
+    "final_line_price": 4800,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571002774.jpg?v=1791981153",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Blueberry",
+    "product": {
+     "title": "Blueberry"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 3125,
+    "quantity": 3,
+    "line_price": 9375,
+    "original_line_price": 9375,
+    "final_line_price": 9375,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/6294013905146.jpg?v=1791981152",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mango Osteen",
+    "product": {
+     "title": "Mango Osteen"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1800,
+    "quantity": 1,
+    "line_price": 1800,
+    "original_line_price": 1800,
+    "final_line_price": 1800,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9914452_7d33e49a-6210-4710-85f6-311e957f15bc.jpg?v=1791981153",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Rose Apple Red",
+    "product": {
+     "title": "Rose Apple Red"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2950,
+    "quantity": 2,
+    "line_price": 5900,
+    "original_line_price": 5900,
+    "final_line_price": 5900,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910298_3559267b-a580-4108-8bee-eb6636a4c8e4.jpg?v=1791981150",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Passion Fruit",
+    "product": {
+     "title": "Passion Fruit"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 3,
+    "line_price": 7950,
+    "original_line_price": 7950,
+    "final_line_price": 7950,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9912080.png?v=1791981144",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mixed herbs bundle",
+    "product": {
+     "title": "Mixed herbs bundle"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1500,
+    "quantity": 1,
+    "line_price": 1500,
+    "original_line_price": 1500,
+    "final_line_price": 1500,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {
+     "Packing note": "Separate bag please",
+     "_internal_id": "abc"
+    },
+    "discount_allocations": []
+   },
+   {
+    "title": "Fresh Market Gift Card - AED 100",
+    "product": {
+     "title": "Fresh Market Gift Card"
+    },
+    "variant": {
+     "title": "AED 100",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 10000,
+    "quantity": 1,
+    "line_price": 10000,
+    "original_line_price": 10000,
+    "final_line_price": 10000,
+    "image": null,
+    "gift_card": true,
+    "requires_shipping": false,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Barhi Dates - 1 KG",
+    "product": {
+     "title": "Barhi Dates"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 3200,
+    "quantity": 1,
+    "line_price": 3200,
+    "original_line_price": 3200,
+    "final_line_price": 3200,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571064161_9758d7d5-7ff7-4638-8f89-da769c253dde.jpg?v=1791981143",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Pink Lady",
+    "product": {
+     "title": "Apple Pink Lady"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911203-1.jpg?v=1791980920",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Dazzle",
+    "product": {
+     "title": "Apple Dazzle"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 21000,
+    "quantity": 3,
+    "line_price": 63000,
+    "original_line_price": 63000,
+    "final_line_price": 63000,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571045701_027aaf8f-29ff-40bc-911b-c7e2c291f90f.jpg?v=1791980881",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Dazzle - 500 GM",
+    "product": {
+     "title": "Apple Dazzle"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 600,
+    "quantity": 1,
+    "line_price": 600,
+    "original_line_price": 600,
+    "final_line_price": 600,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911615_024512aa-d5f4-46b6-be9d-d54fc12506d2.jpg?v=1791980881",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Green Fruitways - 500 GM",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 550,
+    "quantity": 2,
+    "line_price": 1100,
+    "original_line_price": 1100,
+    "final_line_price": 1100,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 3,
+    "line_price": 7950,
+    "original_line_price": 7950,
+    "final_line_price": 7450,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": [
+     {
+      "amount": 500,
+      "discount_application": {
+       "target_selection": "explicit",
+       "target_type": "line_item",
+       "title": "BANANA5",
+       "type": "discount_code",
+       "value": 500,
+       "value_type": "fixed_amount",
+       "total_allocated_amount": 500
+      }
+     }
+    ]
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 21375,
+    "quantity": 1,
+    "line_price": 21375,
+    "original_line_price": 21375,
+    "final_line_price": 21375,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571001673.jpg?v=1791980847",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 2,
+    "line_price": 5950,
+    "original_line_price": 5950,
+    "final_line_price": 5950,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 500 GM",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 525,
+    "quantity": 3,
+    "line_price": 1575,
+    "original_line_price": 1575,
+    "final_line_price": 1575,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Manderine Nadercott Gem",
+    "product": {
+     "title": "Manderine Nadercott Gem"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 9600,
+    "quantity": 1,
+    "line_price": 9600,
+    "original_line_price": 9600,
+    "final_line_price": 9600,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571067301.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana",
+    "product": {
+     "title": "Sebastiano Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 2,
+    "line_price": 1350,
+    "original_line_price": 1350,
+    "final_line_price": 1350,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910042_09e70203-1d5c-4d44-b5a7-8fd940e18be4.jpg?v=1791980832",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana Green",
+    "product": {
+     "title": "Sebastiano Banana Green"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 3,
+    "line_price": 2025,
+    "original_line_price": 2025,
+    "final_line_price": 2025,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910042-green_03d4d9ed-e074-4264-a70a-2c618fc71852.jpg?v=1791980832",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana Half Ripe",
+    "product": {
+     "title": "Sebastiano Banana Half Ripe"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 1,
+    "line_price": 675,
+    "original_line_price": 675,
+    "final_line_price": 675,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910042-halfripe_642eebe9-431e-4980-8efb-4036645e545c.jpg?v=1791980824",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana",
+    "product": {
+     "title": "Sebastiano Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 195,
+    "quantity": 2,
+    "line_price": 390,
+    "original_line_price": 390,
+    "final_line_price": 390,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/3000157359942.jpg?v=1791980823",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 25200,
+    "quantity": 3,
+    "line_price": 75600,
+    "original_line_price": 75600,
+    "final_line_price": 75600,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571001681.jpg?v=1791980771",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Pink Lady Apple",
+    "product": {
+     "title": "Pink Lady Apple"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 18975,
+    "quantity": 1,
+    "line_price": 18975,
+    "original_line_price": 18975,
+    "final_line_price": 18975,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Jazz Apple",
+    "product": {
+     "title": "Jazz Apple"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 23175,
+    "quantity": 2,
+    "line_price": 46350,
+    "original_line_price": 46350,
+    "final_line_price": 46350,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571029061_73f4c692-09bb-4e45-aa66-7263187da13d.jpg?v=1791980736",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Sebastiano Banana",
+    "product": {
+     "title": "Sebastiano Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 7800,
+    "quantity": 3,
+    "line_price": 23400,
+    "original_line_price": 23400,
+    "final_line_price": 23400,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571000423.jpg?v=1791980711",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Class Extra Bananas",
+    "product": {
+     "title": "Chiquita Class Extra Bananas"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 9000,
+    "quantity": 1,
+    "line_price": 9000,
+    "original_line_price": 9000,
+    "final_line_price": 9000,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571000375_eb4edb2b-cdb8-4549-8c4c-570349bce1ba.jpg?v=1791980710",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Apple Jazz",
+    "product": {
+     "title": "Apple Jazz"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1325,
+    "quantity": 2,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911184-1_e24e5863-cb73-485a-9745-950e4bce7a8c.jpg?v=1791980699",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Pink Lady Apple - 500 GM",
+    "product": {
+     "title": "Pink Lady Apple"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 525,
+    "quantity": 3,
+    "line_price": 1575,
+    "original_line_price": 1575,
+    "final_line_price": 1575,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9913899_952847c3-0cc7-4317-b045-580a6a3ca839.jpg?v=1791980698",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana Half Ripe",
+    "product": {
+     "title": "Chiquita Banana Half Ripe"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 750,
+    "quantity": 1,
+    "line_price": 750,
+    "original_line_price": 750,
+    "final_line_price": 750,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910037-halfripe_8e9e5a0d-bd5e-4e1f-910a-22f97b1eb866.jpg?v=1791980696",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana Green",
+    "product": {
+     "title": "Chiquita Banana Green"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 750,
+    "quantity": 2,
+    "line_price": 1500,
+    "original_line_price": 1500,
+    "final_line_price": 1500,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910037-green_994ba002-9a75-449d-af39-ecdc0670b7d2.jpg?v=1791980689",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Zespri Kiwi Green - 500 GM",
+    "product": {
+     "title": "Zespri Kiwi Green"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1275,
+    "quantity": 3,
+    "line_price": 3825,
+    "original_line_price": 3825,
+    "final_line_price": 3825,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168_ac875f69-9a36-433a-8484-c8f31eb053e0.jpg?v=1791980685",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Jazz Apple - 500 GM",
+    "product": {
+     "title": "Jazz Apple"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 675,
+    "quantity": 1,
+    "line_price": 675,
+    "original_line_price": 675,
+    "final_line_price": 675,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911184_b668493c-7823-40ea-b3bb-fb3a67ead034.jpg?v=1791980639",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana Organic",
+    "product": {
+     "title": "Chiquita Banana Organic"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 900,
+    "quantity": 2,
+    "line_price": 1800,
+    "original_line_price": 1800,
+    "final_line_price": 1800,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910039_a89bd147-cf58-490b-bad4-0ec32d527e83.jpg?v=1791981031",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Chiquita Banana",
+    "product": {
+     "title": "Chiquita Banana"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 195,
+    "quantity": 3,
+    "line_price": 585,
+    "original_line_price": 585,
+    "final_line_price": 585,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Zespri Kiwi Sungold - 500 GM",
+    "product": {
+     "title": "Zespri Kiwi Sungold"
+    },
+    "variant": {
+     "title": "500 GM",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1995,
+    "quantity": 1,
+    "line_price": 1995,
+    "original_line_price": 1995,
+    "final_line_price": 1995,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167_f35a7f40-8b23-4173-b397-1b99c570f685.jpg?v=1791980840",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Pomegranate",
+    "product": {
+     "title": "Pomegranate"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2400,
+    "quantity": 2,
+    "line_price": 4800,
+    "original_line_price": 4800,
+    "final_line_price": 4800,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571002774.jpg?v=1791981153",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Blueberry",
+    "product": {
+     "title": "Blueberry"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 3125,
+    "quantity": 3,
+    "line_price": 9375,
+    "original_line_price": 9375,
+    "final_line_price": 9375,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/6294013905146.jpg?v=1791981152",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mango Osteen",
+    "product": {
+     "title": "Mango Osteen"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1800,
+    "quantity": 1,
+    "line_price": 1800,
+    "original_line_price": 1800,
+    "final_line_price": 1800,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9914452_7d33e49a-6210-4710-85f6-311e957f15bc.jpg?v=1791981153",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Rose Apple Red",
+    "product": {
+     "title": "Rose Apple Red"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2950,
+    "quantity": 2,
+    "line_price": 5900,
+    "original_line_price": 5900,
+    "final_line_price": 5900,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910298_3559267b-a580-4108-8bee-eb6636a4c8e4.jpg?v=1791981150",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Passion Fruit",
+    "product": {
+     "title": "Passion Fruit"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 3,
+    "line_price": 7950,
+    "original_line_price": 7950,
+    "final_line_price": 7950,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9912080.png?v=1791981144",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mixed herbs bundle",
+    "product": {
+     "title": "Mixed herbs bundle"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1500,
+    "quantity": 1,
+    "line_price": 1500,
+    "original_line_price": 1500,
+    "final_line_price": 1500,
+    "image": null,
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {
+     "Packing note": "Separate bag please",
+     "_internal_id": "abc"
+    },
+    "discount_allocations": []
+   },
+   {
+    "title": "Fresh Market Gift Card - AED 100",
+    "product": {
+     "title": "Fresh Market Gift Card"
+    },
+    "variant": {
+     "title": "AED 100",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 10000,
+    "quantity": 1,
+    "line_price": 10000,
+    "original_line_price": 10000,
+    "final_line_price": 10000,
+    "image": null,
+    "gift_card": true,
+    "requires_shipping": false,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Barhi Dates - 1 KG",
+    "product": {
+     "title": "Barhi Dates"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 3200,
+    "quantity": 1,
+    "line_price": 3200,
+    "original_line_price": 3200,
+    "final_line_price": 3200,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571064161_9758d7d5-7ff7-4638-8f89-da769c253dde.jpg?v=1791981143",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "item_count": 69,
+  "subtotal_price": 352340,
+  "total_price": 352340,
+  "total_discounts": 500,
+  "total_outstanding": 347340,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "pick-up"
+   },
+   {
+    "delivery_method_type": "none"
+   }
+  ]
+ },
+ "order-1008-express-card": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001008,
+  "name": "#1008",
+  "order_name": "#1008",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1008/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [
+   {
+    "target_selection": "all",
+    "target_type": "shipping_line",
+    "title": "EXPRESS15",
+    "type": "discount_code",
+    "value": 1500,
+    "value_type": "fixed_amount",
+    "total_allocated_amount": 1500
+   }
+  ],
+  "transactions": [
+   {
+    "kind": "authorization",
+    "status": "success",
+    "gateway": "shopify_payments",
+    "gateway_display_name": "Shopify Payments",
+    "amount": 6490,
+    "payment_details": {
+     "credit_card_company": "Visa",
+     "credit_card_last_four_digits": "4242"
+    }
+   }
+  ],
+  "unique_gateways": [
+   "shopify_payments"
+  ],
+  "tax_lines": [],
+  "tax_price": 0,
+  "attributes": {
+   "Delivery mode": "Express",
+   "Delivery area": "Dubai Silicon Oasis",
+   "Delivery promise": "30–40 min",
+   "Delivery pin": "25.16517,55.38877",
+   "Source": "Fresh Market app"
+  },
+  "note": "Leave with the reception, please.",
+  "payment_terms": null,
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1008,
+  "created_at": "2026-11-15T16:20:00+04:00",
+  "customer": {
+   "first_name": "Fatima"
+  },
+  "shipping_address": {
+   "first_name": "Fatima",
+   "name": "Fatima Al Mansoori",
+   "address1": "Silicon Gates 2",
+   "address2": "Office 1104",
+   "city": "Dubai Silicon Oasis",
+   "province": "Dubai",
+   "country": "United Arab Emirates",
+   "phone": "+971 52 000 1122"
+  },
+  "financial_status": "authorized",
+  "shipping_method": {
+   "title": "Express delivery",
+   "price": 1000
+  },
+  "shipping_price": 2500,
+  "subtotal_line_items": [
+   {
+    "title": "Pomegranate - 1 KG",
+    "product": {
+     "title": "Pomegranate"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1450,
+    "quantity": 2,
+    "line_price": 2900,
+    "original_line_price": 2900,
+    "final_line_price": 2900,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571002774.jpg?v=1791981153",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {
+     "Cut": "Seeds only",
+     "_source": "app"
+    },
+    "discount_allocations": []
+   },
+   {
+    "title": "Blueberry - 125 GM",
+    "product": {
+     "title": "Blueberry"
+    },
+    "variant": {
+     "title": "125 GM",
+     "compare_at_price": 1595,
+     "image": null
+    },
+    "price": 1295,
+    "quantity": 2,
+    "line_price": 2590,
+    "original_line_price": 2590,
+    "final_line_price": 2590,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/6294013905146.jpg?v=1791981152",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Pomegranate - 1 KG",
+    "product": {
+     "title": "Pomegranate"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1450,
+    "quantity": 2,
+    "line_price": 2900,
+    "original_line_price": 2900,
+    "final_line_price": 2900,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571002774.jpg?v=1791981153",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {
+     "Cut": "Seeds only",
+     "_source": "app"
+    },
+    "discount_allocations": []
+   },
+   {
+    "title": "Blueberry - 125 GM",
+    "product": {
+     "title": "Blueberry"
+    },
+    "variant": {
+     "title": "125 GM",
+     "compare_at_price": 1595,
+     "image": null
+    },
+    "price": 1295,
+    "quantity": 2,
+    "line_price": 2590,
+    "original_line_price": 2590,
+    "final_line_price": 2590,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/6294013905146.jpg?v=1791981152",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "item_count": 4,
+  "subtotal_price": 5490,
+  "total_price": 6490,
+  "total_discounts": 1500,
+  "total_outstanding": 6490,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "local"
+   }
+  ]
+ },
+ "order-1009-giftcard-only": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "name": "#1009",
+  "created_at": "2026-11-15T10:00:00+04:00",
+  "requires_shipping": false,
+  "subtotal_line_items": [
+   {
+    "title": "Fresh Market Gift Card - AED 50",
+    "product": null,
+    "variant": null,
+    "price": 5000,
+    "quantity": 1,
+    "line_price": 5000,
+    "original_line_price": 5000,
+    "final_line_price": 5000,
+    "image": null,
+    "gift_card": true,
+    "properties": null,
+    "discount_allocations": null
+   }
+  ],
+  "item_count": 1,
+  "total_price": 5000,
+  "subtotal_price": 5000,
+  "financial_status": "paid",
+  "total_outstanding": 0,
+  "transactions": [
+   {
+    "kind": "sale",
+    "status": "success",
+    "gateway": "shopify_payments",
+    "gateway_display_name": "Shopify Payments",
+    "amount": 5000,
+    "payment_details": {
+     "credit_card_company": "Mastercard",
+     "credit_card_last_four_digits": "5454"
+    }
+   }
+  ]
+ },
+ "order-1010-all-nil": {
+  "name": "#1010",
+  "created_at": "2026-11-15T10:00:00+04:00"
+ },
+ "order-1011-web-cod": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001005,
+  "name": "#1011",
+  "order_name": "#1011",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1005/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [],
+  "transactions": [
+   {
+    "kind": "sale",
+    "status": "pending",
+    "gateway": "Cash on Delivery (COD)",
+    "gateway_display_name": "Cash on Delivery (COD)",
+    "amount": 15245,
+    "payment_details": {}
+   }
+  ],
+  "unique_gateways": [
+   "Cash on Delivery (COD)"
+  ],
+  "tax_lines": [],
+  "tax_price": 0,
+  "attributes": {
+   "Delivery area": "Business Bay, Dubai",
+   "Delivery mode": "Fresh Market",
+   "Delivery pin": "25.18500,55.26500",
+   "Delivery promise": "Tomorrow morning before 11 AM",
+   "Delivery instructions": "Ring the bell twice"
+  },
+  "note": null,
+  "payment_terms": null,
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1005,
+  "created_at": "2026-11-15T19:35:40+04:00",
+  "customer": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "email": "customer@example.com"
+  },
+  "shipping_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "company": null,
+   "address1": "Bay Square, Building 5",
+   "address2": "Flat 302",
+   "city": "Business Bay",
+   "province": "Dubai",
+   "zip": null,
+   "country": "United Arab Emirates",
+   "country_code": "AE",
+   "phone": "+971 50 123 4567"
+  },
+  "billing_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman"
+  },
+  "financial_status": "pending",
+  "shipping_method": {
+   "title": "قياسي",
+   "price": 2500
+  },
+  "shipping_price": 2500,
+  "subtotal_line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "item_count": 8,
+  "subtotal_price": 12745,
+  "total_price": 15245,
+  "total_discounts": 0,
+  "total_outstanding": 15245,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "local"
+   }
+  ]
+ },
+ "order-1012-autocharge": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001005,
+  "name": "#1012",
+  "order_name": "#1012",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1005/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [],
+  "transactions": [
+   {
+    "kind": "authorization",
+    "status": "pending",
+    "gateway": "shopify_payments",
+    "gateway_display_name": "Shopify Payments",
+    "amount": 15245,
+    "payment_details": {
+     "credit_card_company": "Visa",
+     "credit_card_last_four_digits": "4242"
+    }
+   }
+  ],
+  "unique_gateways": [
+   "shopify_payments"
+  ],
+  "tax_lines": [],
+  "tax_price": 0,
+  "attributes": {
+   "Delivery mode": "Fresh Market",
+   "Delivery promise": "Today 6–8 PM"
+  },
+  "note": null,
+  "payment_terms": {
+   "type": "fulfillment",
+   "name": "Due on fulfillment",
+   "automatic_capture_at_fulfillment": true,
+   "next_payment": {
+    "due_at": null,
+    "amount_due": 15245
+   }
+  },
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1005,
+  "created_at": "2026-11-15T19:35:40+04:00",
+  "customer": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "email": "customer@example.com"
+  },
+  "shipping_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "company": null,
+   "address1": "Bay Square, Building 5",
+   "address2": "Flat 302",
+   "city": "Business Bay",
+   "province": "Dubai",
+   "zip": null,
+   "country": "United Arab Emirates",
+   "country_code": "AE",
+   "phone": "+971 50 123 4567"
+  },
+  "billing_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman"
+  },
+  "financial_status": "pending",
+  "shipping_method": {
+   "title": "Fresh Market delivery",
+   "price": 2500
+  },
+  "shipping_price": 2500,
+  "subtotal_line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "item_count": 8,
+  "subtotal_price": 12745,
+  "total_price": 15245,
+  "total_discounts": 0,
+  "total_outstanding": 15245,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "local"
+   }
+  ]
+ },
+ "order-1013-freeship-no-address": {
+  "shop": {
+   "name": "My Store",
+   "url": "https://testtfm.myshopify.com",
+   "email": "store-owner@example.com",
+   "currency": "AED",
+   "address": {
+    "summary": "Dubai, United Arab Emirates"
+   }
+  },
+  "id": 6100000001005,
+  "name": "#1013",
+  "order_name": "#1013",
+  "email": "customer@example.com",
+  "order_status_url": "https://testtfm.myshopify.com/79173124173/orders/0f3c9a1005/authenticate?key=sample",
+  "requires_shipping": true,
+  "discount_applications": [
+   {
+    "target_selection": "all",
+    "target_type": "shipping_line",
+    "title": "FREESHIP",
+    "type": "discount_code",
+    "value": 100,
+    "value_type": "percentage",
+    "total_allocated_amount": 2500
+   },
+   {
+    "target_selection": "all",
+    "target_type": "line_item",
+    "title": "",
+    "type": "manual",
+    "value": 1000,
+    "value_type": "fixed_amount",
+    "total_allocated_amount": 1000
+   }
+  ],
+  "transactions": [],
+  "unique_gateways": [],
+  "tax_lines": [],
+  "tax_price": 0,
+  "attributes": {
+   "Delivery mode": "Fresh Market",
+   "Delivery area": "Business Bay, Dubai",
+   "Delivery promise": "Tomorrow morning before 11 AM",
+   "Delivery pin": "25.18500,55.26500",
+   "Delivery instructions": "Please call when you reach the building – security desk at gate 2.",
+   "Payment method": "Cash on Delivery",
+   "Source": "Fresh Market app"
+  },
+  "note": null,
+  "payment_terms": {
+   "type": "fulfillment",
+   "name": "Due on fulfillment",
+   "next_payment": {
+    "due_at": null
+   }
+  },
+  "has_pending_payment": false,
+  "delivery_instructions": null,
+  "consolidated_estimated_delivery_time": null,
+  "order_number": 1005,
+  "created_at": "2026-11-15T19:35:40+04:00",
+  "customer": {
+   "first_name": "Aisha",
+   "last_name": "Rahman",
+   "name": "Aisha Rahman",
+   "email": "customer@example.com"
+  },
+  "shipping_address": null,
+  "billing_address": {
+   "first_name": "Aisha",
+   "last_name": "Rahman"
+  },
+  "financial_status": "pending",
+  "shipping_method": {
+   "title": "Fresh Market delivery",
+   "price": 2500
+  },
+  "shipping_price": 2500,
+  "subtotal_line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "line_items": [
+   {
+    "title": "Apple Green Fruitways - 1 KG",
+    "product": {
+     "title": "Apple Green Fruitways"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1075,
+    "quantity": 2,
+    "line_price": 2150,
+    "original_line_price": 2150,
+    "final_line_price": 2150,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/Untitled_design_34.png?v=1791980873",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Banana Chiquita",
+    "product": {
+     "title": "Banana Chiquita"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2650,
+    "quantity": 1,
+    "line_price": 2650,
+    "original_line_price": 2650,
+    "final_line_price": 2650,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/30571264114.jpg?v=1791980854",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Green Zespri",
+    "product": {
+     "title": "Kiwi Green Zespri"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": 2250,
+     "image": null
+    },
+    "price": 1895,
+    "quantity": 1,
+    "line_price": 1895,
+    "original_line_price": 1895,
+    "final_line_price": 1895,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910168-1_70cc91c2-829e-431a-85f6-7069c38bf1b2.jpg?v=1791980971",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Mandarin Nadorcott Gem - 1 KG",
+    "product": {
+     "title": "Mandarin Nadorcott Gem"
+    },
+    "variant": {
+     "title": "1 KG",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 1025,
+    "quantity": 3,
+    "line_price": 3075,
+    "original_line_price": 3075,
+    "final_line_price": 3075,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9911836_fba72053-4863-44c7-8205-e20b07c64c55.jpg?v=1791980838",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   },
+   {
+    "title": "Kiwi Zespri Sungold",
+    "product": {
+     "title": "Kiwi Zespri Sungold"
+    },
+    "variant": {
+     "title": "Default Title",
+     "compare_at_price": null,
+     "image": null
+    },
+    "price": 2975,
+    "quantity": 1,
+    "line_price": 2975,
+    "original_line_price": 2975,
+    "final_line_price": 2975,
+    "image": "https://cdn.shopify.com/s/files/1/0791/7312/4173/files/9910167-1_e69771f4-7a9b-4c23-b7b7-66a2c92522b2.jpg?v=1791980846",
+    "gift_card": false,
+    "requires_shipping": true,
+    "properties": {},
+    "discount_allocations": []
+   }
+  ],
+  "item_count": 8,
+  "subtotal_price": 11745,
+  "total_price": 11745,
+  "total_discounts": 0,
+  "total_outstanding": 11745,
+  "delivery_agreements": [
+   {
+    "delivery_method_type": "local"
+   }
+  ]
+ }
+}

@@ -1,0 +1,835 @@
+{%- comment -%}
+  =====================================================================
+  FRESH MARKET  |  Customer "Order confirmation" email  (Shopify)
+  ---------------------------------------------------------------------
+  Paste the WHOLE file into:
+  Settings > Notifications > Customer notifications > Order confirmation
+  > Edit code > "Email body (HTML)".  Subject line: see subject.txt.
+
+  Everything you may want to change (phone, email, logo, links) is in
+  the "Brand settings" block right below. You don't need to touch the
+  rest. Money is always formatted by Shopify's money filters, so it
+  follows Settings > General > Store defaults > Change currency formatting.
+  =====================================================================
+{%- endcomment -%}
+
+{%- comment -%} ---------------- Brand settings (safe to edit) ---------------- {%- endcomment -%}
+{%- assign fm_brand = 'Fresh Market' -%}
+{%- assign fm_logo_url = 'https://testtfm.myshopify.com/cdn/shop/files/logo_freshmarket_uae.png?v=1791894401&width=400' -%}
+{%- assign fm_care_phone = '800 1 627538' -%}
+{%- assign fm_care_phone_link = 'tel:8001627538' -%}
+{%- assign fm_care_hours = 'Toll-free, 7 days a week, 8am–11pm' -%}
+{%- assign fm_care_email = 'care@freshmarket.ae' -%}
+{%- assign fm_instagram_url = 'https://www.instagram.com/freshmarket.ae/' -%}
+{%- assign fm_instagram_handle = '@freshmarket.ae' -%}
+{%- comment -%} Put your App Store / Google Play (or one smart) link here to turn the app line into a link. {%- endcomment -%}
+{%- assign fm_app_url = '' -%}
+{%- comment -%} Very large orders: show this many lines, then "+ N more items" (keeps Gmail from clipping the email). {%- endcomment -%}
+{%- assign fm_max_lines = 30 -%}
+
+{%- comment -%} Colours {%- endcomment -%}
+{%- assign fm_ink = '#111111' -%}
+{%- assign fm_muted = '#5c6159' -%}
+{%- assign fm_lime = '#b4d233' -%}
+{%- assign fm_tile = '#f4f5f0' -%}
+{%- assign fm_line = '#e3e6dd' -%}
+{%- assign fm_sale = '#c2410c' -%}
+{%- assign fm_font = 'font-family:Helvetica,Arial,sans-serif;' -%}
+
+{%- comment -%} ======================= Order logic ======================= {%- endcomment -%}
+
+{%- comment -%} Customer first name, with fallbacks {%- endcomment -%}
+{%- assign fm_first_name = customer.first_name | default: shipping_address.first_name | default: billing_address.first_name | strip | escape -%}
+
+{%- comment -%} Order attributes written by the Fresh Market app (all optional) {%- endcomment -%}
+{%- assign fm_attr_mode = attributes['Delivery mode'] | strip -%}
+{%- assign fm_attr_area = attributes['Delivery area'] | strip -%}
+{%- assign fm_attr_promise = attributes['Delivery promise'] | strip -%}
+{%- assign fm_attr_pin = attributes['Delivery pin'] | strip -%}
+{%- assign fm_attr_instructions = attributes['Delivery instructions'] | strip -%}
+{%- assign fm_attr_payment = attributes['Payment method'] | strip -%}
+{%- assign fm_attr_source = attributes['Source'] | strip -%}
+{%- assign fm_source_down = fm_attr_source | downcase -%}
+{%- assign fm_from_app = false -%}
+{%- if fm_source_down contains 'app' -%}{%- assign fm_from_app = true -%}{%- endif -%}
+
+{%- comment -%} delivery / pickup / none (e.g. only gift cards).
+  Shopify's delivery_agreements say how each part of the order is delivered ('pick-up', 'local', 'shipping', 'none'). {%- endcomment -%}
+{%- assign fm_agr_pickup = false -%}
+{%- assign fm_agr_deliver = false -%}
+{%- for fm_agr in delivery_agreements -%}
+  {%- if fm_agr.delivery_method_type == 'pick-up' -%}{%- assign fm_agr_pickup = true -%}{%- endif -%}
+  {%- if fm_agr.delivery_method_type == 'local' or fm_agr.delivery_method_type == 'shipping' -%}{%- assign fm_agr_deliver = true -%}{%- endif -%}
+{%- endfor -%}
+{%- if delivery_method == 'pick-up' -%}{%- assign fm_agr_pickup = true -%}{%- endif -%}
+{%- assign fm_kind = 'none' -%}
+{%- if requires_shipping or shipping_address -%}
+  {%- if fm_agr_pickup and fm_agr_deliver == false -%}
+    {%- assign fm_kind = 'pickup' -%}
+  {%- elsif shipping_address or fm_attr_mode != blank or fm_attr_area != blank -%}
+    {%- assign fm_kind = 'delivery' -%}
+  {%- else -%}
+    {%- assign fm_kind = 'pickup' -%}
+  {%- endif -%}
+{%- endif -%}
+
+{%- assign fm_mode_down = fm_attr_mode | downcase -%}
+{%- assign fm_is_express = false -%}
+{%- if fm_mode_down contains 'express' -%}{%- assign fm_is_express = true -%}{%- endif -%}
+{%- assign fm_mode_label = '' -%}
+{%- if fm_attr_mode != blank -%}
+  {%- if fm_mode_down contains 'delivery' -%}
+    {%- assign fm_mode_label = fm_attr_mode | escape -%}
+  {%- else -%}
+    {%- assign fm_mode_label = fm_attr_mode | append: ' delivery' | escape -%}
+  {%- endif -%}
+{%- elsif shipping_method.title != blank -%}
+  {%- assign fm_mode_label = shipping_method.title | strip | escape -%}
+  {%- comment -%} The store's standard rate is named in Arabic; show it in English in this English email. {%- endcomment -%}
+  {%- if fm_mode_label == 'قياسي' -%}{%- assign fm_mode_label = 'Standard delivery' -%}{%- endif -%}
+{%- endif -%}
+
+{%- assign fm_pickup_extra = false -%}
+{%- if delivery_instructions != blank or note != blank -%}{%- assign fm_pickup_extra = true -%}{%- endif -%}
+
+{%- assign fm_area = fm_attr_area | escape -%}
+{%- if fm_area == blank -%}{%- assign fm_area = shipping_address.city | strip | escape -%}{%- endif -%}
+
+{%- comment -%} Delivery promise: app attribute > Shopify delivery estimate > friendly default {%- endcomment -%}
+{%- assign fm_promise = fm_attr_promise | escape -%}
+{%- if fm_promise == blank and consolidated_estimated_delivery_time != blank and has_multiple_delivery_methods != true -%}
+  {%- assign fm_promise = consolidated_estimated_delivery_time | strip_html | strip -%}
+{%- endif -%}
+{%- assign fm_promise_known = true -%}
+{%- if fm_promise == blank -%}
+  {%- assign fm_promise_known = false -%}
+  {%- assign fm_promise = 'Next available delivery slot' -%}
+{%- elsif fm_is_express and fm_promise contains 'min' -%}
+  {%- assign fm_promise = 'Arriving in ' | append: fm_promise -%}
+{%- endif -%}
+
+{%- comment -%} Payment: what has been paid, what is still due, and how {%- endcomment -%}
+{%- assign fm_total = total_price | plus: 0 -%}
+{%- assign fm_fin = financial_status | default: '' | downcase -%}
+{%- assign fm_cod = false -%}
+{%- comment -%} Cash on Delivery: "Cash on Delivery (COD)" gateway (website) or the app's "Payment method" attribute {%- endcomment -%}
+{%- assign fm_payment_down = fm_attr_payment | downcase -%}
+{%- if fm_payment_down contains 'cash on' or fm_payment_down contains 'cash_on' or fm_payment_down contains '(cod)' or fm_payment_down == 'cod' -%}{%- assign fm_cod = true -%}{%- endif -%}
+{%- for fm_gateway in unique_gateways -%}
+  {%- assign fm_gateway_down = fm_gateway | downcase -%}
+  {%- if fm_gateway_down contains 'cash on' or fm_gateway_down contains 'cash_on' or fm_gateway_down contains '(cod)' or fm_gateway_down == 'cod' -%}{%- assign fm_cod = true -%}{%- endif -%}
+{%- endfor -%}
+{%- assign fm_paid_sum = 0 -%}
+{%- for fm_tx in transactions -%}
+  {%- assign fm_tx_down = fm_tx.gateway_display_name | append: ' ' | append: fm_tx.gateway | downcase -%}
+  {%- if fm_tx_down contains 'cash on' or fm_tx_down contains 'cash_on' or fm_tx_down contains '(cod)' -%}{%- assign fm_cod = true -%}{%- endif -%}
+  {%- if fm_tx.status == 'success' -%}
+    {%- if fm_tx.kind == 'sale' or fm_tx.kind == 'capture' -%}
+      {%- assign fm_paid_sum = fm_paid_sum | plus: fm_tx.amount -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- comment -%} Payment terms (app orders: "Due on fulfillment"). If Shopify will charge a saved card automatically, the customer pays nothing in cash. {%- endcomment -%}
+{%- assign fm_auto_charge = false -%}
+{%- if payment_terms.automatic_capture_at_fulfillment == true or payment_charged_on_fulfillment == true -%}{%- assign fm_auto_charge = true -%}{%- endif -%}
+{%- assign fm_due_later = false -%}
+{%- if payment_terms.type == 'fulfillment' or payment_terms.type == 'receipt' -%}
+  {%- unless fm_auto_charge -%}{%- assign fm_due_later = true -%}{%- endunless -%}
+{%- endif -%}
+
+{%- assign fm_is_paid = false -%}
+{%- if fm_fin == 'paid' or fm_fin == 'authorized' or fm_fin == 'partially_refunded' or fm_fin == 'refunded' -%}{%- assign fm_is_paid = true -%}{%- endif -%}
+{%- if fm_total == 0 -%}{%- assign fm_is_paid = true -%}{%- endif -%}
+{%- comment -%} Amount still to pay: Shopify's total_outstanding when it is there, else total minus successful payments {%- endcomment -%}
+{%- assign fm_due = 0 -%}
+{%- unless fm_is_paid -%}
+  {%- if total_outstanding != blank -%}
+    {%- assign fm_due = total_outstanding | plus: 0 -%}
+    {%- assign fm_paid_sum = fm_total | minus: fm_due -%}
+    {%- if fm_paid_sum < 0 -%}{%- assign fm_paid_sum = 0 -%}{%- endif -%}
+  {%- else -%}
+    {%- assign fm_due = fm_total | minus: fm_paid_sum -%}
+  {%- endif -%}
+  {%- if fm_due < 0 -%}{%- assign fm_due = 0 -%}{%- endif -%}
+{%- endunless -%}
+{%- assign fm_pay_on_delivery = false -%}
+{%- if fm_due > 0 -%}
+  {%- if fm_cod or fm_due_later -%}{%- assign fm_pay_on_delivery = true -%}{%- endif -%}
+{%- endif -%}
+{%- assign fm_pay_where = 'on delivery' -%}
+{%- if fm_kind == 'pickup' -%}{%- assign fm_pay_where = 'at pickup' -%}{%- endif -%}
+
+{%- comment -%} Payment method names, e.g. "Cash on Delivery", "PayPal", "Visa ending in 4242", "Gift card ending in X7Y2" {%- endcomment -%}
+{%- assign fm_methods = '' -%}
+{%- if fm_cod -%}{%- assign fm_methods = 'Cash on Delivery' -%}{%- endif -%}
+{%- for fm_tx in transactions -%}
+  {%- assign fm_tx_ok = false -%}
+  {%- if fm_tx.status == 'success' or fm_tx.status == 'pending' -%}
+    {%- if fm_tx.kind == 'sale' or fm_tx.kind == 'capture' or fm_tx.kind == 'authorization' -%}{%- assign fm_tx_ok = true -%}{%- endif -%}
+  {%- endif -%}
+  {%- assign fm_tx_down = fm_tx.gateway_display_name | append: ' ' | append: fm_tx.gateway | downcase -%}
+  {%- if fm_tx_down contains 'cash on' or fm_tx_down contains 'cash_on' or fm_tx_down contains '(cod)' -%}{%- assign fm_tx_ok = false -%}{%- endif -%}
+  {%- if fm_tx_ok -%}
+    {%- assign fm_gc_last4 = fm_tx.payment_details.gift_card_last_four_digits | default: fm_tx.payment_details.gift_card.last_four_characters -%}
+    {%- if fm_gc_last4 != blank -%}
+      {%- capture fm_tx_name -%}Gift card ending in {{ fm_gc_last4 | upcase }}{%- endcapture -%}
+    {%- elsif fm_tx.gateway == 'gift_card' -%}
+      {%- assign fm_tx_name = 'Gift card' -%}
+    {%- elsif fm_tx.payment_details.credit_card_company != blank -%}
+      {%- capture fm_tx_name -%}{{ fm_tx.payment_details.credit_card_company }}{% if fm_tx.payment_details.credit_card_last_four_digits != blank %} ending in {{ fm_tx.payment_details.credit_card_last_four_digits }}{% endif %}{%- endcapture -%}
+    {%- elsif fm_tx_down contains 'paypal' -%}
+      {%- assign fm_tx_name = 'PayPal' -%}
+    {%- else -%}
+      {%- assign fm_tx_name = fm_tx.gateway_display_name | default: fm_tx.gateway -%}
+    {%- endif -%}
+    {%- assign fm_tx_name = fm_tx_name | strip | escape -%}
+    {%- if fm_tx_name != blank -%}
+      {%- unless fm_methods contains fm_tx_name -%}
+        {%- if fm_methods == blank -%}
+          {%- assign fm_methods = fm_tx_name -%}
+        {%- else -%}
+          {%- assign fm_methods = fm_methods | append: ' + ' | append: fm_tx_name -%}
+        {%- endif -%}
+      {%- endunless -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if fm_methods == blank -%}
+  {%- if fm_due_later -%}
+    {%- assign fm_methods = 'Pay on delivery' -%}
+  {%- elsif fm_total == 0 -%}
+    {%- assign fm_methods = 'No payment needed' -%}
+  {%- endif -%}
+{%- endif -%}
+
+{%- comment -%} Discounts and savings {%- endcomment -%}
+{%- assign fm_order_disc = 0 -%}
+{%- assign fm_order_disc_titles = '' -%}
+{%- assign fm_ship_disc = 0 -%}
+{%- assign fm_ship_disc_titles = '' -%}
+{%- for fm_da in discount_applications -%}
+  {%- if fm_da.target_type == 'shipping_line' -%}
+    {%- assign fm_ship_disc = fm_ship_disc | plus: fm_da.total_allocated_amount -%}
+    {%- assign fm_da_title = fm_da.title | strip | escape -%}
+    {%- if fm_da_title != blank -%}
+      {%- if fm_ship_disc_titles == blank -%}
+        {%- assign fm_ship_disc_titles = fm_da_title -%}
+      {%- else -%}
+        {%- assign fm_ship_disc_titles = fm_ship_disc_titles | append: ', ' | append: fm_da_title -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- elsif fm_da.target_selection == 'all' -%}
+    {%- assign fm_order_disc = fm_order_disc | plus: fm_da.total_allocated_amount -%}
+    {%- assign fm_da_title = fm_da.title | strip | escape -%}
+    {%- if fm_da_title != blank -%}
+      {%- if fm_order_disc_titles == blank -%}
+        {%- assign fm_order_disc_titles = fm_da_title -%}
+      {%- else -%}
+        {%- assign fm_order_disc_titles = fm_order_disc_titles | append: ', ' | append: fm_da_title -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- assign fm_line_count = 0 -%}
+{%- assign fm_item_savings = 0 -%}
+{%- assign fm_has_gift_card_line = false -%}
+{%- for line in subtotal_line_items -%}
+  {%- assign fm_line_count = fm_line_count | plus: 1 -%}
+  {%- if line.gift_card -%}{%- assign fm_has_gift_card_line = true -%}{%- endif -%}
+  {%- assign fm_final = line.final_line_price | plus: 0 -%}
+  {%- assign fm_strike = line.original_line_price | plus: 0 -%}
+  {%- assign fm_compare_each = line.variant.compare_at_price | plus: 0 -%}
+  {%- assign fm_price_each = line.price | plus: 0 -%}
+  {%- if fm_compare_each > fm_price_each -%}
+    {%- assign fm_compare_total = fm_compare_each | times: line.quantity -%}
+    {%- if fm_compare_total > fm_strike -%}{%- assign fm_strike = fm_compare_total -%}{%- endif -%}
+  {%- endif -%}
+  {%- if fm_strike > fm_final -%}
+    {%- assign fm_item_savings = fm_item_savings | plus: fm_strike | minus: fm_final -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- assign fm_savings = fm_item_savings | plus: fm_order_disc | plus: fm_ship_disc -%}
+{%- assign fm_more_lines = fm_line_count | minus: fm_max_lines -%}
+
+{%- comment -%} shipping_price is the delivery fee BEFORE delivery discounts (Shopify's own template subtracts them the same way) {%- endcomment -%}
+{%- assign fm_ship_before = shipping_price | plus: 0 -%}
+{%- assign fm_ship = fm_ship_before | minus: fm_ship_disc -%}
+{%- if fm_ship < 0 -%}{%- assign fm_ship = 0 -%}{%- endif -%}
+{%- assign fm_subtotal = subtotal_price | plus: fm_order_disc -%}
+{%- assign fm_tax = tax_price | plus: 0 -%}
+{%- assign fm_date = created_at | date: '%-d %b %Y, %-I:%M %p' -%}
+
+{%- comment -%} Inbox preview text {%- endcomment -%}
+{%- capture fm_preheader -%}
+  {%- if fm_kind == 'pickup' -%}
+    Order {{ name }} is confirmed. We'll email you when it's ready to collect.
+  {%- elsif fm_kind == 'delivery' and fm_promise_known -%}
+    Order {{ name }} is confirmed. Delivery: {{ fm_promise | strip_html }}.
+  {%- else -%}
+    Order {{ name }} is confirmed. We're getting it ready.
+  {%- endif -%}
+  {%- if fm_pay_on_delivery %} Please pay {{ fm_due | money_with_currency }} {{ fm_pay_where }}.{%- elsif fm_is_paid and fm_total > 0 %} Payment received.{%- endif -%}
+{%- endcapture -%}
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Order {{ name }} confirmed – {{ fm_brand }}</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<style>table, td, div, p, a, span, h1, h2 { font-family: Arial, sans-serif !important; }</style>
+<![endif]-->
+<style>
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { -ms-interpolation-mode: bicubic; }
+  /* Client fixes live inside "@media screen" so Shopify's CSS inliner keeps them (it only keeps media queries). */
+  @media screen {
+    a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+    u + .fm-body a { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+  }
+
+  @media only screen and (max-width: 599px) {
+    .fm-outer { padding: 0 !important; }
+    .fm-pad { padding-left: 20px !important; padding-right: 20px !important; }
+    .fm-h1 { font-size: 24px !important; line-height: 30px !important; }
+    .fm-col { display: block !important; width: 100% !important; max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+    .fm-col-2 { padding-top: 20px !important; }
+    .fm-btn-wrap { width: 100% !important; }
+    .fm-btn { display: block !important; text-align: center !important; }
+    .fm-promise { font-size: 18px !important; line-height: 24px !important; }
+    .fm-tile-pad { padding-left: 16px !important; padding-right: 16px !important; }
+    .fm-step-label { font-size: 12px !important; }
+    .fm-thumb-cell { width: 56px !important; }
+    .fm-thumb { width: 56px !important; height: 56px !important; }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .fm-body, .fm-outer { background-color: #0d0f0c !important; }
+    .fm-card { background-color: #161915 !important; }
+    .fm-tile { background-color: #20241e !important; }
+    .fm-ink { color: #f2f4ee !important; }
+    .fm-muted { color: #aeb4a8 !important; }
+    .fm-sale { color: #fb923c !important; }
+    .fm-rule { border-color: #2e3329 !important; }
+    .fm-bar { background-color: #2e3329 !important; }
+    .fm-step-todo { background-color: #20241e !important; border-color: #4a5045 !important; color: #aeb4a8 !important; }
+    .fm-link { color: #d4ec6a !important; }
+    .fm-outline { border-color: #4a5045 !important; color: #f2f4ee !important; }
+    .fm-logo-cell { background-color: #ffffff !important; }
+  }
+  /* Outlook.com / Outlook apps dark mode */
+  @media screen {
+    [data-ogsc] .fm-ink { color: #f2f4ee !important; }
+    [data-ogsc] .fm-muted { color: #aeb4a8 !important; }
+    [data-ogsc] .fm-link { color: #d4ec6a !important; }
+    [data-ogsc] .fm-sale { color: #fb923c !important; }
+    [data-ogsb] .fm-body, [data-ogsb] .fm-outer { background-color: #0d0f0c !important; }
+    [data-ogsb] .fm-card { background-color: #161915 !important; }
+    [data-ogsb] .fm-tile { background-color: #20241e !important; }
+  }
+</style>
+</head>
+<body class="fm-body" style="margin:0;padding:0;width:100%;background-color:{{ fm_tile }};">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">{{ fm_preheader | strip }}</div>
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="fm-outer" style="width:100%;background-color:{{ fm_tile }};">
+<tr>
+<td align="center" class="fm-outer" style="padding:24px 12px;background-color:{{ fm_tile }};">
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="fm-card" style="width:100%;max-width:600px;margin:0 auto;background-color:#ffffff;border-top:4px solid {{ fm_lime }};">
+
+  <!-- Header: logo + order number -->
+  <tr>
+    <td class="fm-pad" style="padding:24px 32px 4px 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="middle" align="left">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td class="fm-logo-cell" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:10px;padding:2px;">
+                  <a href="{{ shop.url }}" target="_blank" style="text-decoration:none;"><img src="{{ fm_logo_url }}" width="72" height="72" alt="{{ fm_brand }}" style="display:block;width:72px;height:72px;border:0;outline:none;text-decoration:none;color:{{ fm_ink }};{{ fm_font }}font-size:14px;font-weight:bold;"></a>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td valign="middle" align="right" class="fm-muted" style="{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;">
+            Order<br><span class="fm-ink" style="{{ fm_font }}font-size:17px;line-height:24px;color:{{ fm_ink }};font-weight:bold;letter-spacing:0;text-transform:none;">{{ name }}</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Hero -->
+  <tr>
+    <td class="fm-pad" style="padding:20px 32px 0 32px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="22" height="22" align="center" valign="middle" aria-hidden="true" bgcolor="{{ fm_lime }}" style="width:22px;height:22px;background-color:{{ fm_lime }};border-radius:11px;{{ fm_font }}font-size:13px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">&#10003;</td>
+          <td class="fm-ink" style="padding-left:8px;{{ fm_font }}font-size:14px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">Order confirmed</td>
+        </tr>
+      </table>
+      <h1 class="fm-h1 fm-ink" style="margin:14px 0 0 0;{{ fm_font }}font-size:28px;line-height:34px;font-weight:bold;color:{{ fm_ink }};">
+        {%- if fm_first_name != blank -%}Thanks for your order, {{ fm_first_name }}!{%- else -%}Thanks for your order!{%- endif -%}
+      </h1>
+      <p class="fm-muted" style="margin:8px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_muted }};">
+        Order {{ name }} &middot; placed {{ fm_date }}{% if fm_from_app %} in the {{ fm_brand }} app{% endif %}
+      </p>
+
+      <!-- Delivery promise tile -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+        <tr>
+          <td class="fm-tile fm-tile-pad" bgcolor="{{ fm_tile }}" style="background-color:{{ fm_tile }};border-radius:12px;padding:18px 20px;">
+            {%- if fm_kind == 'pickup' -%}
+              <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Store pickup</p>
+              <p class="fm-promise fm-ink" style="margin:6px 0 0 0;{{ fm_font }}font-size:21px;line-height:27px;font-weight:bold;color:{{ fm_ink }};"><span dir="auto">{{ shipping_method.title | default: 'Pickup from our store' | escape }}</span></p>
+              <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">We'll email you as soon as your order is ready to collect.</p>
+            {%- elsif fm_kind == 'delivery' -%}
+              <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">{% if fm_promise_known %}Estimated delivery{% else %}Delivery{% endif %}</p>
+              <p class="fm-promise fm-ink" style="margin:6px 0 0 0;{{ fm_font }}font-size:21px;line-height:27px;font-weight:bold;color:{{ fm_ink }};">{{ fm_promise }}</p>
+              {%- if fm_mode_label != blank or fm_area != blank -%}
+              <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">
+                {%- if fm_mode_label != blank -%}<span dir="auto">{{ fm_mode_label }}</span>{%- endif -%}
+                {%- if fm_mode_label != blank and fm_area != blank %} &middot; {% endif -%}
+                {%- if fm_area != blank -%}to {{ fm_area }}{%- endif -%}
+              </p>
+              {%- endif -%}
+              {%- unless fm_promise_known -%}
+              <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">We'll let you know when it's on the way.</p>
+              {%- endunless -%}
+            {%- else -%}
+              <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Delivery</p>
+              <p class="fm-promise fm-ink" style="margin:6px 0 0 0;{{ fm_font }}font-size:21px;line-height:27px;font-weight:bold;color:{{ fm_ink }};">Nothing to deliver</p>
+              <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">Gift cards are sent by email.</p>
+            {%- endif -%}
+            {%- if fm_pay_on_delivery -%}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
+                <tr><td class="fm-rule" style="border-top:1px solid #dfe2d8;font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>
+                <tr>
+                  <td class="fm-ink" style="padding-top:12px;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};">
+                    Pay <strong style="white-space:nowrap;">{{ fm_due | money_with_currency }}</strong>{% if fm_cod %} in cash{% endif %} {{ fm_pay_where }}
+                  </td>
+                </tr>
+              </table>
+            {%- endif -%}
+          </td>
+        </tr>
+      </table>
+
+      <!-- Primary button -->
+      {%- if order_status_url -%}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="fm-btn-wrap" style="margin-top:24px;">
+        <tr>
+          <td align="center" bgcolor="{{ fm_lime }}" style="background-color:{{ fm_lime }};border-radius:10px;mso-padding-alt:14px 36px;">
+            <a href="{{ order_status_url }}" target="_blank" class="fm-btn" style="display:inline-block;background-color:{{ fm_lime }};border-radius:10px;padding:14px 36px;mso-padding-alt:0;{{ fm_font }}font-size:16px;line-height:20px;font-weight:bold;color:{{ fm_ink }};text-decoration:none;">View your order</a>
+          </td>
+        </tr>
+      </table>
+      {%- endif -%}
+      <p class="fm-muted" style="margin:14px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">
+        or <a href="{{ shop.url }}" target="_blank" class="fm-link fm-ink" style="color:{{ fm_ink }};text-decoration:underline;">continue shopping</a>
+      </p>
+    </td>
+  </tr>
+
+  {%- unless fm_kind == 'none' -%}
+  <!-- Progress -->
+  <tr>
+    <td class="fm-pad" style="padding:28px 32px 0 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr><td class="fm-rule" style="border-top:1px solid {{ fm_line }};font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;table-layout:fixed;">
+        <tr>
+          <td width="33%" align="center" valign="top" style="width:33.33%;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+              <tr>
+                <td style="font-size:0;line-height:0;">&nbsp;</td>
+                <td width="28" height="28" align="center" valign="middle" aria-hidden="true" bgcolor="{{ fm_lime }}" style="width:28px;height:28px;background-color:{{ fm_lime }};border-radius:14px;{{ fm_font }}font-size:14px;line-height:28px;font-weight:bold;color:{{ fm_ink }};">&#10003;</td>
+                <td valign="middle" style="font-size:0;line-height:0;"><div class="fm-bar-done" style="height:3px;line-height:3px;font-size:0;background-color:{{ fm_lime }};">&nbsp;</div></td>
+              </tr>
+            </table>
+            <p class="fm-ink fm-step-label" style="margin:8px 0 0 0;{{ fm_font }}font-size:13px;line-height:17px;font-weight:bold;color:{{ fm_ink }};text-align:center;">Order placed</p>
+          </td>
+          <td width="34%" align="center" valign="top" style="width:33.33%;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+              <tr>
+                <td valign="middle" style="font-size:0;line-height:0;"><div class="fm-bar" style="height:3px;line-height:3px;font-size:0;background-color:{{ fm_line }};">&nbsp;</div></td>
+                <td width="28" height="28" align="center" valign="middle" aria-hidden="true" class="fm-step-todo" style="width:26px;height:26px;border:1px solid #c9cdc2;background-color:#ffffff;border-radius:14px;{{ fm_font }}font-size:13px;line-height:26px;font-weight:bold;color:{{ fm_muted }};">2</td>
+                <td valign="middle" style="font-size:0;line-height:0;"><div class="fm-bar" style="height:3px;line-height:3px;font-size:0;background-color:{{ fm_line }};">&nbsp;</div></td>
+              </tr>
+            </table>
+            <p class="fm-muted fm-step-label" style="margin:8px 0 0 0;{{ fm_font }}font-size:13px;line-height:17px;color:{{ fm_muted }};text-align:center;">Packing</p>
+          </td>
+          <td width="33%" align="center" valign="top" style="width:33.33%;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+              <tr>
+                <td valign="middle" style="font-size:0;line-height:0;"><div class="fm-bar" style="height:3px;line-height:3px;font-size:0;background-color:{{ fm_line }};">&nbsp;</div></td>
+                <td width="28" height="28" align="center" valign="middle" aria-hidden="true" class="fm-step-todo" style="width:26px;height:26px;border:1px solid #c9cdc2;background-color:#ffffff;border-radius:14px;{{ fm_font }}font-size:13px;line-height:26px;font-weight:bold;color:{{ fm_muted }};">3</td>
+                <td style="font-size:0;line-height:0;">&nbsp;</td>
+              </tr>
+            </table>
+            <p class="fm-muted fm-step-label" style="margin:8px 0 0 0;{{ fm_font }}font-size:13px;line-height:17px;color:{{ fm_muted }};text-align:center;">{% if fm_kind == 'pickup' %}Ready for pickup{% else %}Out for delivery{% endif %}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  {%- endunless -%}
+
+  {%- if fm_kind == 'delivery' -%}
+  <!-- Delivery details -->
+  <tr>
+    <td class="fm-pad" style="padding:32px 32px 0 32px;">
+      <h2 class="fm-ink" style="margin:0;{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};">Delivery details</h2>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
+        <tr>
+          <td width="50%" valign="top" class="fm-col" style="width:50%;padding-right:12px;">
+            <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Delivering to</p>
+            <p class="fm-ink" style="margin:6px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};">
+              {%- assign fm_ship_name = shipping_address.name | default: shipping_address.first_name | strip -%}
+              {%- if fm_ship_name != blank -%}<strong>{{ fm_ship_name | escape }}</strong><br>{%- endif -%}
+              {%- if shipping_address.company != blank -%}{{ shipping_address.company | escape }}<br>{%- endif -%}
+              {%- if shipping_address.address1 != blank -%}<span dir="auto">{{ shipping_address.address1 | escape }}</span><br>{%- endif -%}
+              {%- if shipping_address.address2 != blank -%}<span dir="auto">{{ shipping_address.address2 | escape }}</span><br>{%- endif -%}
+              {%- assign fm_city = shipping_address.city | strip -%}
+              {%- assign fm_province = shipping_address.province | strip -%}
+              {%- if fm_city != blank -%}{{ fm_city | escape }}{%- if fm_province != blank and fm_province != fm_city -%}, {{ fm_province | escape }}{%- endif -%}<br>{%- elsif fm_province != blank -%}{{ fm_province | escape }}<br>{%- endif -%}
+              {%- if shipping_address.country != blank -%}{{ shipping_address.country | escape }}{%- endif -%}
+              {%- unless shipping_address -%}{%- if fm_area != blank -%}{{ fm_area }}{%- else -%}The address you gave us{%- endif -%}{%- endunless -%}
+            </p>
+            {%- if shipping_address.phone != blank -%}
+            <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">{{ shipping_address.phone | escape }}</p>
+            {%- endif -%}
+          </td>
+          <td width="50%" valign="top" class="fm-col fm-col-2" style="width:50%;padding-left:12px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              {%- if fm_mode_label != blank -%}
+              <tr><td style="padding:0 0 10px 0;">
+                <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Delivery</p>
+                <p class="fm-ink" style="margin:4px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};"><span dir="auto">{{ fm_mode_label }}</span></p>
+              </td></tr>
+              {%- endif -%}
+              {%- if fm_attr_area != blank -%}
+              <tr><td style="padding:0 0 10px 0;">
+                <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Area</p>
+                <p class="fm-ink" style="margin:4px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};">{{ fm_attr_area | escape }}</p>
+              </td></tr>
+              {%- endif -%}
+              {%- if fm_attr_instructions != blank -%}
+              <tr><td style="padding:0 0 10px 0;">
+                <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Instructions</p>
+                <p class="fm-ink" style="margin:4px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};"><span dir="auto">{{ fm_attr_instructions | escape | newline_to_br }}</span></p>
+              </td></tr>
+              {%- endif -%}
+              {%- assign fm_note = note | strip -%}
+              {%- if fm_note != blank and fm_note != fm_attr_instructions -%}
+              <tr><td style="padding:0 0 10px 0;">
+                <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Order note</p>
+                <p class="fm-ink" style="margin:4px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};"><span dir="auto">{{ fm_note | escape | newline_to_br }}</span></p>
+              </td></tr>
+              {%- endif -%}
+              {%- if delivery_instructions != blank -%}
+              <tr><td style="padding:0 0 10px 0;">
+                <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Good to know</p>
+                <p class="fm-ink" style="margin:4px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};">{{ delivery_instructions }}</p>
+              </td></tr>
+              {%- endif -%}
+              {%- if fm_attr_pin != blank -%}
+              <tr><td style="padding:0 0 10px 0;">
+                <a href="https://www.google.com/maps/search/?api=1&amp;query={{ fm_attr_pin | url_encode }}" target="_blank" class="fm-link fm-ink" style="{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_ink }};text-decoration:underline;font-weight:bold;">Check your delivery pin on the map</a>
+              </td></tr>
+              {%- endif -%}
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  {%- elsif fm_kind == 'pickup' and fm_pickup_extra -%}
+  <!-- Pickup details (only when there is extra pickup info or an order note) -->
+  <tr>
+    <td class="fm-pad" style="padding:32px 32px 0 32px;">
+      <h2 class="fm-ink" style="margin:0;{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};">Pickup details</h2>
+      <p class="fm-ink" style="margin:10px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};"><span dir="auto">{{ shipping_method.title | default: 'Pickup from our store' | escape }}</span></p>
+      {%- if delivery_instructions != blank -%}
+      <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">{{ delivery_instructions }}</p>
+      {%- endif -%}
+      {%- assign fm_note = note | strip -%}
+      {%- if fm_note != blank -%}
+      <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">Note: <span dir="auto">{{ fm_note | escape }}</span></p>
+      {%- endif -%}
+    </td>
+  </tr>
+  {%- endif -%}
+
+  <!-- Items -->
+  <tr>
+    <td class="fm-pad" style="padding:32px 32px 0 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="fm-ink" style="{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};">Your items</td>
+          <td align="right" class="fm-muted" style="{{ fm_font }}font-size:14px;line-height:24px;color:{{ fm_muted }};">{%- assign fm_item_count = item_count | plus: 0 -%}{{ fm_item_count }} {% if fm_item_count == 1 %}item{% else %}items{% endif %}</td>
+        </tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:6px;">
+        {%- for line in subtotal_line_items limit: fm_max_lines -%}
+          {%- assign fm_title = line.product.title | default: line.title | escape -%}
+          {%- assign fm_variant = line.variant.title | strip -%}
+          {%- if fm_variant == 'Default Title' -%}{%- assign fm_variant = '' -%}{%- endif -%}
+          {%- assign fm_final = line.final_line_price | plus: 0 -%}
+          {%- assign fm_strike = 0 -%}
+          {%- assign fm_original = line.original_line_price | plus: 0 -%}
+          {%- if fm_original > fm_final -%}{%- assign fm_strike = fm_original -%}{%- endif -%}
+          {%- assign fm_compare_each = line.variant.compare_at_price | plus: 0 -%}
+          {%- assign fm_price_each = line.price | plus: 0 -%}
+          {%- if fm_compare_each > fm_price_each -%}
+            {%- assign fm_compare_total = fm_compare_each | times: line.quantity -%}
+            {%- if fm_compare_total > fm_strike -%}{%- assign fm_strike = fm_compare_total -%}{%- endif -%}
+          {%- endif -%}
+          {%- if fm_strike <= fm_final -%}{%- assign fm_strike = 0 -%}{%- endif -%}
+          {%- assign fm_img = '' -%}
+          {%- if line.image -%}
+            {%- comment -%} Same call as Shopify's default template: 160x160, cropped to a square {%- endcomment -%}
+            {%- assign fm_img = line | img_url: 'compact_cropped' -%}
+            {%- assign fm_img_head = fm_img | slice: 0, 2 -%}
+            {%- if fm_img_head == '//' -%}{%- assign fm_img = 'https:' | append: fm_img -%}{%- endif -%}
+          {%- endif %}
+        <tr>
+          <td width="64" valign="top" class="fm-rule fm-thumb-cell" style="width:64px;padding:14px 0;border-bottom:1px solid {{ fm_line }};">
+            {%- if fm_img != blank -%}
+            <img src="{{ fm_img }}" width="64" height="64" alt="{{ fm_title }}" class="fm-thumb" style="display:block;width:64px;height:64px;border:0;border-radius:10px;background-color:{{ fm_tile }};{{ fm_font }}font-size:10px;color:{{ fm_muted }};">
+            {%- else -%}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="64" height="64" align="center" valign="middle" class="fm-tile fm-thumb" bgcolor="{{ fm_tile }}" aria-hidden="true" style="width:64px;height:64px;background-color:{{ fm_tile }};border-radius:10px;font-size:26px;line-height:64px;">{% if line.gift_card %}&#127873;{% else %}&#127807;{% endif %}</td></tr></table>
+            {%- endif -%}
+          </td>
+          <td valign="top" class="fm-rule" style="padding:14px 12px 14px 14px;border-bottom:1px solid {{ fm_line }};">
+            <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:15px;line-height:21px;font-weight:bold;color:{{ fm_ink }};"><span dir="auto">{{ fm_title }}</span></p>
+            <p class="fm-muted" style="margin:3px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_muted }};">
+              {%- if fm_variant != blank -%}<span dir="auto">{{ fm_variant | escape }}</span> &middot; {% endif -%}Qty {{ line.quantity }}
+              {%- if line.gift_card %} &middot; Gift card, sent by email{% endif -%}
+            </p>
+            {%- for fm_prop in line.properties -%}
+              {%- assign fm_prop_first = fm_prop.first | slice: 0 -%}
+              {%- if fm_prop.last != blank and fm_prop_first != '_' -%}
+            <p class="fm-muted" style="margin:2px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_muted }};">{{ fm_prop.first | escape }}: <span dir="auto">{{ fm_prop.last | escape }}</span></p>
+              {%- endif -%}
+            {%- endfor -%}
+            {%- for fm_alloc in line.discount_allocations -%}
+              {%- if fm_alloc.discount_application.target_selection != 'all' -%}
+            <p class="fm-sale" style="margin:3px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_sale }};">{{ fm_alloc.discount_application.title | escape }} <span style="white-space:nowrap;">(&minus;{{ fm_alloc.amount | money }})</span></p>
+              {%- endif -%}
+            {%- endfor -%}
+          </td>
+          <td valign="top" align="right" class="fm-rule" style="padding:14px 0;border-bottom:1px solid {{ fm_line }};white-space:nowrap;">
+            <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:15px;line-height:21px;font-weight:bold;color:{{ fm_ink }};white-space:nowrap;">{% if fm_final > 0 %}{{ fm_final | money }}{% else %}Free{% endif %}</p>
+            {%- if fm_strike > 0 -%}
+            <p class="fm-muted" style="margin:3px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_muted }};white-space:nowrap;"><s>{{ fm_strike | money }}</s></p>
+            {%- endif -%}
+          </td>
+        </tr>
+        {%- endfor -%}
+        {%- if fm_more_lines > 0 -%}
+        <tr>
+          <td colspan="3" class="fm-rule" style="padding:14px 0;border-bottom:1px solid {{ fm_line }};{{ fm_font }}font-size:14px;line-height:20px;">
+            <span class="fm-muted" style="color:{{ fm_muted }};">+ {{ fm_more_lines }} more {% if fm_more_lines == 1 %}item{% else %}items{% endif %} in this order.</span>
+            {%- if order_status_url %} <a href="{{ order_status_url }}" target="_blank" class="fm-link fm-ink" style="color:{{ fm_ink }};font-weight:bold;text-decoration:underline;">See all items</a>{%- endif -%}
+          </td>
+        </tr>
+        {%- endif -%}
+      </table>
+      {%- if fm_has_gift_card_line -%}
+      <p class="fm-muted" style="margin:12px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_muted }};">Gift cards are sent in a separate email.</p>
+      {%- endif -%}
+    </td>
+  </tr>
+
+  <!-- Summary -->
+  <tr>
+    <td class="fm-pad" style="padding:20px 32px 0 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="fm-muted" style="padding:5px 0;{{ fm_font }}font-size:15px;line-height:21px;color:{{ fm_muted }};">Subtotal</td>
+          <td align="right" class="fm-ink" style="padding:5px 0;{{ fm_font }}font-size:15px;line-height:21px;color:{{ fm_ink }};white-space:nowrap;">{{ fm_subtotal | money }}</td>
+        </tr>
+        {%- if fm_order_disc > 0 -%}
+        <tr>
+          <td class="fm-muted" style="padding:5px 0;{{ fm_font }}font-size:15px;line-height:21px;color:{{ fm_muted }};">Discount{% if fm_order_disc_titles != blank %} <span class="fm-ink" style="color:{{ fm_ink }};font-size:13px;">({{ fm_order_disc_titles }})</span>{% endif %}</td>
+          <td align="right" class="fm-sale" style="padding:5px 0;{{ fm_font }}font-size:15px;line-height:21px;color:{{ fm_sale }};white-space:nowrap;">&minus;{{ fm_order_disc | money }}</td>
+        </tr>
+        {%- endif -%}
+        {%- unless fm_kind == 'none' -%}
+        <tr>
+          <td class="fm-muted" style="padding:5px 0;{{ fm_font }}font-size:15px;line-height:21px;color:{{ fm_muted }};">{% if fm_kind == 'pickup' %}Pickup{% else %}Delivery fee{% endif %}{% if fm_ship_disc > 0 and fm_ship_disc_titles != blank %} <span class="fm-ink" style="color:{{ fm_ink }};font-size:13px;">({{ fm_ship_disc_titles }})</span>{% endif %}</td>
+          <td align="right" class="fm-ink" style="padding:5px 0;{{ fm_font }}font-size:15px;line-height:21px;color:{{ fm_ink }};white-space:nowrap;">
+            {%- if fm_ship_disc > 0 and fm_ship_before > fm_ship -%}<s class="fm-muted" style="color:{{ fm_muted }};">{{ fm_ship_before | money }}</s>&nbsp; {% endif -%}
+            {%- if fm_ship > 0 -%}{{ fm_ship | money }}{%- else -%}<strong>Free</strong>{%- endif -%}
+          </td>
+        </tr>
+        {%- endunless -%}
+        <tr>
+          <td colspan="2" style="padding-top:10px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="fm-rule" style="border-top:1px solid {{ fm_line }};font-size:0;line-height:0;height:1px;">&nbsp;</td></tr></table></td>
+        </tr>
+        <tr>
+          <td class="fm-ink" style="padding:12px 0 0 0;{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};">Total</td>
+          <td align="right" class="fm-ink" style="padding:12px 0 0 0;{{ fm_font }}font-size:20px;line-height:24px;font-weight:bold;color:{{ fm_ink }};white-space:nowrap;">{{ total_price | money_with_currency }}</td>
+        </tr>
+        <tr>
+          <td colspan="2" align="right" class="fm-muted" style="padding:4px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_muted }};">
+            {%- if fm_tax > 0 -%}
+              {%- assign fm_tax_label = 'VAT' -%}
+              {%- for fm_tl in tax_lines limit: 1 -%}
+                {%- assign fm_tax_rate = fm_tl.rate_percentage | round: 1 | append: '' | remove: '.0' -%}
+                {%- capture fm_tax_label -%}{{ fm_tl.title | default: 'VAT' | escape }} {{ fm_tax_rate }}%{%- endcapture -%}
+              {%- endfor -%}
+              Includes {{ fm_tax_label }}: <span style="white-space:nowrap;">{{ fm_tax | money }}</span>
+            {%- else -%}
+              All prices include VAT
+            {%- endif -%}
+          </td>
+        </tr>
+        {%- if fm_savings > 0 -%}
+        <tr>
+          <td colspan="2" align="right" class="fm-sale" style="padding:4px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;font-weight:bold;color:{{ fm_sale }};">You saved <span style="white-space:nowrap;">{{ fm_savings | money }}</span> on this order</td>
+        </tr>
+        {%- endif -%}
+      </table>
+
+      <!-- Payment -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr>
+          <td class="fm-tile" bgcolor="{{ fm_tile }}" style="background-color:{{ fm_tile }};border-radius:12px;padding:16px 20px;{% if fm_pay_on_delivery %}border-left:4px solid {{ fm_lime }};{% endif %}">
+            {%- if fm_pay_on_delivery -%}
+              <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:17px;line-height:24px;font-weight:bold;color:{{ fm_ink }};">Pay <span style="white-space:nowrap;">{{ fm_due | money_with_currency }}</span> {{ fm_pay_where }}</p>
+              <p class="fm-muted" style="margin:4px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">
+                {%- if fm_kind == 'pickup' -%}Please pay when you collect your order.{%- else -%}Please have the amount ready for our driver.{%- endif -%}
+                {%- if fm_paid_sum > 0 %} <span style="white-space:nowrap;">{{ fm_paid_sum | money }}</span> already paid.{%- endif -%}
+              </p>
+              {%- if fm_methods != blank -%}
+              <p class="fm-muted" style="margin:10px 0 0 0;{{ fm_font }}font-size:13px;line-height:19px;color:{{ fm_muted }};">Payment method: <strong class="fm-ink" style="color:{{ fm_ink }};">{{ fm_methods }}</strong></p>
+              {%- endif -%}
+            {%- elsif fm_is_paid and fm_total > 0 -%}
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="22" height="22" align="center" valign="middle" aria-hidden="true" bgcolor="{{ fm_lime }}" style="width:22px;height:22px;background-color:{{ fm_lime }};border-radius:11px;{{ fm_font }}font-size:13px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">&#10003;</td>
+                  <td class="fm-ink" style="padding-left:10px;{{ fm_font }}font-size:16px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">{% if fm_methods != blank %}Paid with {{ fm_methods }}{% else %}Paid in full{% endif %}</td>
+                </tr>
+              </table>
+              {%- unless fm_kind == 'none' -%}
+              <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">Nothing to pay {{ fm_pay_where }}.</p>
+              {%- endunless -%}
+            {%- elsif fm_due > 0 and fm_auto_charge -%}
+              <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:16px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">Nothing to pay now</p>
+              <p class="fm-muted" style="margin:4px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">We'll charge <span style="white-space:nowrap;">{{ fm_due | money_with_currency }}</span> to your saved payment method when your order is ready.{% if fm_methods != blank %} Payment method: {{ fm_methods }}.{% endif %}</p>
+            {%- elsif fm_due > 0 -%}
+              <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:16px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">Payment processing</p>
+              <p class="fm-muted" style="margin:4px 0 0 0;{{ fm_font }}font-size:14px;line-height:20px;color:{{ fm_muted }};">We'll start packing as soon as your payment of <span style="white-space:nowrap;">{{ fm_due | money_with_currency }}</span> is confirmed.{% if fm_methods != blank %} Payment method: {{ fm_methods }}.{% endif %}</p>
+            {%- else -%}
+              <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:16px;line-height:22px;font-weight:bold;color:{{ fm_ink }};">Nothing to pay</p>
+            {%- endif -%}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Help -->
+  <tr>
+    <td class="fm-pad" style="padding:32px 32px 0 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr><td class="fm-rule" style="border-top:1px solid {{ fm_line }};font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>
+      </table>
+      <h2 class="fm-ink" style="margin:28px 0 0 0;{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};">Need help with your order?</h2>
+      <p class="fm-muted" style="margin:6px 0 0 0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_muted }};"><strong class="fm-ink" style="color:{{ fm_ink }};">Manage your order:</strong> to add or remove items, change the delivery time or address, or cancel, call us as soon as you can &ndash; ideally before we start packing.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;">
+        <tr>
+          <td width="50%" valign="top" class="fm-col" style="width:50%;padding-right:6px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td class="fm-outline" style="border:1px solid #d4d8cd;border-radius:10px;padding:14px 16px;">
+                  <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Call us free</p>
+                  <a href="{{ fm_care_phone_link }}" class="fm-ink" style="display:block;margin-top:4px;{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};text-decoration:none;white-space:nowrap;">{{ fm_care_phone }}</a>
+                  <p class="fm-muted" style="margin:2px 0 0 0;{{ fm_font }}font-size:13px;line-height:18px;color:{{ fm_muted }};">{{ fm_care_hours }}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td width="50%" valign="top" class="fm-col fm-col-2" style="width:50%;padding-left:6px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td class="fm-outline" style="border:1px solid #d4d8cd;border-radius:10px;padding:14px 16px;">
+                  <p class="fm-muted" style="margin:0;{{ fm_font }}font-size:12px;line-height:16px;color:{{ fm_muted }};text-transform:uppercase;letter-spacing:0.08em;font-weight:bold;">Email us</p>
+                  <a href="mailto:{{ fm_care_email }}?subject=Order%20{{ name | url_encode }}" class="fm-ink" style="display:block;margin-top:4px;{{ fm_font }}font-size:18px;line-height:24px;font-weight:bold;color:{{ fm_ink }};text-decoration:none;white-space:nowrap;">{{ fm_care_email }}</a>
+                  <p class="fm-muted" style="margin:2px 0 0 0;{{ fm_font }}font-size:13px;line-height:18px;color:{{ fm_muted }};">Mention order {{ name }}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  {%- unless fm_from_app -%}
+  <!-- App promo -->
+  <tr>
+    <td class="fm-pad" style="padding:20px 32px 0 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="fm-tile" bgcolor="{{ fm_tile }}" style="background-color:{{ fm_tile }};border-radius:12px;padding:14px 18px;{{ fm_font }}font-size:14px;line-height:20px;">
+            <span class="fm-ink" style="color:{{ fm_ink }};font-weight:bold;">Get the {{ fm_brand }} app</span>
+            <span class="fm-muted" style="color:{{ fm_muted }};">&ndash; reorder your favourites and follow your deliveries in one tap.</span>
+            {%- if fm_app_url != blank %} <a href="{{ fm_app_url }}" target="_blank" class="fm-link fm-ink" style="color:{{ fm_ink }};font-weight:bold;text-decoration:underline;white-space:nowrap;">Download the app</a>{%- endif -%}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  {%- endunless -%}
+
+  <!-- Sign-off -->
+  <tr>
+    <td class="fm-pad" style="padding:28px 32px 32px 32px;">
+      <p class="fm-ink" style="margin:0;{{ fm_font }}font-size:15px;line-height:22px;color:{{ fm_ink }};">Fresh picks, packed with care.<br><strong>The {{ fm_brand }} team</strong></p>
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+<!-- Footer -->
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;margin:0 auto;">
+  <tr>
+    <td align="center" class="fm-pad" style="padding:24px 32px 8px 32px;{{ fm_font }}font-size:13px;line-height:20px;">
+      <a href="{{ fm_instagram_url }}" target="_blank" class="fm-ink" style="color:{{ fm_ink }};font-weight:bold;text-decoration:none;white-space:nowrap;">Instagram {{ fm_instagram_handle }}</a>
+      <span class="fm-muted" style="color:{{ fm_muted }};">&nbsp;&middot;&nbsp;</span>
+      <a href="{{ shop.url }}" target="_blank" class="fm-ink" style="color:{{ fm_ink }};font-weight:bold;text-decoration:none;white-space:nowrap;">Shop online</a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" class="fm-pad fm-muted" style="padding:8px 32px 32px 32px;{{ fm_font }}font-size:12px;line-height:18px;color:{{ fm_muted }};">
+      {%- assign fm_shop_address = shop.address.summary | strip -%}
+      {{ fm_brand }}{% if fm_shop_address != blank %} &middot; {{ fm_shop_address | escape }}{% endif %}<br>
+      You're receiving this email because you placed order {{ name }} with {{ fm_brand }}.<br>
+      &copy; {{ 'now' | date: '%Y' }} {{ fm_brand }}. All rights reserved.
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</td>
+</tr>
+</table>
+</body>
+</html>
